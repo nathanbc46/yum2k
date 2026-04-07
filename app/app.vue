@@ -41,6 +41,10 @@
     <div class="print-only print-area">
       <PosReceipt v-if="posStore.lastOrder" :order="posStore.lastOrder" />
     </div>
+
+    <!-- PWA -->
+    <VitePwaManifest />
+    <PwaInstallPrompt />
   </div>
 </template>
 
@@ -49,6 +53,7 @@ import { useSync } from '~/composables/useSync'
 import { usePosStore } from '~/stores/pos'
 import { useTheme } from '~/composables/useTheme'
 import PosReceipt from '~/components/pos/PosReceipt.vue'
+import PwaInstallPrompt from '~/components/admin/PwaInstallPrompt.vue'
 
 const { 
   isOnline, isSyncing, pendingCount, pendingStockAuditCount,
