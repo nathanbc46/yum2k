@@ -23,9 +23,11 @@ export const usePosStore = defineStore('pos', () => {
 
   // Methods
   async function loadData() {
+    if (isLoading.value) return // ป้องกันการเรียกซ้อน
     isLoading.value = true
+    
     try {
-      // 1. เช็คก่อนว่ามีข้อมูลไหม, ถ้าไม่มี ให้สั่งรัน Seed ลงฐานข้อมูล (เพื่อจำลอง Data ให้เล่นได้ทันที)
+      // 1. เช็คก่อนว่ามีข้อมูลไหม, ถ้าไม่มี ให้สั่งรัน Seed ลงฐานข้อมูล
       const catCount = await db.categories.count()
       if (catCount === 0) {
         await seedDatabase()

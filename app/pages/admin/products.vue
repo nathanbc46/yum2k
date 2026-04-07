@@ -8,13 +8,26 @@
           <h1 class="text-xl font-bold">📦 จัดการสินค้า</h1>
           <p class="text-xs text-surface-500 mt-0.5">{{ products.length }} รายการ</p>
         </div>
-        <button
-          @click="openCreateModal"
-          class="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-500 active:scale-95 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-primary-900/20"
-        >
-          <span>+</span>
-          เพิ่มสินค้าใหม่
-        </button>
+        <div class="flex items-center gap-3">
+          <button
+            @click="toggleTrashMode"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border shrink-0"
+            :class="showTrash 
+              ? 'bg-surface-800 text-surface-50 border-surface-700 hover:bg-surface-700' 
+              : 'bg-surface-900 text-surface-500 border-surface-800 hover:text-surface-300 hover:border-surface-700'"
+          >
+            <span>{{ showTrash ? '⬅️ กลับหน้าปกติ' : '🗑️ ดูถังขยะ' }}</span>
+          </button>
+          
+          <button
+            v-if="!showTrash"
+            @click="openCreateModal"
+            class="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-500 active:scale-95 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-primary-900/20"
+          >
+            <span>+</span>
+            เพิ่มสินค้าใหม่
+          </button>
+        </div>
       </div>
 
       <!-- Filters -->
@@ -194,36 +207,48 @@
               <!-- Actions -->
               <td class="px-6 py-4 text-right">
                 <div class="flex justify-end gap-2">
-                  <!-- ปรับสต็อก (เฉพาะที่ trackInventory) -->
-                  <button
-                    v-if="product.trackInventory"
-                    @click="openAdjustModal(product)"
-                    class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-surface-300 rounded-lg text-xs font-bold transition-all border border-surface-700"
-                    title="ปรับสต็อก"
-                  >
-                    📦 สต็อก
-                  </button>
-                  <button
-                    @click="openEditModal(product)"
-                    class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-surface-300 rounded-lg text-xs font-bold transition-all border border-surface-700"
-                  >
-                    แก้ไข
-                  </button>
-                  <button
-                    @click="handleToggle(product)"
-                    class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border"
-                    :class="product.isActive
-                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
-                      : 'bg-success/10 text-success border-success/20 hover:bg-success/20'"
-                  >
-                    {{ product.isActive ? 'ซ่อน' : 'แสดง' }}
-                  </button>
-                  <button
-                    @click="handleDelete(product)"
-                    class="px-3 py-1.5 bg-danger/10 text-danger hover:bg-danger hover:text-white rounded-lg text-xs font-bold transition-all border border-danger/20"
-                  >
-                    ลบ
-                  </button>
+                  <!-- โหมดปกติ -->
+                  <template v-if="!showTrash">
+                    <button
+                      v-if="product.trackInventory"
+                      @click="openAdjustModal(product)"
+                      class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-surface-300 rounded-lg text-xs font-bold transition-all border border-surface-700"
+                      title="ปรับสต็อก"
+                    >
+                      📦 สต็อก
+                    </button>
+                    <button
+                      @click="openEditModal(product)"
+                      class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-surface-300 rounded-lg text-xs font-bold transition-all border border-surface-700"
+                    >
+                      แก้ไข
+                    </button>
+                    <button
+                      @click="handleToggle(product)"
+                      class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border"
+                      :class="product.isActive
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
+                        : 'bg-success/10 text-success border-success/20 hover:bg-success/20'"
+                    >
+                      {{ product.isActive ? 'ซ่อน' : 'แสดง' }}
+                    </button>
+                    <button
+                      @click="handleDelete(product)"
+                      class="px-3 py-1.5 bg-danger/10 text-danger hover:bg-danger hover:text-white rounded-lg text-xs font-bold transition-all border border-danger/20"
+                    >
+                      ลบ
+                    </button>
+                  </template>
+
+                  <!-- โหมดถังขยะ -->
+                  <template v-else>
+                    <button
+                      @click="handleRestore(product)"
+                      class="px-4 py-1.5 bg-success/10 text-success hover:bg-success hover:text-white rounded-lg text-xs font-bold transition-all border border-success/20"
+                    >
+                      ✨ กู้คืนสินค้า
+                    </button>
+                  </template>
                 </div>
               </td>
             </tr>
@@ -258,13 +283,14 @@ import type { Product, Category, InventoryMappingType } from '~/types'
 
 definePageMeta({ layout: 'admin' })
 
-const { fetchAll: fetchProducts, toggleProductActive, deleteProduct } = useProducts()
+const { fetchAll: fetchProducts, toggleProductActive, deleteProduct, restoreProduct } = useProducts()
 const { fetchAll: fetchCategories } = useCategories()
 
 // --- State ---
 const products = ref<Product[]>([])
 const categories = ref<Category[]>([])
 const isLoading = ref(true)
+const showTrash = ref(false)
 
 // filters
 const searchQuery = ref('')
@@ -329,7 +355,7 @@ async function loadData() {
   isLoading.value = true
   try {
     ;[products.value, categories.value] = await Promise.all([
-      fetchProducts(),
+      fetchProducts(undefined, showTrash.value),
       fetchCategories(),
     ])
   } finally {
@@ -372,6 +398,16 @@ async function handleDelete(product: Product) {
   if (!confirmed) return
   await deleteProduct(product.id!)
   await loadData()
+}
+
+async function handleRestore(product: Product) {
+  await restoreProduct(product.id!)
+  await loadData()
+}
+
+function toggleTrashMode() {
+  showTrash.value = !showTrash.value
+  loadData()
 }
 
 onMounted(loadData)

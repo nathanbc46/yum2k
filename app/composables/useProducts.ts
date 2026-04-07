@@ -51,13 +51,14 @@ export function useProducts() {
     return JSON.parse(JSON.stringify(val)) as T
   }
   /**
-   * โหลดสินค้าทั้งหมด (ไม่ Filter isActive เพื่อให้ Admin เห็นทั้งหมด)
+   * โหลดสินค้า (Filter ตามเงื่อนไข)
    * @param categoryId - กรอง Category (optional)
+   * @param showDeleted - ดูรายการที่ลบแล้ว (ถังขยะ)
    */
-  async function fetchAll(categoryId?: number): Promise<Product[]> {
-    let query = db.products.filter(p => !p.isDeleted)
+  async function fetchAll(categoryId?: number, showDeleted: boolean = false): Promise<Product[]> {
+    let query = db.products.filter(p => p.isDeleted === showDeleted)
     if (categoryId) {
-      query = db.products.filter(p => !p.isDeleted && p.categoryId === categoryId)
+      query = db.products.filter(p => p.isDeleted === showDeleted && p.categoryId === categoryId)
     }
     return query.sortBy('sortOrder')
   }
@@ -194,6 +195,17 @@ export function useProducts() {
     })
   }
 
+  /**
+   * กู้คืนสินค้าจากถังขยะ
+   */
+  async function restoreProduct(id: number): Promise<void> {
+    await db.products.update(id, {
+      isDeleted: false,
+      isActive: true,
+      updatedAt: new Date(),
+    })
+  }
+
   return {
     fetchAll,
     createProduct,
@@ -201,5 +213,6 @@ export function useProducts() {
     toggleProductActive,
     adjustStock,
     deleteProduct,
+    restoreProduct,
   }
 }

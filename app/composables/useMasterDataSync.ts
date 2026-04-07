@@ -28,7 +28,7 @@ export function useMasterDataSync() {
    */
   async function pushCategories(): Promise<number> {
     const supabase = useSupabaseClient<any>()
-    const localCats = await db.categories.filter(c => !c.isDeleted).toArray()
+    const localCats = await db.categories.toArray()
     if (!localCats.length) return 0
 
     const payload = localCats.map(c => ({
@@ -59,7 +59,7 @@ export function useMasterDataSync() {
    */
   async function pushProducts(): Promise<number> {
     const supabase = useSupabaseClient<any>()
-    const localProducts = await db.products.filter(p => !p.isDeleted).toArray()
+    const localProducts = await db.products.toArray()
     if (!localProducts.length) return 0
 
     // โหลด Category map: id → uuid
@@ -110,11 +110,11 @@ export function useMasterDataSync() {
   }
 
   /**
-   * Push พนักงาน (Users) ทั้งหมดขึ้น Supabase (Upsert by uuid)
+   * Push พนักงาน (Users) ทั้งหมดขึ้น Supabase (Upsert by username)
    */
   async function pushUsers(): Promise<number> {
     const supabase = useSupabaseClient<any>()
-    const localUsers = await db.users.filter(u => !u.isDeleted).toArray()
+    const localUsers = await db.users.toArray()
     if (!localUsers.length) return 0
 
     const payload = localUsers.map(u => ({
@@ -129,9 +129,10 @@ export function useMasterDataSync() {
       updated_at:   new Date(u.updatedAt).toISOString(),
     }))
 
+    // ใช้ username เป็น onConflict เพื่อป้องกันปัญหา "Duplicate username" ตอน Push
     const { error } = await supabase
       .from('pos_users')
-      .upsert(payload, { onConflict: 'uuid' })
+      .upsert(payload, { onConflict: 'username' })
 
     if (error) throw new Error(`Push Users ล้มเหลว: ${error.message}`)
     console.log(`✅ Push Users สำเร็จ: ${localUsers.length} รายการ`)
@@ -275,7 +276,7 @@ export function useMasterDataSync() {
   }
 
   /**
-   * Pull พนักงานจาก Supabase ลงเครื่อง (Merge by uuid)
+   * Pull พนักงานจาก Supabase ลงเครื่อง (Merge by uuid / username fallback)
    */
   async function pullUsers(): Promise<number> {
     const supabase = useSupabaseClient<any>()
@@ -289,10 +290,22 @@ export function useMasterDataSync() {
 
     let count = 0
     for (const remote of remoteUsers) {
-      const existing = await db.users.where('uuid').equals(remote.uuid).first()
+      // 1. ลองหาด้วย UUID ก่อน
+      let existing = await db.users.where('uuid').equals(remote.uuid).first()
+      
+      // 2. ถ้าไม่พบด้วย UUID ให้ลองหาด้วย username (ป้องกันชื่อซ้ำแต่ UUID ไม่ตรงตอนเริ่มเบื้องต้น)
+      if (!existing) {
+        existing = await db.users.where('username').equals(remote.username).first()
+      }
 
       const remoteUpdatedAt = new Date(remote.updated_at)
-      if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) continue
+      if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) {
+        // หาก UUID ในเครื่องไม่ตรงกับ Cloud (กรณีชื่อซ้ำแต่คนละ ID) ให้แก้ไอดีในเครื่องตาม Cloud
+        if (existing.uuid !== remote.uuid) {
+            await db.users.update(existing.id!, { uuid: remote.uuid })
+        }
+        continue
+      }
 
       const localUser: Omit<User, 'id'> = {
         uuid:         remote.uuid,
@@ -300,7 +313,7 @@ export function useMasterDataSync() {
         displayName:  remote.display_name,
         role:         remote.role as UserRole,
         pin:          remote.pin ?? undefined,
-        passwordHash: '', // Not used for this PIN model
+        passwordHash: '', 
         isActive:     remote.is_active,
         isDeleted:    remote.is_deleted,
         createdAt:    new Date(remote.created_at),
