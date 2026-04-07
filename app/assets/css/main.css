@@ -1,0 +1,182 @@
+/* =============================================================================
+   assets/css/main.css
+   Entry Point สำหรับ Tailwind CSS v4
+   ============================================================================= */
+
+/* --- Google Fonts ต้องอยู่ก่อน @import tailwindcss --- */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@import "tailwindcss";
+
+/* --- Color Variables สำหรับระบบ ธีม --- */
+:root {
+  /* Dark Mode (Default) */
+  --surface-950: #0f0e0d;
+  --surface-900: #1a1917;
+  --surface-800: #27251f;
+  --surface-700: #3a3731;
+  --surface-600: #4f4b43;
+  --surface-50:  #fafaf9;
+  --surface-100: #f5f4f2;
+}
+
+.light-mode {
+  /* Light Mode Overrides */
+  --surface-950: #fafaf9;
+  --surface-900: #f5f4f2;
+  --surface-800: #e5e4e2;
+  --surface-700: #d5d4d2;
+  --surface-600: #a5a4a2;
+  --surface-50:  #0f0e0d;
+  --surface-100: #1a1917;
+}
+
+/* --- Design Tokens สำหรับระบบ POS --- */
+@theme {
+  /* Font */
+  --font-family-sans: 'Noto Sans Thai', 'Inter', sans-serif;
+
+  /* สีหลัก: โทน Orange-Red (ยำ = เผ็ด = ร้อน) */
+  --color-primary-50:  #fff7ed;
+  --color-primary-100: #ffedd5;
+  --color-primary-200: #fed7aa;
+  --color-primary-300: #fdba74;
+  --color-primary-400: #fb923c;
+  --color-primary-500: #f97316;
+  --color-primary-600: #ea580c;
+  --color-primary-700: #c2410c;
+  --color-primary-800: #9a3412;
+  --color-primary-900: #7c2d12;
+
+  /* สีรอง: Amber */
+  --color-secondary-400: #fbbf24;
+  --color-secondary-500: #f59e0b;
+
+  /* สำเร็จ / เตือน / ผิดพลาด */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger:  #ef4444;
+
+  /* พื้นหลัง (Dynamic ตามตัวแปร CSS) */
+  --color-surface-950: var(--surface-950);
+  --color-surface-900: var(--surface-900);
+  --color-surface-800: var(--surface-800);
+  --color-surface-700: var(--surface-700);
+  --color-surface-600: var(--surface-600);
+  --color-surface-100: var(--surface-100);
+  --color-surface-50:  var(--surface-50);
+
+  /* Touch target ขั้นต่ำ */
+  --spacing-touch: 44px;
+}
+
+/* --- Base Styles --- */
+@layer base {
+  html {
+    font-family: var(--font-family-sans);
+    -webkit-tap-highlight-color: transparent; /* ไม่มีกรอบน้ำเงินตอน Tap บน Android */
+  }
+
+  body {
+    @apply bg-surface-950 text-surface-50;
+    overscroll-behavior: none; /* ป้องกัน Pull-to-refresh บน Android */
+    user-select: none;          /* ไม่ให้เลือก Text ขณะใช้ POS */
+  }
+
+  /* อนุญาตให้เลือก Text ในช่อง Input */
+  input, textarea {
+    user-select: text;
+  }
+}
+
+/* --- Utility Classes สำหรับ POS --- */
+@layer utilities {
+  /* Touch-friendly button */
+  .btn-touch {
+    min-height: var(--spacing-touch);
+    @apply flex items-center justify-center cursor-pointer select-none;
+    @apply transition-all duration-150 active:scale-95;
+  }
+
+  /* Card สำหรับ Product Grid */
+  .card-product {
+    @apply rounded-xl overflow-hidden;
+    @apply bg-surface-800 border border-surface-700;
+    @apply transition-all duration-150;
+    @apply active:scale-95 active:border-primary-500;
+  }
+
+  /* Scrollbar ที่สวยงามสำหรับ Dark Mode */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.surface-700') transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-surface-700 rounded-full;
+  }
+}
+
+/* --- Print Configuration --- */
+/* คลาสสำหรับซ่อนใบเสร็จจากการแสดงผลบนหน้าจอปกติ */
+.print-only {
+  display: none !important;
+}
+
+@media print {
+  /* ซ่อนทุกอย่างบนหน้าเว็ปยกเว้นส่วนที่จะนำไปพิมพ์ */
+  body * {
+    visibility: hidden;
+    height: 0;
+    overflow: hidden;
+  }
+
+  /* แสดงเฉพาะส่วนที่มีคลาส print-area (ในที่นี้คือตัวใบเสร็จ) */
+  .print-area {
+    visibility: visible !important;
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* ให้ลูกหลานของ print-area ใช้การแสดงผล (display) ตามปกติของมัน (เช่น flex) */
+  .print-area * {
+    visibility: visible !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* คลาสให้กลับมาแสดงเฉพาะในโหมดเบสิกเพื่อ override print-only ก่อนหน้า */
+  .print-only {
+    display: block !important;
+  }
+
+  /* ปรับแต่งให้พิมพ์ออกมาสวยเด่น */
+  @page {
+    margin: 0;
+    size: 80mm auto;
+  }
+}
+
+
+@media print {
+  .print-only {
+    display: block !important;
+  }
+}

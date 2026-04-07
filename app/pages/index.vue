@@ -1,0 +1,38 @@
+<template>
+  <div class="flex-1 min-h-0 overflow-hidden bg-surface-950 relative print:hidden">
+    <PosLayout>
+      <!-- ซ้าย: ตะกร้า -->
+      <template #cart>
+        <PosCart />
+      </template>
+
+      <!-- กลาง: สินค้าตามหมวดหมู่ -->
+      <template #grid>
+        <PosProductGrid />
+      </template>
+
+      <!-- ขวา: เมนูหมวดหมู่ -->
+      <template #categories>
+        <PosCategories />
+      </template>
+    </PosLayout>
+  </div>
+
+  <!-- ใบเสร็จสำหรับพิมพ์ (จะถูกซ่อนไว้ในหน้าจอปกติ และแสดงเฉพาะตอนสั่งพิมพ์) -->
+  <div class="hidden print:block print:absolute print:inset-0 print:bg-white print:z-50">
+    <PosReceipt v-if="posStore.lastOrder" :order="posStore.lastOrder" />
+  </div>
+</template>
+
+<script setup lang="ts">
+import PosLayout from '~/components/pos/PosLayout.vue'
+import PosCategories from '~/components/pos/PosCategories.vue'
+import PosProductGrid from '~/components/pos/PosProductGrid.vue'
+import PosCart from '~/components/pos/PosCart.vue'
+import PosReceipt from '~/components/pos/PosReceipt.vue'
+import { usePosStore } from '~/stores/pos'
+
+const posStore = usePosStore()
+
+definePageMeta({ layout: false })
+</script>
