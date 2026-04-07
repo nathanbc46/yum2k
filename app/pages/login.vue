@@ -25,7 +25,7 @@
         >
           {{ pin.length >= i ? '•' : '' }}
         </div>
-      </div>
+      </div> 
 
       <!-- Error Message -->
       <div class="h-6 mb-4 text-center relative z-10">
