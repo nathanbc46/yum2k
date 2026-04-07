@@ -306,6 +306,31 @@ export function useSync() {
       const existing = await db.orders.where('uuid').equals(remote.uuid).first()
       
       if (!existing) {
+        // เตรียมไอเทมและพยายามหา Product ID ในเครื่องจาก SKU
+        const processedItems = []
+        for (const item of remote.order_items) {
+          let productId: number | undefined = undefined
+          if (item.product_sku) {
+            const p = await db.products.where('sku').equals(item.product_sku).first()
+            productId = p?.id
+          }
+
+          processedItems.push({
+            productId: productId || 0, // Fallback เป็น 0 เพื่อให้ Type ไม่ Error
+            categoryId: item.category_id || undefined, // เพิ่ม categoryId
+            productName: item.product_name,
+            productSku: item.product_sku,
+            quantity: item.quantity,
+            unitPrice: Number(item.unit_price),
+            costPrice: Number(item.cost_price),
+            discount: Number(item.discount),
+            totalPrice: Number(item.total_price),
+            addonsTotal: Number(item.addons_total || 0), // เพิ่ม addonsTotal
+            addons: item.addons,
+            inventoryDeductions: item.inventory_deductions
+          })
+        }
+
         const orderToSave: Order = {
           uuid: remote.uuid,
           orderNumber: remote.order_number,
@@ -331,16 +356,7 @@ export function useSync() {
           syncedAt: new Date(remote.updated_at),
           createdAt: new Date(remote.created_at),
           updatedAt: new Date(remote.updated_at),
-          items: remote.order_items.map((item: any) => ({
-            productName: item.product_name,
-            productSku: item.product_sku,
-            quantity: item.quantity,
-            unitPrice: Number(item.unit_price),
-            costPrice: Number(item.cost_price),
-            discount: Number(item.discount),
-            totalPrice: Number(item.total_price),
-            inventoryDeductions: item.inventory_deductions
-          }))
+          items: processedItems
         }
 
         await db.orders.add(orderToSave)

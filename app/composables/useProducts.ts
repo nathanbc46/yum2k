@@ -214,5 +214,26 @@ export function useProducts() {
     adjustStock,
     deleteProduct,
     restoreProduct,
+    getNextSku,
   }
+}
+
+/**
+ * หา SKU ถัดไปอัตโนมัติ
+ */
+async function getNextSku(): Promise<string> {
+  const allProducts = await db.products.toArray()
+  // ดึงเฉพาะตัวเลขจาก SKU (รูปแบบ YUM-0001)
+  const numbers = allProducts
+    .map(p => {
+      const match = p.sku?.match(/\d+$/)
+      return match ? parseInt(match[0]) : 0
+    })
+    .filter(n => n > 0)
+  
+  const maxNumber = numbers.length > 0 ? Math.max(...numbers) : 0
+  const nextNumber = maxNumber + 1
+  
+  // คืนค่ารูปแบบ YUM-XXXX (4 หลัก)
+  return `YUM-${nextNumber.toString().padStart(4, '0')}`
 }

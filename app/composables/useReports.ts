@@ -66,9 +66,10 @@ export function useReports() {
     for (const order of orders) {
       if (!order.items) continue
       for (const item of order.items) {
-        const id = item.productId
-        const existing = productMap.get(id) || {
-          productId: id,
+        // ใช้ Product ID เป็นหลัก แต่ถ้าไม่มีให้ใช้ Name เป็น Key (ป้องกันรวบยอดผิดเวลาซิงค์)
+        const groupKey = item.productId ? `id_${item.productId}` : `name_${item.productName}`
+        const existing = productMap.get(groupKey as any) || {
+          productId: item.productId || 0,
           productName: item.productName,
           quantitySold: 0,
           totalRevenue: 0,
@@ -81,7 +82,7 @@ export function useReports() {
         existing.totalRevenue += item.totalPrice
         existing.totalProfit += itemProfit
 
-        productMap.set(id, existing)
+        productMap.set(groupKey as any, existing)
       }
     }
 

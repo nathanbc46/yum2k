@@ -160,7 +160,13 @@ export function useMasterDataSync() {
 
     let count = 0
     for (const remote of remoteCats) {
-      const existing = await db.categories.where('uuid').equals(remote.uuid).first()
+      // 1. ลองหาด้วย UUID ก่อน
+      let existing = await db.categories.where('uuid').equals(remote.uuid).first()
+
+      // 2. ถ้าไม่พบด้วย UUID ให้ลองหาด้วย "ชื่อ" (ป้องกันข้อมูลซ้ำตอนเริ่มที่ไอดีไม่ตรงกัน)
+      if (!existing) {
+        existing = await db.categories.where('name').equals(remote.name).first()
+      }
 
       // อัปเดตเฉพาะถ้า Cloud ใหม่กว่า Local หรือไม่มีในเครื่อง
       const remoteUpdatedAt = new Date(remote.updated_at)
@@ -180,7 +186,7 @@ export function useMasterDataSync() {
       }
 
       if (existing?.id) {
-        await db.categories.update(existing.id, localCategory)
+        await db.categories.update(existing.id, { ...localCategory, uuid: remote.uuid }) // อัปเดต UUID ให้ตรงกับ Cloud เสมอ
       } else {
         await db.categories.add(localCategory as Category)
       }
@@ -217,7 +223,18 @@ export function useMasterDataSync() {
 
     let count = 0
     for (const remote of remoteProds) {
-      const existing = await db.products.where('uuid').equals(remote.uuid).first()
+      // 1. ลองหาด้วย UUID ก่อน
+      let existing = await db.products.where('uuid').equals(remote.uuid).first()
+
+      // 2. ถ้าไม่พบด้วย UUID ลองหาด้วย SKU หรือ ชื่อ
+      if (!existing) {
+        if (remote.sku) {
+          existing = await db.products.where('sku').equals(remote.sku).first()
+        }
+        if (!existing) {
+          existing = await db.products.where('name').equals(remote.name).first()
+        }
+      }
 
       const remoteUpdatedAt = new Date(remote.updated_at)
       if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) continue
@@ -262,7 +279,7 @@ export function useMasterDataSync() {
       }
 
       if (existing?.id) {
-        await db.products.update(existing.id, localProduct)
+        await db.products.update(existing.id, { ...localProduct, uuid: remote.uuid }) // อัปเดต UUID ให้ตรงกับ Cloud
       } else {
         const newId = await db.products.add(localProduct as Product)
         // อัปเดต Map เพื่อใช้ Resolve mapping ของสินค้าถัดๆ ไป

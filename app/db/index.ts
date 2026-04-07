@@ -19,7 +19,7 @@ import type {
 // ---------------------------------------------------------------------------
 // กำหนด Version ของ Database (เพิ่มทุกครั้งที่เปลี่ยน Schema)
 // ---------------------------------------------------------------------------
-const DB_VERSION = 2
+const DB_VERSION = 3
 const DB_NAME = 'Yum2K_POS_DB'
 
 // ---------------------------------------------------------------------------
@@ -57,16 +57,18 @@ class Yum2KDatabase extends Dexie {
        * categories: หมวดหมู่สินค้า
        * - id: Auto-increment Primary Key
        * - uuid: UUID สำหรับ Sync (Unique)
+       * - name: ชื่อหมวดหมู่ (Index สำหรับตรวจสอบซ้ำ)
        * - isActive: สถานะ (Index)
        * - sortOrder: ลำดับการแสดง (Index สำหรับเรียงลำดับ)
        */
-      categories: '++id, &uuid, isActive, sortOrder, isDeleted',
+      categories: '++id, &uuid, name, isActive, sortOrder, isDeleted',
 
       /**
        * products: สินค้า
        * - id: Auto-increment Primary Key
        * - uuid: UUID สำหรับ Sync (Unique)
        * - categoryId: FK → categories (Index สำหรับ Filter ตามหมวดหมู่)
+       * - name: ชื่อสินค้า (Index สำหรับตรวจสอบซ้ำ)
        * - sku: รหัสสินค้า (Unique แต่ Optional จึงใช้ uuid แทน unique)
        * - isActive: สถานะ (Index)
        * - stockQuantity: จำนวนสต็อก (Index สำหรับ Query สินค้าใกล้หมด)
@@ -74,7 +76,7 @@ class Yum2KDatabase extends Dexie {
        *
        * หมายเหตุ: inventoryMappings เก็บเป็น JSON (ไม่ Index ได้โดยตรง)
        */
-      products: '++id, &uuid, categoryId, sku, isActive, sortOrder, stockQuantity, mappingType, isDeleted',
+      products: '++id, &uuid, categoryId, name, sku, isActive, sortOrder, stockQuantity, mappingType, isDeleted',
 
       /**
        * orders: ออร์เดอร์ / Transaction

@@ -62,7 +62,7 @@ export async function seedDatabase(): Promise<void> {
 
     if (catCount === 0) {
       catYamId = await db.categories.add({
-        uuid: uuidv4(),
+        uuid: '00000000-0000-4000-b000-000000000001', // Static UUID for ยำ
         name: 'ยำ',
         description: 'ยำสูตรต่างๆ',
         color: '#FF5733',
@@ -74,7 +74,7 @@ export async function seedDatabase(): Promise<void> {
       } as Category) as number
 
       catDrinkId = await db.categories.add({
-        uuid: uuidv4(),
+        uuid: '00000000-0000-4000-b000-000000000002', // Static UUID for เครื่องดื่ม
         name: 'เครื่องดื่ม',
         description: 'น้ำดื่มและเครื่องดื่มต่างๆ',
         color: '#3498DB',
@@ -84,7 +84,7 @@ export async function seedDatabase(): Promise<void> {
         createdAt: new Date(),
         updatedAt: new Date(),
       } as Category) as number
-      console.log('✅ สร้าง Categories สำเร็จ')
+      console.log('✅ สร้าง Categories สำเร็จ (Static UUID)')
     } else {
         // หากมีหมวดหมู่แล้ว ให้ดึง ID มาใช้สำหรับสินค้า
         const yams = await db.categories.where('name').equals('ยำ').first()
@@ -97,7 +97,7 @@ export async function seedDatabase(): Promise<void> {
     if (prodCount === 0 && catYamId && catDrinkId) {
       // ยำมะม่วง
       const yamMamuangId = await db.products.add({
-        uuid: uuidv4(),
+        uuid: '00000000-0000-4000-c000-000000000001', // Static UUID for ยำมะม่วง
         categoryId: catYamId,
         sku: 'YAM-001',
         name: 'ยำมะม่วง',
@@ -115,7 +115,7 @@ export async function seedDatabase(): Promise<void> {
 
       // ยำวุ้นเส้น
       const yamWoonsenId = await db.products.add({
-        uuid: uuidv4(),
+        uuid: '00000000-0000-4000-c000-000000000002', // Static UUID for ยำวุ้นเส้น
         categoryId: catYamId,
         sku: 'YAM-002',
         name: 'ยำวุ้นเส้น',
@@ -133,7 +133,7 @@ export async function seedDatabase(): Promise<void> {
 
       // โปรยำมะม่วง 10 แถม 1
       await db.products.add({
-        uuid: uuidv4(),
+        uuid: '00000000-0000-4000-c000-000000000003', // Static UUID
         categoryId: catYamId,
         sku: 'PROMO-001',
         name: 'โปร ยำมะม่วง 10 แถม 1',
@@ -152,7 +152,7 @@ export async function seedDatabase(): Promise<void> {
 
       // น้ำเปล่า
       await db.products.add({
-        uuid: uuidv4(),
+        uuid: '00000000-0000-4000-c000-000000000004', // Static UUID
         categoryId: catDrinkId,
         sku: 'DRK-001',
         name: 'น้ำเปล่า',
@@ -167,7 +167,7 @@ export async function seedDatabase(): Promise<void> {
         createdAt: new Date(),
         updatedAt: new Date(),
       } as Product)
-      console.log('✅ สร้าง Products สำเร็จ')
+      console.log('✅ สร้าง Products สำเร็จ (Static UUID)')
     }
   })
 

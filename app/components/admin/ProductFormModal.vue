@@ -102,7 +102,13 @@
                   <!-- SKU -->
                   <div>
                     <label class="form-label">รหัสสินค้า (SKU)</label>
-                    <input v-model="form.sku" type="text" placeholder="YAM-001" class="form-input" />
+                    <input 
+                      v-model="form.sku" 
+                      type="text" 
+                      placeholder="ระบบรันอัตโนมัติ" 
+                      readonly
+                      class="form-input opacity-60 bg-surface-800 cursor-not-allowed" 
+                    />
                   </div>
                   <!-- หมวดหมู่ -->
                   <div>
@@ -466,7 +472,7 @@ const emit = defineEmits<{
   saved: []
 }>()
 
-const { createProduct, updateProduct } = useProducts()
+const { createProduct, updateProduct, getNextSku } = useProducts()
 const { resizeImage, uploadProductImage } = useStorage()
 
 const isEditing = computed(() => !!props.editItem)
@@ -690,6 +696,10 @@ watch(
       }
     } else {
       form.value = defaultForm()
+      // รัน SKU อัตโนมัติ
+      getNextSku().then((sku: string) => {
+        form.value.sku = sku
+      })
     }
   },
   { immediate: true },
