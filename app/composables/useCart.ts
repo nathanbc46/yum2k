@@ -328,7 +328,11 @@ export function useCart() {
         updatedAt: now,
       }
 
-      const orderId = await db.orders.add(newOrder as Order)
+      const cleanedOrder = JSON.parse(JSON.stringify(newOrder))
+      cleanedOrder.createdAt = now // ใช้ค่า Date จริง
+      cleanedOrder.updatedAt = now
+
+      const orderId = await db.orders.add(cleanedOrder as Order)
       const savedOrder = await db.orders.get(orderId)
 
       // 5. ล้างตะกร้า

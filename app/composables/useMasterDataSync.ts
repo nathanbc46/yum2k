@@ -18,6 +18,9 @@ const isSyncingMaster = ref(false)
 const lastMasterSyncAt = ref<Date | null>(null)
 const masterSyncError = ref<string | null>(null)
 
+/** รหัสเวลาสำหรับการ Pull ล่าสุด (ใช้เป็น Signal ให้หน้าต่างๆ Refresh) */
+const lastPullTimestamp = ref(0)
+
 export function useMasterDataSync() {
   // -----------------------------------------------------------------------
   // PUSH: ดันข้อมูล LOCAL → CLOUD
@@ -386,7 +389,10 @@ export function useMasterDataSync() {
       const categories = await pullCategories()  // ต้อง pull ก่อนเสมอ
       const products   = await pullProducts()
       const users      = await pullUsers()
+      
       lastMasterSyncAt.value = new Date()
+      lastPullTimestamp.value = Date.now() // ส่งสัญญาบอกหน้าต่างๆ ให้โหลดข้อมูลใหม่
+      
       return { categories, products, users }
     } catch (e: any) {
       masterSyncError.value = e.message
@@ -409,6 +415,7 @@ export function useMasterDataSync() {
     isSyncingMaster,
     lastMasterSyncAt,
     masterSyncError,
+    lastPullTimestamp,
     pushCategories,
     pushProducts,
     pushAll,

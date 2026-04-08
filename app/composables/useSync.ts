@@ -206,9 +206,11 @@ export function useSync() {
   /**
    * Sync ประวัติการปรับสต็อก (Stock Audit Logs) ขึ้น Server
    */
-  async function syncStockAuditLogs(force = false): Promise<void> {
+  async function syncStockAuditLogs(force = false): Promise<{ success: number, failed: number, errors: string[] }> {
     const supabase = import.meta.client ? useSupabaseClient<any>() : null
-    if (!supabase || !isOnline.value) return
+    const result = { success: 0, failed: 0, errors: [] as string[] }
+    
+    if (!supabase || !isOnline.value) return result
 
     try {
       let query = db.stockAuditLogs.where('syncStatus').anyOf(['pending', 'failed'])
@@ -218,7 +220,7 @@ export function useSync() {
       }
 
       const logsToSync = await query.toArray()
-      if (logsToSync.length === 0) return
+      if (logsToSync.length === 0) return result
 
       console.log(`📤 [useSync] กำลังซิงค์ประวัติสต็อก ${logsToSync.length} รายการ...`)
 
@@ -245,6 +247,9 @@ export function useSync() {
           }, { onConflict: 'uuid' })
 
         if (error) {
+          result.failed++
+          result.errors.push(`Stock [${log.productName}]: ${error.message}`)
+          
           await db.stockAuditLogs.update(log.id!, {
             syncStatus: 'failed',
             syncRetryCount: log.syncRetryCount + 1,
@@ -253,6 +258,7 @@ export function useSync() {
           continue
         }
 
+        result.success++
         await db.stockAuditLogs.update(log.id!, {
           syncStatus: 'synced',
           syncedAt: new Date(),
@@ -260,32 +266,42 @@ export function useSync() {
         })
       }
       
-      console.log('✅ [useSync] ซิงค์ประวัติสต็อกสำเร็จ')
-    } catch (err) {
+      if (result.success > 0) console.log(`✅ [useSync] ซิงค์ประวัติสต็อกสำเร็จ ${result.success} รายการ`)
+    } catch (err: any) {
       console.error('❌ [useSync] ซิงค์ประวัติสต็อกล้มเหลว:', err)
+      result.errors.push(err.message)
     }
+    return result
   }
 
   /**
    * Sync Order ทั้งหมดที่รอดำเนินการขึ้น Server
    * @param force หากเป็น true จะซิงค์ทุกรายการที่ยังไม่สำเร็จ โดยไม่สนจำนวนครั้งที่ลอง (Retry Count)
    */
-  async function syncPendingOrders(force = false): Promise<void> {
+  async function syncPendingOrders(force = false): Promise<{ 
+    orders: { total: number, success: number, failed: number, errors: string[] },
+    auditLogs: { total: number, success: number, failed: number, errors: string[] }
+  }> {
+    const summary = {
+      orders: { total: 0, success: 0, failed: 0, errors: [] as string[] },
+      auditLogs: { total: 0, success: 0, failed: 0, errors: [] as string[] }
+    }
+
     console.log(`📡 [useSync] กำลังเตรียมการซิงค์... (Online: ${isOnline.value}, Syncing: ${isSyncing.value}, Force: ${force})`)
     
     if (!isOnline.value) {
       console.warn('⚠️ [useSync] ข้ามการซิงค์: ออฟไลน์')
-      return
+      return summary
     }
     if (isSyncing.value) {
       console.warn('⚠️ [useSync] ข้ามการซิงค์: มีงานซิงค์เดิมกำลังทำงานอยู่')
-      return
+      return summary
     }
 
-    // 1. ซิงค์ข้อมูลหลักขึ้นไปก่อน
-    await syncUsers()
-    await syncCategories()
-    await syncProducts()
+    // 1. ซิงค์ข้อมูลหลักขึ้นไปก่อน (เป็น Background)
+    syncUsers()
+    syncCategories()
+    syncProducts()
 
     // 2. ซิงค์ออร์เดอร์ที่ค้างอยู่
     let query = db.orders.where('syncStatus').anyOf(['pending', 'failed'])
@@ -295,27 +311,35 @@ export function useSync() {
     }
 
     const pendingOrders = await query.toArray()
+    summary.orders.total = pendingOrders.length
 
-    if (pendingOrders.length === 0) {
-      // แม้ไม่มีออร์เดอร์ แต่ขอลองซิงค์ Stock Audit Logs ด้วย
-      await syncStockAuditLogs(force)
-      await refreshPendingCount()
-      return
-    }
+    if (pendingOrders.length > 0) {
+      isSyncing.value = true
+      console.log(`📤 [useSync] เริ่มส่งข้อมูล ${pendingOrders.length} รายการ...`)
 
-    isSyncing.value = true
-    console.log(`📤 [useSync] เริ่มส่งข้อมูล ${pendingOrders.length} รายการ...`)
-
-    for (const order of pendingOrders) {
-      await syncSingleOrder(order)
+      for (const order of pendingOrders) {
+        const res = await syncSingleOrder(order)
+        if (res.success) {
+          summary.orders.success++
+        } else {
+          summary.orders.failed++
+          if (res.error) summary.orders.errors.push(`Order [${order.orderNumber}]: ${res.error}`)
+        }
+      }
+      isSyncing.value = false
     }
 
     // 3. ซิงค์ประวัติสต็อกด้วย
-    await syncStockAuditLogs(force)
+    const auditRes = await syncStockAuditLogs(force)
+    summary.auditLogs.total = auditRes.success + auditRes.failed
+    summary.auditLogs.success = auditRes.success
+    summary.auditLogs.failed = auditRes.failed
+    summary.auditLogs.errors = auditRes.errors
 
-    isSyncing.value = false
     lastSyncAt.value = new Date()
     await refreshPendingCount()
+    
+    return summary
   }
 
   /**
@@ -323,11 +347,11 @@ export function useSync() {
    *
    * @param order - Order ที่ต้องการ Sync
    */
-  async function syncSingleOrder(order: Order): Promise<void> {
+  async function syncSingleOrder(order: Order): Promise<{ success: boolean, error?: string }> {
       const supabase = import.meta.client ? useSupabaseClient<any>() : null
 
       if (!supabase) {
-        throw new Error('Supabase Client not ready')
+        return { success: false, error: 'Supabase Client not ready' }
       }
 
       // อัปเดตสถานะเป็น "กำลัง Sync"
@@ -388,7 +412,7 @@ export function useSync() {
           quantity: item.quantity,
           unit_price: item.unitPrice,
           cost_price: item.costPrice,
-          discount_amount: item.discount,
+          discount: item.discount, // แก้ชื่อฟิลด์จาก discount_amount เป็น discount ตาม Schema
           total_price: item.totalPrice,
           addons: item.addons,
           addons_total: item.addonsTotal,
@@ -410,6 +434,7 @@ export function useSync() {
       })
 
       console.log(`✅ Sync Order ${order.orderNumber} เข้าสู่ Supabase สำเร็จ`)
+      return { success: true }
     }
     catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -429,6 +454,8 @@ export function useSync() {
           if (isOnline.value) syncSingleOrder({ ...order, syncRetryCount: newRetryCount })
         }, delay)
       }
+      
+      return { success: false, error: errorMessage }
     }
   }
 
@@ -497,7 +524,7 @@ export function useSync() {
             quantity: item.quantity,
             unitPrice: Number(item.unit_price),
             costPrice: Number(item.cost_price),
-            discount: Number(item.discount_amount),
+            discount: Number(item.discount || 0),
             totalPrice: Number(item.total_price),
             addonsTotal: Number(item.addons_total || 0),
             addons: item.addons || [],

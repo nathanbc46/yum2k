@@ -136,11 +136,6 @@
           >
             {{ isSaving ? 'กำลังบันทึก...' : '✅ บันทึกการตั้งค่า' }}
           </button>
-
-          <!-- Success Message -->
-          <p v-if="saveSuccess" class="text-center text-success text-sm animate-pulse">
-            ✅ บันทึกสำเร็จแล้ว!
-          </p>
         </div>
 
         <!-- ====== Right: Live Preview ====== -->
@@ -187,11 +182,13 @@
 
 <script setup lang="ts">
 import { useSettings, type ReceiptSettings } from '~/composables/useSettings'
+import { useToast } from '~/composables/useToast'
 
 definePageMeta({ layout: 'admin' })
 
 const { receiptSettings, isSaving, loadReceiptSettings, saveReceiptSettings } = useSettings()
 const { fetchRemoteOrders, isOnline } = useSync()
+const toast = useToast()
 
 // ใช้ reactive copy เพื่อแก้ไขก่อนบันทึก
 const form = reactive<ReceiptSettings>({
@@ -207,8 +204,6 @@ const form = reactive<ReceiptSettings>({
   showTaxInfo: false,
 })
 
-const saveSuccess = ref(false)
-
 onMounted(async () => {
   await loadReceiptSettings()
   Object.assign(form, receiptSettings.value)
@@ -221,25 +216,27 @@ const toggleOptions = [
 ]
 
 async function handleSave() {
-  saveSuccess.value = false
-  await saveReceiptSettings({ ...form })
-  saveSuccess.value = true
-  setTimeout(() => saveSuccess.value = false, 3000)
+  try {
+    await saveReceiptSettings({ ...form })
+    toast.success('บันทึกการตั้งค่าเรียบร้อยแล้ว')
+  } catch (e: any) {
+    toast.error('ล้มเหลว: ' + e.message)
+  }
 }
 
 const isSyncingHistory = ref(false)
 async function handleSyncHistory() {
   if (!isOnline.value) {
-    alert('❌ กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อดึงข้อมูล')
+    toast.warning('กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อดึงข้อมูล')
     return
   }
 
   isSyncingHistory.value = true
   try {
     const count = await fetchRemoteOrders(200) // ดึง 200 รายการล่าสุด
-    alert(`✅ ดึงข้อมูลสำเร็จ: นำเข้า ${count} รายการใหม่\nขณะนี้เลขบิลของคุณจะรันต่อจากรายการล่าสุดในระบบครับ`)
+    toast.success(`ดึงข้อมูลสำเร็จ: นำเข้า ${count} รายการใหม่\nเลขบิลจะรันต่อจากรายการล่าสุดในระบบครับ`, 5000)
   } catch (err) {
-    alert('❌ เกิดข้อผิดพลาดในการดึงข้อมูล')
+    toast.error('เกิดข้อผิดพลาดในการดึงข้อมูล')
   } finally {
     isSyncingHistory.value = false
   }

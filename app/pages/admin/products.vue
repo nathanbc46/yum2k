@@ -263,14 +263,14 @@
       :categories="categories"
       :edit-item="selectedProduct"
       @close="closeProductModal"
-      @saved="handleSaved"
+      @saved="handleProductSaved"
     />
 
     <AdminStockAdjustModal
       :is-open="isAdjustModalOpen"
       :product="selectedProduct"
       @close="isAdjustModalOpen = false"
-      @saved="handleSaved"
+      @saved="handleStockAdjusted"
     />
   </div>
 </template>
@@ -279,12 +279,16 @@
 import { db } from '~/db'
 import { useProducts } from '~/composables/useProducts'
 import { useCategories } from '~/composables/useCategories'
+import { useMasterDataSync } from '~/composables/useMasterDataSync'
+import { useToast } from '~/composables/useToast'
 import type { Product, Category, InventoryMappingType } from '~/types'
 
 definePageMeta({ layout: 'admin' })
 
 const { fetchAll: fetchProducts, toggleProductActive, deleteProduct, restoreProduct } = useProducts()
 const { fetchAll: fetchCategories } = useCategories()
+const { lastPullTimestamp } = useMasterDataSync()
+const toast = useToast()
 
 // --- State ---
 const products = ref<Product[]>([])
@@ -384,9 +388,21 @@ function closeProductModal() {
   selectedProduct.value = null
 }
 
-async function handleSaved() {
+async function handleProductSaved() {
   await loadData()
+  toast.success('บันทึกข้อมูลสินค้าสำเร็จ')
 }
+
+async function handleStockAdjusted() {
+  await loadData()
+  toast.success('ปรับปรุงสต็อกสินค้าเรียบร้อยแล้ว')
+}
+
+// Auto-refresh เมื่อมีการ Pull ข้อมูลจาก Cloud สำเร็จ
+watch(lastPullTimestamp, () => {
+  console.log('🔄 Detect Cloud Pull: Refreshing Products...')
+  loadData()
+})
 
 async function handleToggle(product: Product) {
   await toggleProductActive(product.id!)
@@ -399,7 +415,7 @@ async function handleDelete(product: Product) {
     if (!confirmed) return
     
     if (!product.id) {
-      alert('❌ ไม่พบ ID ของสินค้า ไม่สามารถลบได้')
+      toast.error('ไม่พบ ID ของสินค้า ไม่สามารถลบได้')
       return
     }
 
@@ -408,7 +424,7 @@ async function handleDelete(product: Product) {
     // alert('✅ ลบสินค้าสำเร็จ')
   } catch (err) {
     console.error('Delete product error:', err)
-    alert('❌ เกิดข้อผิดพลาดในการลบ: ' + (err as Error).message)
+    toast.error('เกิดข้อผิดพลาดในการลบ: ' + (err as Error).message)
   }
 }
 

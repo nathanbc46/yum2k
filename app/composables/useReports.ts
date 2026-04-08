@@ -189,11 +189,42 @@ export function useReports() {
         .sort((a, b) => b.value - a.value)
   }
 
+  /**
+   * ฟังก์ชันซ่อมแซมข้อมูล: แปลง createdAt/updatedAt จาก String กลับเป็น Date
+   * (แก้ปัญหาที่เกิดจาก JSON.stringify ในอดีต)
+   */
+  async function repairOrderDates() {
+    const orders = await db.orders.toArray()
+    let repairedCount = 0
+
+    for (const order of orders) {
+      let needsUpdate = false
+      if (typeof order.createdAt === 'string') {
+        order.createdAt = new Date(order.createdAt)
+        needsUpdate = true
+      }
+      if (typeof order.updatedAt === 'string') {
+        order.updatedAt = new Date(order.updatedAt)
+        needsUpdate = true
+      }
+
+      if (needsUpdate) {
+        await db.orders.put(order)
+        repairedCount++
+      }
+    }
+    
+    if (repairedCount > 0) {
+      console.log(`✅ ซ่อมแซมรูปแบบวันที่ใน Order สำเร็จ ${repairedCount} รายการ`)
+    }
+  }
+
   return {
     getSummary,
     getTopProducts,
     getRecentOrders,
     getDailyRevenueSnapshot,
-    getCategorySalesDistribution
+    getCategorySalesDistribution,
+    repairOrderDates
   }
 }

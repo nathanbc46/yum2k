@@ -129,12 +129,16 @@
 
 <script setup lang="ts">
 import { useUsers } from '~/composables/useUsers'
+import { useMasterDataSync } from '~/composables/useMasterDataSync'
+import { useToast } from '~/composables/useToast'
 import type { User } from '~/types'
 import UserFormModal from '~/components/admin/UserFormModal.vue'
 
 definePageMeta({ layout: 'admin' })
 
 const { loadUsers, createUser, updateUser, deleteUser } = useUsers()
+const { lastPullTimestamp } = useMasterDataSync()
+const toast = useToast()
 
 const users = ref<User[]>([])
 const isLoading = ref(true)
@@ -155,6 +159,12 @@ async function fetchUsers() {
 }
 
 onMounted(() => {
+  fetchUsers()
+})
+
+// Auto-refresh เมื่อมีการ Pull ข้อมูลจาก Cloud สำเร็จ
+watch(lastPullTimestamp, () => {
+  console.log('🔄 Detect Cloud Pull: Refreshing Users...')
   fetchUsers()
 })
 
@@ -186,14 +196,15 @@ async function handleSaveUser(payload: Partial<User>) {
     // Refresh Table
     closeModal()
     await fetchUsers()
+    toast.success('บันทึกข้อมูลสำเร็จ')
   } catch (err: any) {
-    alert(err.message) // Modal จะยังไม่ปิด โชว์ alert ไปก่อน
+    toast.error(err.message) // Modal จะยังไม่ปิด โชว์ toast ไปก่อน
   }
 }
 
 async function handleDelete(user: User) {
   if (user.username === 'admin') {
-    alert('ไม่สามารถลบบัญชีผู้จัดการหลักของหน้าต่างแอดมินได้')
+    toast.warning('ไม่สามารถลบบัญชีผู้จัดการหลักได้')
     return
   }
   
@@ -201,8 +212,9 @@ async function handleDelete(user: User) {
     try {
       await deleteUser(user.id!)
       await fetchUsers()
+      toast.success('ระงับการใช้งานพนักงานเรียบร้อยแล้ว')
     } catch (err: any) {
-      alert(err.message)
+      toast.error(err.message)
     }
   }
 }

@@ -120,11 +120,15 @@
 
 <script setup lang="ts">
 import { useCategories } from '~/composables/useCategories'
+import { useMasterDataSync } from '~/composables/useMasterDataSync'
+import { useToast } from '~/composables/useToast'
 import type { Category } from '~/types'
 
 definePageMeta({ layout: 'admin' })
 
 const { fetchAll, toggleCategoryActive, deleteCategory } = useCategories()
+const { lastPullTimestamp } = useMasterDataSync()
+const toast = useToast()
 
 const categories = ref<Category[]>([])
 const isLoading = ref(true)
@@ -157,7 +161,14 @@ function closeModal() {
 
 async function handleSaved() {
   await loadData()
+  toast.success('บันทึกข้อมูลหมวดหมู่สำเร็จ')
 }
+
+// Auto-refresh เมื่อมีการ Pull ข้อมูลจาก Cloud สำเร็จ
+watch(lastPullTimestamp, () => {
+  console.log('🔄 Detect Cloud Pull: Refreshing Categories...')
+  loadData()
+})
 
 async function handleToggle(cat: Category) {
   await toggleCategoryActive(cat.id!)
@@ -172,7 +183,7 @@ async function handleDelete(cat: Category) {
     if (!confirmed) return
 
     if (!cat.id) {
-      alert('❌ ไม่พบ ID ของหมวดหมู่ ไม่สามารถลบได้')
+      toast.error('ไม่พบ ID ของหมวดหมู่ ไม่สามารถลบได้')
       return
     }
 
@@ -181,7 +192,7 @@ async function handleDelete(cat: Category) {
     // alert('✅ ลบหมวดหมู่สำเร็จ')
   } catch (err) {
     console.error('Delete category error:', err)
-    alert('❌ เกิดข้อผิดพลาดในการลบ: ' + (err as Error).message)
+    toast.error('เกิดข้อผิดพลาดในการลบ: ' + (err as Error).message)
   }
 }
 

@@ -108,17 +108,25 @@
 
 <script setup lang="ts">
 import { useStockAudit } from '~/composables/useStockAudit'
+import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import type { StockAuditLog } from '~/types'
 import { ADJUST_REASON_LABELS } from '~/composables/useProducts'
 
 definePageMeta({ layout: 'admin' })
 
 const { fetchLogs } = useStockAudit()
+const { lastPullTimestamp } = useMasterDataSync()
 const logs = ref<StockAuditLog[]>([])
 const isLoading = ref(true)
 
 onMounted(async () => {
    await loadLogs()
+})
+
+// Auto-refresh เมื่อมีการ Pull ข้อมูลจาก Cloud สำเร็จ
+watch(lastPullTimestamp, () => {
+  console.log('🔄 Detect Cloud Pull: Refreshing Stock Audit Logs...')
+  loadLogs()
 })
 
 async function loadLogs() {

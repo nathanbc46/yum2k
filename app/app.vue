@@ -45,6 +45,9 @@
     <!-- PWA -->
     <VitePwaManifest />
     <PwaInstallPrompt />
+
+    <!-- Toast Layer -->
+    <ToastProvider />
   </div>
 </template>
 
@@ -52,8 +55,10 @@
 import { useSync } from '~/composables/useSync'
 import { usePosStore } from '~/stores/pos'
 import { useTheme } from '~/composables/useTheme'
+import { useToast } from '~/composables/useToast'
 import PosReceipt from '~/components/pos/PosReceipt.vue'
 import PwaInstallPrompt from '~/components/admin/PwaInstallPrompt.vue'
+import ToastProvider from '~/components/ui/ToastProvider.vue'
 
 const { 
   isOnline, isSyncing, pendingCount, pendingStockAuditCount,
@@ -62,6 +67,7 @@ const {
 } = useSync()
 const posStore = usePosStore()
 const { theme, toggleTheme } = useTheme()
+const toast = useToast()
 
 let cleanupNetwork: (() => void) | null = null
 
@@ -69,6 +75,16 @@ onMounted(() => {
   cleanupNetwork = setupNetworkListener()
   refreshPendingCount()
   startHeartbeatSync()
+})
+
+// แจ้งเตือนเมื่อมีการซิงค์ออร์เดอร์สำเร็จในพื้นหลัง
+watch(isSyncing, (val, oldVal) => {
+  if (oldVal === true && val === false) {
+    // ซิงค์เสร็จแล้ว
+    if (pendingCount.value === 0 && pendingStockAuditCount.value === 0) {
+      toast.success('☁️ ซิงค์ข้อมูลขึ้น Cloud เรียบร้อยแล้ว')
+    }
+  }
 })
 
 onUnmounted(() => {

@@ -52,17 +52,19 @@
         class="bg-surface-800 p-3 rounded-xl border border-surface-700 flex flex-col gap-2 relative group"
       >
         <!-- ชื่อกับราคา -->
-        <div class="flex justify-between items-start gap-2 pr-6">
+        <div class="flex justify-between items-start gap-2 pr-12">
           <div class="flex-1">
-            <div class="font-medium text-sm leading-tight text-surface-100">{{ item.product.name }}</div>
+            <div class="font-bold text-sm leading-tight text-surface-50">
+              {{ item.product.name }}
+            </div>
             <!-- แสดง Add-ons ที่เลือก -->
             <div v-if="item.addons && item.addons.length > 0" class="flex flex-wrap gap-1 mt-1">
               <span
                 v-for="addon in item.addons"
                 :key="addon.id"
-                class="text-[10px] bg-primary-900/50 text-primary-300 border border-primary-700/40 px-1.5 py-0.5 rounded-full"
+                class="text-[10px] bg-primary-900/40 text-primary-300 border border-primary-700/30 px-1.5 py-0.5 rounded-full"
               >
-                {{ addon.name }}{{ addon.price > 0 ? ` +${addon.price}฿` : '' }}
+                {{ addon.name }}{{ addon.price > 0 ? ` +${addon.price}` : '' }}
               </span>
               <!-- ปุ่มแก้ไข/เพิ่ม Addon กรณีที่สินค้ามีตัวเลือก -->
               <button 
@@ -71,51 +73,53 @@
                 class="text-[10px] text-surface-400 hover:text-primary-400 bg-surface-900 px-1.5 py-0.5 rounded-full border border-surface-700 transition-colors"
                 title="ตั้งค่าตัวเลือกเสริม"
               >
-                ✏️ ตั้งค่าตัวเลือก
+                ✏️ ตั้งค่า
               </button>
             </div>
-            <!-- ปุ่มแก้ไข/เพิ่ม Addon กรณีที่ไม่มี addon ถูกเลือก แต่สินค้ามีตัวเลือก -->
-            <button
-               v-else-if="item.product.addonGroups && item.product.addonGroups.length > 0"
-               @click="editAddons(item)"
-               class="mt-1 text-[10px] text-primary-400 font-medium opacity-80 hover:opacity-100 flex items-center gap-1 transition-opacity"
-            >
-              <span class="w-4 h-4 bg-primary-500/20 rounded-full flex items-center justify-center">+</span>
-              เพิ่มตัวเลือก
-            </button>
+            <!-- ปุ่มกรณีที่ยังไม่ได้เลือก Addon แต่สินค้ามีตัวเลือกให้เลือกได้ -->
+            <div v-else-if="item.product.addonGroups && item.product.addonGroups.length > 0" class="mt-1">
+              <button
+                @click="editAddons(item)"
+                class="text-[10px] text-primary-400 font-bold bg-primary-500/10 px-2 py-1 rounded-full border border-primary-500/20 hover:bg-primary-500/20 transition-all flex items-center gap-1"
+              >
+                <span>+</span> เพิ่มตัวเลือก
+              </button>
+            </div>
           </div>
-          <div class="font-bold text-primary-400 shrink-0">฿{{ item.totalPrice }}</div>
+          <div class="font-black text-primary-400 shrink-0 text-base">฿{{ item.totalPrice }}</div>
         </div>
         
         <!-- ตัวควบคุมจำนวน -->
         <div class="flex justify-between items-center mt-1">
-          <div class="text-xs text-surface-500">
+          <div class="text-[10px] text-surface-500 font-medium">
             ฿{{ item.unitPrice + item.addonsTotal }} / ชิ้น
           </div>
-          
-          <div class="flex items-center gap-3 bg-surface-900 rounded-lg p-1 border border-surface-700">
+          <div class="flex items-center gap-3 bg-surface-950 rounded-xl p-1 border border-surface-700">
             <button 
               @click="updateQuantity(item.product.id!, item.quantity - 1)"
-              class="w-8 h-8 flex items-center justify-center bg-surface-800 rounded-md text-surface-300 hover:text-white hover:bg-surface-700 active:scale-95 transition-all"
+              class="w-12 h-10 flex items-center justify-center bg-surface-800 rounded-lg text-surface-300 hover:text-white hover:bg-surface-700 active:scale-90 transition-all shadow-sm"
+              title="ลดจำนวน"
             >
-              <span class="text-lg font-bold leading-none">-</span>
+              <span class="text-xl font-bold leading-none">-</span>
             </button>
-            <span class="w-4 text-center font-bold text-sm">{{ item.quantity }}</span>
+            <span class="w-8 text-center font-bold text-lg text-primary-400">{{ item.quantity }}</span>
             <button 
               @click="updateQuantity(item.product.id!, item.quantity + 1)"
-              class="w-8 h-8 flex items-center justify-center bg-surface-800 rounded-md text-surface-300 hover:text-white hover:bg-surface-700 active:scale-95 transition-all"
+              class="w-12 h-10 flex items-center justify-center bg-surface-800 rounded-lg text-surface-300 hover:text-white hover:bg-surface-700 active:scale-90 transition-all shadow-sm"
+              title="เพิ่มจำนวน"
             >
-              <span class="text-lg font-bold leading-none">+</span>
+              <span class="text-xl font-bold leading-none">+</span>
             </button>
           </div>
         </div>
 
-        <!-- ปุ่มลบอันเดียว -->
+        <!-- ปุ่มลบอันเดียว (ปรับให้เล็กลงนิดนึง และห่างจากราคา) -->
         <button 
           @click="removeItem(item.product.id!)"
-          class="absolute top-2 right-2 text-surface-500 hover:text-red-400 transition-colors"
+          class="absolute top-1 right-1 w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500/50 hover:text-red-400 hover:bg-red-500/20 rounded-xl transition-all active:scale-90 border border-transparent"
+          title="ลบรายการ"
         >
-          <span class="text-lg font-bold leading-none">×</span>
+          <span class="text-2xl font-light leading-none">×</span>
         </button>
       </div>
 
@@ -135,20 +139,14 @@
         </div>
       </div>
 
-      <!-- หมายเหตุ & Delivery Ref -->
-      <div class="space-y-2 mb-4 pt-3 border-t border-surface-800/50">
-        <input 
-          v-model="note"
-          type="text"
-          placeholder="หมายเหตุ: เช่น ไม่เผ็ด, พิเศษมะม่วง..."
-          class="w-full bg-surface-950 border border-surface-800 rounded-lg px-3 py-2 text-sm focus:border-primary-500 outline-none transition-colors"
-        />
+      <!-- Delivery Ref -->
+      <div class="mb-4 pt-3 border-t border-surface-800/50">
         <input 
           v-model="deliveryRef" 
           type="number"
           inputmode="numeric"
           placeholder="เลขอ้างอิง Delivery (ตัวเลขเท่านั้น)"
-          class="w-full bg-surface-950 border border-surface-800 rounded-lg px-3 py-2 text-sm focus:border-primary-500 outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          class="w-full bg-surface-950 border border-surface-800 rounded-lg px-3 py-3 text-sm focus:border-primary-500 outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
       </div>
 

@@ -169,6 +169,9 @@ const recentOrders = ref<Order[]>([])
 async function loadData() {
   isLoading.value = true
   
+  // ซ่อมแซมข้อมูลอัตโนมัติ (เผื่อติดรูปแบบ String จากบั๊กก่อนหน้า)
+  await reports.repairOrderDates()
+  
   const end = new Date()
   const start = new Date()
   

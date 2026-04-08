@@ -13,13 +13,13 @@
       <div class="flex gap-2">
         <!-- ปุ่ม Manual Sync -->
         <button 
-          @click="() => isOnline && syncPendingOrders(true)"
-          :disabled="!isOnline || isSyncing"
+          @click="handleManualSync"
+          :disabled="!isOnline || isSyncing || (pendingCount === 0 && pendingStockAuditCount === 0)"
           class="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg transition-all text-xs font-bold shadow-lg shadow-primary-900/20"
-          :class="!isOnline ? 'opacity-40 cursor-not-allowed grayscale' : 'hover:bg-primary-500 active:scale-95 cursor-pointer'"
+          :class="(!isOnline || (pendingCount === 0 && pendingStockAuditCount === 0 && !isSyncing)) ? 'opacity-40 cursor-not-allowed grayscale' : 'hover:bg-primary-500 active:scale-95 cursor-pointer'"
           title="ส่งข้อมูลที่ค้างอยู่ขึ้น Server"
         >
-          <span>{{ !isOnline ? 'รอออนไลน์ 📵' : (isSyncing ? 'กำลังซิงค์...' : 'ซิงค์ข้อมูลตอนนี้') }}</span>
+          <span>{{ !isOnline ? 'รอออนไลน์ 📵' : (isSyncing ? 'กำลังซิงค์...' : (pendingCount === 0 && pendingStockAuditCount === 0 ? 'ข้อมูลเป็นปัจจุบันแล้ว' : 'ซิงค์ข้อมูลตอนนี้')) }}</span>
           <span :class="{ 'animate-spin': isSyncing }">🔄</span>
         </button>
 
@@ -208,10 +208,12 @@ import type { Order } from '~/types'
 import { usePosStore } from '~/stores/pos'
 import { useInventory } from '~/composables/useInventory'
 import { useSync } from '~/composables/useSync'
+import { useToast } from '~/composables/useToast'
 
 const orders = ref<Order[]>([])
 const isLoading = ref(true)
-const { isOnline, isSyncing, syncPendingOrders, fetchRemoteOrders } = useSync()
+const { isOnline, isSyncing, syncPendingOrders, fetchRemoteOrders, pendingCount, pendingStockAuditCount, refreshPendingCount } = useSync()
+const toast = useToast()
 const isFetchingRemote = ref(false)
 const isLoadingMore = ref(false)
 const hasMore = ref(true)
@@ -258,6 +260,41 @@ const loadMore = () => {
   loadOrders(false)
 }
 
+const handleManualSync = async () => {
+  if (!isOnline.value || isSyncing.value) return
+  
+  try {
+    const res = await syncPendingOrders(true)
+    
+    // สร้างข้อความแจ้งเตือนละเอียด
+    const lines = ['📤 สรุปการซิงค์ข้อมูล:']
+    
+    if (res.orders.total > 0) {
+      lines.push(`✅ ออร์เดอร์: สำเร็จ ${res.orders.success}/${res.orders.total}`)
+      if (res.orders.failed > 0) lines.push(`❌ ล้มเหลว ${res.orders.failed} ใบ`)
+    } else {
+      lines.push('ℹ️ ไม่มีออร์เดอร์ใหม่ที่ต้องซิงค์')
+    }
+
+    if (res.auditLogs.total > 0) {
+      lines.push(`📦 สต็อก: สำเร็จ ${res.auditLogs.success}/${res.auditLogs.total}`)
+    }
+
+    const allErrors = [...res.orders.errors, ...res.auditLogs.errors]
+    if (allErrors.length > 0) {
+      lines.push('\n⚠️ ข้อผิดพลาด:')
+      allErrors.slice(0, 2).forEach(e => lines.push(`• ${e}`))
+    }
+
+    toast.success(lines.join('\n'), allErrors.length > 0 ? 10000 : 5000)
+    
+    // อัปเดตรายการในหน้าจอ
+    await loadOrders(true)
+  } catch (error: any) {
+    toast.error(`การซิงค์ล้มเหลว: ${error.message}`)
+  }
+}
+
 const handleFetchCloud = async () => {
   if (!isOnline.value || isFetchingRemote.value) return
   
@@ -265,13 +302,13 @@ const handleFetchCloud = async () => {
   try {
     const count = await fetchRemoteOrders(100) // ดึง 100 รายการล่าสุด
     if (count > 0) {
-      alert(`ดึงข้อมูลสำเร็จ! นำเข้ารายการใหม่ ${count} รายการ`)
+      toast.success(`ดึงข้อมูลสำเร็จ! นำเข้ารายการใหม่ ${count} รายการ`)
       await loadOrders(true) // รีโหลดหน้าจอ
     } else {
-      alert('ข้อมูลในเครื่องเป็นปัจจุบันอยู่แล้ว หรือไม่พบข้อมูลใหม่บน Cloud')
+      toast.info('ข้อมูลในเครื่องเป็นปัจจุบันอยู่แล้ว')
     }
   } catch (error: any) {
-    alert(`เกิดข้อผิดพลาดในการดึงข้อมูล: ${error.message}`)
+    toast.error(`เกิดข้อผิดพลาดในการดึงข้อมูล: ${error.message}`)
   } finally {
     isFetchingRemote.value = false
   }
@@ -303,10 +340,10 @@ const confirmCancelOrder = async (order: Order) => {
     }
 
     console.log(`✅ ยกเลิกออเดอร์ ${order.orderNumber} สำเร็จ`)
-    alert('ยกเลิกออเดอร์และคืนสต็อกเรียบร้อยแล้ว')
+    toast.success('ยกเลิกออเดอร์และคืนสต็อกเรียบร้อยแล้ว')
   } catch (e: any) {
     console.error('❌ ไม่สามารถยกเลิกออเดอร์ได้:', e)
-    alert(`ไม่สามารถยกเลิกได้: ${e.message}`)
+    toast.error(`ไม่สามารถยกเลิกได้: ${e.message}`)
   }
 }
 
@@ -338,6 +375,7 @@ const reprint = (order: Order) => {
 
 onMounted(() => {
   loadOrders()
+  refreshPendingCount() // ตรวจสอบจำนวนรายการที่ต้องซิงค์เมื่อเข้าหน้านี้
 })
 
 // รีเฟรชข้อมูลในหน้าจออัตโนมัติเมื่อการ Sync เสร็จสิ้น
