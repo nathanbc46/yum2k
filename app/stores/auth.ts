@@ -19,36 +19,36 @@ export const useAuthStore = defineStore('auth', () => {
     const adminExists = await db.users.where('username').equals('admin').first()
     if (!adminExists) {
       await db.users.add({
-        uuid: uuidv4(),
+        uuid: '00000000-0000-4000-a000-000000000001', // Static UUID
         username: 'admin',
         passwordHash: '',
         displayName: 'ผู้จัดการ (Admin)',
         role: 'admin',
-        pin: await hashSHA256('1234'), // เข้ารหัส PIN ตั้งแต่ตอนสร้าง
+        pin: await hashSHA256('1234'), // เข้ารหัส PIN
         isActive: true,
         isDeleted: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
-      console.log('✅ สร้างบัญชี: Admin PIN=1234 (เข้ารหัสแล้ว)')
+      console.log('✅ สร้างบัญชี: Admin (Static UUID)')
     }
 
     // ---- ตรวจสอบและสร้าง Staff ถ้ายังไม่มี ----
     const staffExists = await db.users.where('username').equals('staff').first()
     if (!staffExists) {
       await db.users.add({
-        uuid: uuidv4(),
+        uuid: '00000000-0000-4000-a000-000000000002', // Static UUID
         username: 'staff',
         passwordHash: '',
         displayName: 'พนักงานขาย (Staff)',
         role: 'staff',
-        pin: await hashSHA256('0000'), // เข้ารหัส PIN ตั้งแต่ตอนสร้าง
+        pin: await hashSHA256('0000'), // เข้ารหัส PIN
         isActive: true,
         isDeleted: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
-      console.log('✅ สร้างบัญชี: Staff PIN=0000 (เข้ารหัสแล้ว)')
+      console.log('✅ สร้างบัญชี: Staff (Static UUID)')
     }
 
     // ---- Migrate PIN เก่าที่ยังเป็น plain text → Hash อัตโนมัติ ----

@@ -42,12 +42,12 @@ export async function seedDatabase(): Promise<void> {
       } as User)
 
       await db.users.add({
-        uuid: '00000000-0000-4000-a000-000000000002', // Static UUID for staff01
-        username: 'staff01',
+        uuid: '00000000-0000-4000-a000-000000000002', // Static UUID for staff
+        username: 'staff',
         passwordHash: 'HASHED_PASSWORD_HERE',
-        displayName: 'น้องกุ๋งกิ๋ง',
+        displayName: 'พนักงานขาย (Staff)',
         role: 'staff',
-        pin: '5678',
+        pin: '0000',
         isActive: true,
         isDeleted: false,
         createdAt: new Date(),
