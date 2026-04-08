@@ -24,7 +24,7 @@ export default defineNuxtConfig({
       theme_color: '#0f172a',
       background_color: '#020617',
       display: 'standalone',
-      orientation: 'portrait',
+      orientation: 'any',
       icons: [
         {
           src: 'icons/icon-192.png',
