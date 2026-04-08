@@ -45,7 +45,7 @@ export async function seedDatabase(): Promise<void> {
         uuid: '00000000-0000-4000-a000-000000000002', // Static UUID for staff01
         username: 'staff01',
         passwordHash: 'HASHED_PASSWORD_HERE',
-        displayName: 'น้องแนน',
+        displayName: 'น้องกุ๋งกิ๋ง',
         role: 'staff',
         pin: '5678',
         isActive: true,
