@@ -42,37 +42,37 @@
 
       <template v-else>
         <!-- KPI Cards -->
-        <div class="grid grid-cols-4 gap-4 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <!-- Revenue -->
-          <div class="bg-surface-900 rounded-2xl p-5 border border-surface-800 relative overflow-hidden group">
+          <div class="bg-surface-900 rounded-2xl p-4 sm:p-5 border border-surface-800 relative overflow-hidden group">
             <div class="absolute -right-4 -top-4 w-24 h-24 bg-success/10 rounded-full blur-2xl transition-transform group-hover:scale-150" />
-            <div class="text-surface-400 text-sm font-medium mb-1 relative">ยอดขายรวม</div>
-            <div class="text-3xl font-black text-success relative">฿{{ summary.revenue.toLocaleString() }}</div>
+            <div class="text-surface-400 text-[10px] sm:text-sm font-medium mb-1 relative uppercase tracking-wider">ยอดขายรวม</div>
+            <div class="text-2xl sm:text-3xl font-black text-success relative">฿{{ summary.revenue.toLocaleString() }}</div>
           </div>
           
           <!-- Profit -->
-          <div class="bg-surface-900 rounded-2xl p-5 border border-surface-800 relative overflow-hidden group">
+          <div class="bg-surface-900 rounded-2xl p-4 sm:p-5 border border-surface-800 relative overflow-hidden group">
             <div class="absolute -right-4 -top-4 w-24 h-24 bg-primary-500/10 rounded-full blur-2xl transition-transform group-hover:scale-150" />
-            <div class="text-surface-400 text-sm font-medium mb-1 relative">กำไรขั้นต้น</div>
-            <div class="text-3xl font-black text-primary-400 relative">฿{{ summary.profit.toLocaleString() }}</div>
+            <div class="text-surface-400 text-[10px] sm:text-sm font-medium mb-1 relative uppercase tracking-wider">กำไรขั้นต้น</div>
+            <div class="text-2xl sm:text-3xl font-black text-primary-400 relative">฿{{ summary.profit.toLocaleString() }}</div>
           </div>
 
           <!-- Cost -->
-          <div class="bg-surface-900 rounded-2xl p-5 border border-surface-800 relative overflow-hidden group">
+          <div class="bg-surface-900 rounded-2xl p-4 sm:p-5 border border-surface-800 relative overflow-hidden group">
             <div class="absolute -right-4 -top-4 w-24 h-24 bg-warning/10 rounded-full blur-2xl transition-transform group-hover:scale-150" />
-            <div class="text-surface-400 text-sm font-medium mb-1 relative">ต้นทุนสินค้า</div>
-            <div class="text-3xl font-black text-warning relative">฿{{ summary.cost.toLocaleString() }}</div>
+            <div class="text-surface-400 text-[10px] sm:text-sm font-medium mb-1 relative uppercase tracking-wider">ต้นทุนสินค้า</div>
+            <div class="text-2xl sm:text-3xl font-black text-warning relative">฿{{ summary.cost.toLocaleString() }}</div>
           </div>
 
           <!-- Bills -->
-          <div class="bg-surface-900 rounded-2xl p-5 border border-surface-800 relative overflow-hidden group">
+          <div class="bg-surface-900 rounded-2xl p-4 sm:p-5 border border-surface-800 relative overflow-hidden group">
             <div class="absolute -right-4 -top-4 w-24 h-24 bg-info/10 rounded-full blur-2xl transition-transform group-hover:scale-150" />
-            <div class="text-surface-400 text-sm font-medium mb-1 relative">จำนวนบิลสุทธิ</div>
-            <div class="text-3xl font-black text-info relative">{{ summary.orderCount.toLocaleString() }} <span class="text-base font-normal">บิล</span></div>
+            <div class="text-surface-400 text-[10px] sm:text-sm font-medium mb-1 relative uppercase tracking-wider">จำนวนบิลสุทธิ</div>
+            <div class="text-2xl sm:text-3xl font-black text-info relative">{{ summary.orderCount.toLocaleString() }} <span class="text-xs sm:text-base font-normal">บิล</span></div>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           <!-- Top Products -->
           <div class="bg-surface-900 rounded-2xl border border-surface-800 flex flex-col h-96">

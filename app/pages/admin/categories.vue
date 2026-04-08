@@ -165,12 +165,24 @@ async function handleToggle(cat: Category) {
 }
 
 async function handleDelete(cat: Category) {
-  const confirmed = window.confirm(
-    `ลบหมวดหมู่ "${cat.name}" ?\n(สินค้าในหมวดหมู่นี้จะยังคงอยู่ แต่หมวดหมู่จะถูกซ่อน)`
-  )
-  if (!confirmed) return
-  await deleteCategory(cat.id!)
-  await loadData()
+  try {
+    const confirmed = window.confirm(
+      `ลบหมวดหมู่ "${cat.name}" ?\n(สินค้าในหมวดหมู่นี้จะยังคงอยู่ แต่หมวดหมู่จะถูกซ่อน)`
+    )
+    if (!confirmed) return
+
+    if (!cat.id) {
+      alert('❌ ไม่พบ ID ของหมวดหมู่ ไม่สามารถลบได้')
+      return
+    }
+
+    await deleteCategory(cat.id)
+    await loadData()
+    // alert('✅ ลบหมวดหมู่สำเร็จ')
+  } catch (err) {
+    console.error('Delete category error:', err)
+    alert('❌ เกิดข้อผิดพลาดในการลบ: ' + (err as Error).message)
+  }
 }
 
 onMounted(loadData)

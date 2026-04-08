@@ -10,6 +10,7 @@ import { getSetting, setSetting } from '~/db'
 // Interface: รูปแบบข้อมูลการตั้งค่าใบเสร็จ
 // ---------------------------------------------------------------------------
 export interface ReceiptSettings {
+  deviceCode: string        // รหัสประจำเครื่อง (เช่น D1, D2) เพื่อป้องกันเลขบิลซ้ำ
   shopName: string          // ชื่อร้าน
   shopTagline?: string      // คำอธิบายสั้น เช่น "ยำรสเด็ด อร่อยทุกคำ!"
   shopPhone?: string        // เบอร์โทรศัพท์
@@ -25,6 +26,7 @@ export interface ReceiptSettings {
 // ค่าเริ่มต้น
 // ---------------------------------------------------------------------------
 export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
+  deviceCode: 'D1',          // ค่าเริ่มต้นคือ D1
   shopName: 'Yum2K',
   shopTagline: 'ร้านยำรสเด็ด',
   shopPhone: '',

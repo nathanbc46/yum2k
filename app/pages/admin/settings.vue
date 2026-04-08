@@ -24,9 +24,16 @@
           <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
             <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-4">ข้อมูลร้านค้า</h2>
             <div class="space-y-4">
-              <div>
-                <label class="form-label">ชื่อร้าน <span class="text-danger">*</span></label>
-                <input v-model="form.shopName" type="text" placeholder="เช่น Yum2K, ร้านยำรสเด็ด" class="form-input" />
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="form-label">ชื่อร้าน <span class="text-danger">*</span></label>
+                  <input v-model="form.shopName" type="text" placeholder="เช่น Yum2K, ร้านยำรสเด็ด" class="form-input" />
+                </div>
+                <div>
+                  <label class="form-label">รหัสเครื่อง (Device Code) <span class="text-danger">*</span></label>
+                  <input v-model="form.deviceCode" type="text" placeholder="เช่น D1, TAB-01" class="form-input" />
+                  <p class="text-[10px] text-surface-500 mt-1">ใช้แยกเลขบิลระหว่างเครื่อง (ห้ามซ้ำกับเครื่องอื่น)</p>
+                </div>
               </div>
               <div>
                 <label class="form-label">คำอธิบายร้าน (Tagline)</label>
@@ -48,6 +55,20 @@
               <div>
                 <label class="form-label">ข้อความท้ายใบเสร็จ</label>
                 <input v-model="form.footerMessage" type="text" placeholder="เช่น ขอบคุณที่อุดหนุนครับ/ค่ะ" class="form-input" />
+              </div>
+              <div class="bg-surface-950 border border-info/20 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                  <h3 class="text-sm font-bold text-info">กู้คืนลำดับบิล (Sequence Recovery)</h3>
+                  <p class="text-[10px] text-surface-400 mt-0.5">กรณีล้างเครื่องหรือเปลี่ยนเครื่องใหม่ สามารถดึงประวัติเพื่อรันเลขบิลต่อได้</p>
+                </div>
+                <button 
+                  type="button"
+                  @click="handleSyncHistory"
+                  :disabled="isSyncingHistory"
+                  class="btn-touch px-4 py-2 bg-surface-800 hover:bg-surface-700 text-xs font-bold rounded-lg border border-surface-700 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {{ isSyncingHistory ? '⌛ กำลังดึงข้อมูล...' : '📥 ดึงประวัติจาก Cloud' }}
+                </button>
               </div>
             </div>
           </div>
@@ -124,7 +145,7 @@
 
         <!-- ====== Right: Live Preview ====== -->
         <div class="lg:col-span-2">
-          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-4 sticky top-6">
+          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-4 lg:sticky lg:top-6">
             <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-3">ตัวอย่างใบเสร็จ</h2>
             <div class="flex justify-center bg-surface-950 rounded-xl p-4 overflow-auto">
               <!-- Mock Receipt Preview -->
@@ -139,7 +160,7 @@
                   <p class="text-[8px] text-gray-400 mt-0.5">07/04/2026 13:30</p>
                 </div>
                 <div class="text-[9px] space-y-0.5 mb-2">
-                  <p v-if="form.showOrderNumber">เลขที่บิล: <strong>YUM-20260407-0001</strong></p>
+                  <p v-if="form.showOrderNumber">เลขที่บิล: <strong>YUM-260407-1330-{{ form.deviceCode || 'D1' }}-0001</strong></p>
                   <p v-if="form.showStaffName">พนักงาน: ผู้จัดการ</p>
                   <p>ชำระ: เงินสด</p>
                 </div>
@@ -170,9 +191,11 @@ import { useSettings, type ReceiptSettings } from '~/composables/useSettings'
 definePageMeta({ layout: 'admin' })
 
 const { receiptSettings, isSaving, loadReceiptSettings, saveReceiptSettings } = useSettings()
+const { fetchRemoteOrders, isOnline } = useSync()
 
 // ใช้ reactive copy เพื่อแก้ไขก่อนบันทึก
 const form = reactive<ReceiptSettings>({
+  deviceCode: 'D1',
   shopName: 'Yum2K',
   shopTagline: '',
   shopPhone: '',
@@ -202,6 +225,24 @@ async function handleSave() {
   await saveReceiptSettings({ ...form })
   saveSuccess.value = true
   setTimeout(() => saveSuccess.value = false, 3000)
+}
+
+const isSyncingHistory = ref(false)
+async function handleSyncHistory() {
+  if (!isOnline.value) {
+    alert('❌ กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อดึงข้อมูล')
+    return
+  }
+
+  isSyncingHistory.value = true
+  try {
+    const count = await fetchRemoteOrders(200) // ดึง 200 รายการล่าสุด
+    alert(`✅ ดึงข้อมูลสำเร็จ: นำเข้า ${count} รายการใหม่\nขณะนี้เลขบิลของคุณจะรันต่อจากรายการล่าสุดในระบบครับ`)
+  } catch (err) {
+    alert('❌ เกิดข้อผิดพลาดในการดึงข้อมูล')
+  } finally {
+    isSyncingHistory.value = false
+  }
 }
 </script>
 

@@ -72,6 +72,138 @@ export function useSync() {
   }
 
   /**
+   * Sync ข้อมูลผู้ใช้งาน (Users) ขึ้น Server
+   * เพื่อแก้ปัญหาการติด Foreign Key ในตาราง Orders
+   */
+  async function syncUsers(): Promise<void> {
+    const supabase = import.meta.client ? useSupabaseClient<any>() : null
+    if (!supabase || !isOnline.value) return
+
+    try {
+      const localUsers = await db.users.toArray()
+      if (localUsers.length === 0) return
+
+      console.log(`📤 [useSync] กำลังซิงค์รายชื่อพนักงาน ${localUsers.length} ท่าน...`)
+
+      const usersToSync = localUsers.map(u => ({
+        uuid: u.uuid,
+        username: u.username,
+        display_name: u.displayName,
+        role: u.role,
+        pin: u.pin,
+        is_active: u.isActive,
+        is_deleted: u.isDeleted,
+        updated_at: new Date().toISOString()
+      }))
+
+      const { error } = await supabase
+        .from('pos_users')
+        .upsert(usersToSync, { onConflict: 'uuid' })
+
+      if (error) throw error
+      console.log('✅ [useSync] ซิงค์รายชื่อพนักงานสำเร็จ')
+    } catch (err) {
+      console.error('❌ [useSync] ซิงค์รายชื่อพนักงานล้มเหลว:', err)
+      // ไม่หยุดการทำงานรวม แต่แจ้งเตือนใน Console
+    }
+  }
+
+  /**
+   * Sync หมวดหมู่สินค้า (Categories) ขึ้น Server
+   */
+  async function syncCategories(): Promise<void> {
+    const supabase = import.meta.client ? useSupabaseClient<any>() : null
+    if (!supabase || !isOnline.value) return
+
+    try {
+      const localItems = await db.categories.toArray()
+      if (localItems.length === 0) return
+
+      console.log(`📤 [useSync] กำลังซิงค์หมวดหมู่สินค้า ${localItems.length} รายการ...`)
+
+      const itemsToSync = localItems.map(item => ({
+        uuid: item.uuid,
+        name: item.name,
+        description: item.description,
+        icon_url: item.iconUrl,
+        color: item.color,
+        sort_order: item.sortOrder,
+        is_active: item.isActive,
+        is_deleted: item.isDeleted,
+        updated_at: new Date().toISOString()
+      }))
+
+      const { error } = await supabase
+        .from('categories')
+        .upsert(itemsToSync, { onConflict: 'uuid' })
+
+      if (error) throw error
+      console.log('✅ [useSync] ซิงค์หมวดหมู่สินค้าสำเร็จ')
+    } catch (err) {
+      console.error('❌ [useSync] ซิงค์หมวดหมู่สินค้าล้มเหลว:', err)
+    }
+  }
+
+  /**
+   * Sync สินค้า (Products) ขึ้น Server
+   */
+  async function syncProducts(): Promise<void> {
+    const supabase = import.meta.client ? useSupabaseClient<any>() : null
+    if (!supabase || !isOnline.value) return
+
+    try {
+      const localItems = await db.products.toArray()
+      if (localItems.length === 0) return
+
+      console.log(`📤 [useSync] กำลังซิงค์ข้อมูลสินค้า ${localItems.length} รายการ...`)
+
+      const itemsToSync = []
+      for (const item of localItems) {
+        // หา Category UUID จาก categoryId
+        const cat = await db.categories.get(item.categoryId)
+        const categoryUuid = cat?.uuid
+
+        if (!categoryUuid) {
+           console.warn(`⚠️ ข้ามสินค้า ${item.name}: ไม่พบรหัสหมวดหมู่สินค้า`)
+           continue
+        }
+
+        itemsToSync.push({
+          uuid: item.uuid,
+          category_uuid: categoryUuid,
+          sku: item.sku,
+          name: item.name,
+          description: item.description,
+          image_url: item.imageUrl,
+          sale_price: item.salePrice,
+          cost_price: item.costPrice,
+          stock_quantity: item.stockQuantity,
+          alert_threshold: item.alertThreshold,
+          track_inventory: item.trackInventory,
+          mapping_type: item.mappingType,
+          inventory_mappings: item.inventoryMappings,
+          addon_groups: item.addonGroups,
+          is_active: item.isActive,
+          sort_order: item.sortOrder,
+          is_deleted: item.isDeleted,
+          updated_at: new Date().toISOString()
+        })
+      }
+
+      if (itemsToSync.length === 0) return
+
+      const { error } = await supabase
+        .from('products')
+        .upsert(itemsToSync, { onConflict: 'uuid' })
+
+      if (error) throw error
+      console.log('✅ [useSync] ซิงค์ข้อมูลสินค้าสำเร็จ')
+    } catch (err) {
+      console.error('❌ [useSync] ซิงค์ข้อมูลสินค้าล้มเหลว:', err)
+    }
+  }
+
+  /**
    * Sync Order ทั้งหมดที่รอดำเนินการขึ้น Server
    * @param force หากเป็น true จะซิงค์ทุกรายการที่ยังไม่สำเร็จ โดยไม่สนจำนวนครั้งที่ลอง (Retry Count)
    */
@@ -86,6 +218,11 @@ export function useSync() {
       console.warn('⚠️ [useSync] ข้ามการซิงค์: มีงานซิงค์เดิมกำลังทำงานอยู่')
       return
     }
+
+    // ก่อนส่ง Order ให้ซิงค์พนักงานและข้อมูลสินค้าขึ้นไปก่อนเพื่อให้ไม่ติด Foreign Key
+    await syncUsers()
+    await syncCategories()
+    await syncProducts()
 
     // ดึง Orders ที่รอ Sync
     let query = db.orders.where('syncStatus').anyOf(['pending', 'failed'])
@@ -136,10 +273,15 @@ export function useSync() {
       try {
         await db.stockAuditLogs.update(log.id!, { syncStatus: 'syncing' })
 
+        // ดึง Product UUID จาก ID
+        const product = await db.products.get(log.productId)
+        if (!product) continue
+
         const { error } = await supabase
           .from('stock_audit_logs')
           .upsert({
             uuid: log.uuid,
+            product_uuid: product.uuid,
             product_name: log.productName,
             change_quantity: log.changeQuantity,
             previous_quantity: log.previousQuantity,
@@ -192,7 +334,7 @@ export function useSync() {
           .upsert({
             uuid: orderBaseInfo.uuid,
             order_number: orderBaseInfo.orderNumber,
-            staff_id: staffUuid, 
+            staff_uuid: staffUuid, 
             staff_name: orderBaseInfo.staffName,
             subtotal: orderBaseInfo.subtotal,
             discount_amount: orderBaseInfo.discountAmount,
@@ -210,7 +352,7 @@ export function useSync() {
             is_deleted: orderBaseInfo.isDeleted,
             created_at: new Date(createdAt).toISOString(),
             updated_at: new Date(updatedAt).toISOString()
-          }, { onConflict: 'order_number' })
+          }, { onConflict: 'uuid' })
           .select('id')
           .single()
 
@@ -370,6 +512,42 @@ export function useSync() {
   }
 
   /**
+   * ดึงเลขลำดับบิลล่าสุดของเครื่องนี้จาก Cloud
+   * @param deviceCode รหัสเครื่องที่ระบุใน Settings
+   */
+  async function getLastRemoteOrderSequence(deviceCode: string): Promise<number> {
+    const supabase = import.meta.client ? useSupabaseClient<any>() : null
+    if (!supabase || !deviceCode) return 0
+
+    console.log(`📡 [useSync] กำลังตรวจสอบลำดับบิลล่าสุดของเครื่อง ${deviceCode}...`)
+
+    // ค้นหาออร์เดอร์ล่าสุดที่ขึ้นต้นด้วยรหัสเครื่องนี้
+    // เลขบิลรูปแบบ: YUM-YYYYMMDD-[DEVICE]-XXXX
+    const { data, error } = await supabase
+      .from('orders')
+      .select('order_number')
+      .ilike('order_number', `%-${deviceCode}-%`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 คือไม่พบข้อมูล (ซึ่งปกติ)
+      console.error('❌ Get Remote Sequence Error:', error)
+      return 0
+    }
+
+    if (!data) return 0
+
+    // ดึงเลข 4 ตัวท้ายออกมา (XXXX)
+    const parts = data.order_number.split('-')
+    const lastSeqStr = parts[parts.length - 1]
+    const lastSeq = parseInt(lastSeqStr, 10)
+
+    console.log(`ℹ️ [useSync] พบลำดับล่าสุดบน Cloud: ${lastSeq}`)
+    return isNaN(lastSeq) ? 0 : lastSeq
+  }
+
+  /**
    * อัปเดตสถานะ Sync ของ Order
    */
   async function updateSyncStatus(orderId: number, status: SyncStatus): Promise<void> {
@@ -385,6 +563,7 @@ export function useSync() {
     syncPendingOrders,
     refreshPendingCount,
     fetchRemoteOrders,
+    getLastRemoteOrderSequence,
     pendingStockAuditCount,
     startHeartbeatSync: () => {
       if (syncIntervalId.value) return

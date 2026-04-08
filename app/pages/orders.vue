@@ -88,8 +88,8 @@
                     :class="{ 'opacity-50 grayscale': order.status === 'cancelled' }"
                   >
                     <td class="px-6 py-4 whitespace-nowrap">
-                      <div class="font-medium">{{ formatDate(order.createdAt).split(' ')[0] }}</div>
-                      <div class="text-xs text-surface-500">{{ formatDate(order.createdAt).split(' ')[1] }}</div>
+                      <div class="font-medium">{{ formatDisplayDate(order.createdAt).date }}</div>
+                      <div class="text-[10px] text-surface-500">{{ formatDisplayDate(order.createdAt).time }}</div>
                     </td>
                     <td class="px-6 py-4">
                       <div class="flex items-center gap-2">
@@ -120,13 +120,37 @@
                       <div class="text-[10px] text-surface-500">{{ order.items.length }} รายการ</div>
                     </td>
                     <td class="px-6 py-4">
-                      <div v-if="order.deliveryRef" class="flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-                        <span class="bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded text-[10px] font-bold border border-orange-500/20">
-                          RIDER: {{ order.deliveryRef }}
-                        </span>
+                      <div class="flex flex-col gap-2">
+                        <!-- Payment Method -->
+                        <div class="flex items-center gap-2">
+                          <span 
+                            class="px-2 py-0.5 rounded text-[10px] font-bold border"
+                            :class="[
+                              order.paymentMethod === 'cash' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
+                              order.paymentMethod === 'promptpay' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                              'bg-surface-800 text-surface-400 border-surface-700'
+                            ]"
+                          >
+                            {{ 
+                              order.paymentMethod === 'cash' ? '💵 เงินสด' : 
+                              order.paymentMethod === 'promptpay' ? '📱 พร้อมเพย์' : 
+                              order.paymentMethod === 'card' ? '💳 บัตร' : '🌀 อื่นๆ' 
+                            }}
+                          </span>
+                        </div>
+
+                        <!-- Delivery Status -->
+                        <div v-if="order.deliveryRef" class="flex items-center gap-1.5">
+                          <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                          <span class="text-orange-400 text-[10px] font-bold">
+                            RIDER: {{ order.deliveryRef }}
+                          </span>
+                        </div>
+                        <div v-else class="text-surface-500 text-[10px] flex items-center gap-1">
+                          <span>🚶</span>
+                          <span>หน้าร้าน</span>
+                        </div>
                       </div>
-                      <span v-else class="text-surface-500 text-xs">🚶 สั่งหน้าร้าน</span>
                     </td>
                     <td class="px-6 py-4">
                       <div v-if="order.syncStatus === 'synced'" class="flex items-center gap-2 text-green-400 text-xs font-medium">
@@ -266,7 +290,8 @@ const confirmCancelOrder = async (order: Order) => {
     // 2. อัปเดตสถานะออเดอร์ในฐานข้อมูล
     await db.orders.update(order.id!, {
       status: 'cancelled',
-      syncStatus: 'pending' // เตรียมส่งขึ้น Server เพื่อยกเลิก
+      syncStatus: 'pending', // เตรียมส่งขึ้น Server เพื่อยกเลิก
+      syncRetryCount: 0      // รีเซ็ตจำนวนครั้งที่ลองเพื่อให้ระบบซิงค์ทันที
     })
 
     // 3. อัปเดต UI (Reactivity)
@@ -285,15 +310,23 @@ const confirmCancelOrder = async (order: Order) => {
   }
 }
 
-const formatDate = (date: Date | string) => {
+const formatDisplayDate = (date: Date | string) => {
   const d = new Date(date)
-  return d.toLocaleString('th-TH', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+  const now = new Date()
+  const isToday = d.toDateString() === now.toDateString()
+
+  const dateStr = isToday 
+    ? 'วันนี้' 
+    : d.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  
+  const timeStr = d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+
+  return { date: dateStr, time: timeStr }
+}
+
+const formatDate = (date: Date | string) => {
+  const { date: dStr, time: tStr } = formatDisplayDate(date)
+  return `${dStr} ${tStr}`
 }
 
 const reprint = (order: Order) => {

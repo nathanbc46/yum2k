@@ -57,11 +57,8 @@ export async function seedDatabase(): Promise<void> {
     }
 
     // --- Categories ---
-    let catYamId = 0
-    let catDrinkId = 0
-
     if (catCount === 0) {
-      catYamId = await db.categories.add({
+      await db.categories.add({
         uuid: '00000000-0000-4000-b000-000000000001', // Static UUID for ยำ
         name: 'ยำ',
         description: 'ยำสูตรต่างๆ',
@@ -71,104 +68,12 @@ export async function seedDatabase(): Promise<void> {
         isDeleted: false,
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as Category) as number
-
-      catDrinkId = await db.categories.add({
-        uuid: '00000000-0000-4000-b000-000000000002', // Static UUID for เครื่องดื่ม
-        name: 'เครื่องดื่ม',
-        description: 'น้ำดื่มและเครื่องดื่มต่างๆ',
-        color: '#3498DB',
-        sortOrder: 2,
-        isActive: true,
-        isDeleted: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Category) as number
-      console.log('✅ สร้าง Categories สำเร็จ (Static UUID)')
-    } else {
-        // หากมีหมวดหมู่แล้ว ให้ดึง ID มาใช้สำหรับสินค้า
-        const yams = await db.categories.where('name').equals('ยำ').first()
-        const drinks = await db.categories.where('name').equals('เครื่องดื่ม').first()
-        catYamId = yams?.id || 0
-        catDrinkId = drinks?.id || 0
+      } as Category)
+      console.log('✅ สร้าง Categories สำเร็จ: ยำ (Static UUID)')
     }
 
-    // --- Products ---
-    if (prodCount === 0 && catYamId && catDrinkId) {
-      // ยำมะม่วง
-      const yamMamuangId = await db.products.add({
-        uuid: '00000000-0000-4000-c000-000000000001', // Static UUID for ยำมะม่วง
-        categoryId: catYamId,
-        sku: 'YAM-001',
-        name: 'ยำมะม่วง',
-        salePrice: 60,
-        costPrice: 36,
-        stockQuantity: 100,
-        alertThreshold: 10,
-        trackInventory: true,
-        isActive: true,
-        sortOrder: 1,
-        isDeleted: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Product)
-
-      // ยำวุ้นเส้น
-      const yamWoonsenId = await db.products.add({
-        uuid: '00000000-0000-4000-c000-000000000002', // Static UUID for ยำวุ้นเส้น
-        categoryId: catYamId,
-        sku: 'YAM-002',
-        name: 'ยำวุ้นเส้น',
-        salePrice: 60,
-        costPrice: 36,
-        stockQuantity: 80,
-        alertThreshold: 10,
-        trackInventory: true,
-        isActive: true,
-        sortOrder: 2,
-        isDeleted: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Product)
-
-      // โปรยำมะม่วง 10 แถม 1
-      await db.products.add({
-        uuid: '00000000-0000-4000-c000-000000000003', // Static UUID
-        categoryId: catYamId,
-        sku: 'PROMO-001',
-        name: 'โปร ยำมะม่วง 10 แถม 1',
-        salePrice: 550,
-        costPrice: 396,
-        stockQuantity: 0,
-        trackInventory: false,
-        mappingType: 'promotion',
-        inventoryMappings: [{ sourceProductId: yamMamuangId as number, quantity: 11 }],
-        isActive: true,
-        sortOrder: 10,
-        isDeleted: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Product)
-
-      // น้ำเปล่า
-      await db.products.add({
-        uuid: '00000000-0000-4000-c000-000000000004', // Static UUID
-        categoryId: catDrinkId,
-        sku: 'DRK-001',
-        name: 'น้ำเปล่า',
-        salePrice: 10,
-        costPrice: 6,
-        stockQuantity: 200,
-        alertThreshold: 20,
-        trackInventory: true,
-        isActive: true,
-        sortOrder: 1,
-        isDeleted: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Product)
-      console.log('✅ สร้าง Products สำเร็จ (Static UUID)')
-    }
+    // --- Products (ลบออกตามที่ USER ร้องขอ) ---
+    // ไม่มีการสร้างสินค้าเริ่มต้น
   })
 
   console.log('🎉 Seed ข้อมูลสมบูรณ์!')

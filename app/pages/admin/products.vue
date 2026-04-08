@@ -394,10 +394,22 @@ async function handleToggle(product: Product) {
 }
 
 async function handleDelete(product: Product) {
-  const confirmed = window.confirm(`ลบสินค้า "${product.name}" ?\n(สินค้าจะถูกซ่อนออกจากระบบทั้งหมด)`)
-  if (!confirmed) return
-  await deleteProduct(product.id!)
-  await loadData()
+  try {
+    const confirmed = window.confirm(`ลบสินค้า "${product.name}" ?\n(สินค้าจะถูกซ่อนออกจากระบบทั้งหมด)`)
+    if (!confirmed) return
+    
+    if (!product.id) {
+      alert('❌ ไม่พบ ID ของสินค้า ไม่สามารถลบได้')
+      return
+    }
+
+    await deleteProduct(product.id)
+    await loadData()
+    // alert('✅ ลบสินค้าสำเร็จ')
+  } catch (err) {
+    console.error('Delete product error:', err)
+    alert('❌ เกิดข้อผิดพลาดในการลบ: ' + (err as Error).message)
+  }
 }
 
 async function handleRestore(product: Product) {

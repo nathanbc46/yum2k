@@ -1,16 +1,25 @@
 <template>
-  <div class="flex flex-col h-full bg-surface-900 text-surface-50">
+  <div class="flex flex-col h-full bg-surface-900 text-surface-50 relative">
     <!-- Header -->
-    <div class="px-4 py-3 border-b border-surface-800 flex items-center justify-between shrink-0 bg-surface-900/50">
-      <h2 class="text-xl font-bold flex items-center gap-2">
-        <span>ตะกร้าสินค้า</span>
-        <span class="bg-primary-500 text-white text-xs px-2 py-0.5 rounded-full">{{ totalItems }}</span>
-      </h2>
+    <div class="px-4 py-4 border-b border-surface-800 flex items-center justify-between shrink-0 bg-surface-900/50">
+      <div class="flex items-center gap-3">
+        <!-- Back Button for Mobile -->
+        <button 
+          @click="$emit('close-mobile')"
+          class="md:hidden w-10 h-10 flex items-center justify-center bg-surface-800 rounded-xl text-surface-400 active:scale-95 transition-all"
+        >
+          ⬅️
+        </button>
+        <h2 class="text-xl font-bold flex items-center gap-2">
+          <span>ตะกร้าสินค้า</span>
+          <span class="bg-primary-500 text-white text-xs px-2 py-0.5 rounded-full">{{ totalItems }}</span>
+        </h2>
+      </div>
       <div class="flex items-center gap-2">
         <button 
           v-if="cartItems.length > 0"
           @click="clearCart()"
-          class="p-2 bg-surface-800 rounded-lg text-red-400 hover:text-red-300 transition-colors text-xs"
+          class="w-10 h-10 flex items-center justify-center bg-surface-800 rounded-lg text-red-400 hover:text-red-300 transition-colors"
           title="ล้างตะกร้า"
         >
           🗑️
@@ -19,13 +28,13 @@
     </div>
 
     <!-- รายการสินค้าในตะกร้า -->
-    <div class="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-thin">
+    <div class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 scrollbar-thin">
       <div 
         v-if="cartItems.length === 0" 
-        class="h-full flex flex-col items-center justify-center text-surface-500 gap-3"
+        class="h-full flex flex-col items-center justify-center text-surface-500 gap-4"
       >
-        <span class="text-4xl opacity-50">🛒</span>
-        <p class="text-sm">ยังไม่มีสินค้าในตะกร้า</p>
+        <div class="w-20 h-20 bg-surface-800 rounded-full flex items-center justify-center text-5xl opacity-50">🛒</div>
+        <p class="text-base">ยังไม่มีสินค้าในตะกร้า</p>
       </div>
 
       <div 
@@ -127,9 +136,10 @@
         />
         <input 
           v-model="deliveryRef" 
-          type="text"
-          placeholder="เลขอ้างอิง Delivery: GRAB-XXXX, LINEMAN-XXXX"
-          class="w-full bg-surface-950 border border-surface-800 rounded-lg px-3 py-2 text-sm focus:border-primary-500 outline-none transition-colors"
+          type="number"
+          inputmode="numeric"
+          placeholder="เลขอ้างอิง Delivery (ตัวเลขเท่านั้น)"
+          class="w-full bg-surface-950 border border-surface-800 rounded-lg px-3 py-2 text-sm focus:border-primary-500 outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
       </div>
 

@@ -420,12 +420,21 @@ export function useCart() {
   // ---------------------------------------------------------------------------
 
   /**
-   * สร้างเลขออร์เดอร์แบบรันนิ่ง: YUM-YYYYMMDD-XXXX
-   * เช่น YUM-20260406-0001
+   * สร้างเลขออร์เดอร์แบบรันนิ่ง: YUM-YYYYMMDD-[DEVICE]-XXXX
+   * เช่น YUM-20260406-D1-0001
    */
   async function generateOrderNumber(): Promise<string> {
+    const { receiptSettings, loadReceiptSettings } = useSettings()
+    
+    // โหลด Settings เพื่อเอา Device Code
+    if (!receiptSettings.value.deviceCode) {
+      await loadReceiptSettings()
+    }
+
+    const device = receiptSettings.value.deviceCode || 'D1'
     const today = new Date()
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
+    const dateStr = today.toISOString().slice(2, 10).replace(/-/g, '') // YYMMDD
+    const timeStr = today.getHours().toString().padStart(2, '0') + today.getMinutes().toString().padStart(2, '0') // HHmm
 
     // นับจำนวน Order ของวันนี้
     const startOfDay = new Date(today.setHours(0, 0, 0, 0))
@@ -437,7 +446,7 @@ export function useCart() {
       .count()
 
     const seq = String(todayCount + 1).padStart(4, '0')
-    return `YUM-${dateStr}-${seq}`
+    return `YUM-${dateStr}-${timeStr}-${device}-${seq}`
   }
 
   return {

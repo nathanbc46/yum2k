@@ -1,11 +1,25 @@
 <template>
   <!-- Admin Layout: Sidebar + Main Content -->
-  <div class="flex h-screen bg-surface-950 text-surface-50 overflow-hidden">
+  <div class="flex h-screen bg-surface-950 text-surface-50 overflow-hidden relative">
+
+    <!-- Mobile Header (Hamburger) -->
+    <div class="lg:hidden absolute top-4 left-4 z-[60]">
+      <button 
+        @click="isSidebarOpen = !isSidebarOpen"
+        class="w-10 h-10 bg-surface-900 border border-surface-700 rounded-xl flex items-center justify-center text-surface-400 shadow-lg"
+      >
+        <Menu v-if="!isSidebarOpen" :size="20" />
+        <X v-else :size="20" />
+      </button>
+    </div>
 
     <!-- Sidebar Navigation -->
-    <aside class="w-56 shrink-0 flex flex-col bg-surface-900 border-r border-surface-800">
+    <aside 
+      class="fixed inset-y-0 left-0 z-50 w-64 shrink-0 flex flex-col bg-surface-900 border-r border-surface-800 transition-transform duration-300 transform lg:translate-x-0 lg:relative"
+      :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+    >
       <!-- Logo / Brand & User Profile -->
-      <div class="p-5 border-b border-surface-800">
+      <div class="p-5 border-b border-surface-800 pt-16 lg:pt-5">
         <div class="flex items-center gap-3 mb-4">
           <span class="text-2xl">🍋</span>
           <div>
@@ -50,6 +64,7 @@
         <NuxtLink
           to="/"
           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium mb-3 bg-surface-800 border border-surface-700 text-surface-300 hover:text-primary-400 hover:border-primary-500/40 transition-all"
+          @click="isSidebarOpen = false"
         >
           <span>⬅️</span>
           <span>กลับหน้าขาย (POS)</span>
@@ -66,6 +81,7 @@
           :class="$route.path === link.to
             ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/30'
             : 'text-surface-400 hover:text-surface-50 hover:bg-surface-800'"
+          @click="isSidebarOpen = false"
         >
           <span class="text-base">{{ link.icon }}</span>
           <span>{{ link.label }}</span>
@@ -123,6 +139,13 @@
       </div>
     </aside>
 
+    <!-- Overlay for mobile sidebar -->
+    <div 
+      v-if="isSidebarOpen" 
+      @click="isSidebarOpen = false"
+      class="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm"
+    />
+
     <!-- Main Content Area -->
     <main class="flex-1 flex flex-col overflow-hidden">
       <slot />
@@ -135,11 +158,13 @@ import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import { useSync } from '~/composables/useSync'
 import { useAuthStore } from '~/stores/auth'
 import { useTheme } from '~/composables/useTheme'
-import { LogOut, Sun, Moon } from 'lucide-vue-next'
+import { LogOut, Sun, Moon, Menu, X } from 'lucide-vue-next'
 
 const router = useRouter()
 const authUser = useAuthStore()
 const { theme, toggleTheme } = useTheme()
+
+const isSidebarOpen = ref(false)
 
 const { isOnline } = useSync()
 const {
