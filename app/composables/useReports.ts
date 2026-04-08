@@ -66,8 +66,10 @@ export function useReports() {
     for (const order of orders) {
       if (!order.items) continue
       for (const item of order.items) {
-        // ใช้ Product ID เป็นหลัก แต่ถ้าไม่มีให้ใช้ Name เป็น Key (ป้องกันรวบยอดผิดเวลาซิงค์)
-        const groupKey = item.productId ? `id_${item.productId}` : `name_${item.productName}`
+        // จัดกลุ่มด้วย UUID เป็นหลัก (แม่นยำที่สุดข้ามเครื่อง) 
+        // ถ้าไม่มี (ออร์เดอร์เก่ามาก) ให้ใช้ Name เป็น Key
+        const groupKey = item.productUuid ? `uuid_${item.productUuid}` : `name_${item.productName}`
+        
         const existing = productMap.get(groupKey as any) || {
           productId: item.productId || 0,
           productName: item.productName,
@@ -163,13 +165,22 @@ export function useReports() {
     orders.forEach(o => {
         if (!o.items) return
         o.items.forEach(item => {
-            // 1. ลองหาจาก item.categoryId (ชุดใหม่) 
-            // 2. ถ้าไม่มี ลองหาจาก productIdToCatId (ชุดเก่า)
-            const catId = item.categoryId || productIdToCatId.get(item.productId)
-            const name = catIdToName.get(catId!) || 'อื่นๆ'
+            // ลำดับการหาหมวดหมู่:
+            // 1. จาก categoryUuid (ในออร์เดอร์ใหม่)
+            // 2. จาก item.categoryId (ดึงจากเครื่อง)
+            // 3. จาก productIdToCatId (ดึงจากความพันของสินค้าในเครื่อง)
+            let categoryName = 'อื่นๆ'
+
+            if (item.categoryUuid) {
+              const cat = categories.find(c => c.uuid === item.categoryUuid)
+              if (cat) categoryName = cat.name
+            } else {
+              const catId = item.categoryId || productIdToCatId.get(item.productId)
+              categoryName = catIdToName.get(catId!) || 'อื่นๆ'
+            }
             
-            const current = catMap.get(name) || 0
-            catMap.set(name, current + item.totalPrice)
+            const current = catMap.get(categoryName) || 0
+            catMap.set(categoryName, current + item.totalPrice)
         })
     })
 

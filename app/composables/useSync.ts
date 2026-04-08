@@ -5,7 +5,7 @@
 // =============================================================================
 
 import { db } from '~/db'
-import type { Order, SyncStatus } from '~/types'
+import type { Order, SyncStatus, OrderItem, InventoryDeduction } from '~/types'
 
 // จำนวนครั้งสูงสุดที่จะ Retry ก่อนหยุด
 const MAX_RETRY_COUNT = 5
@@ -378,17 +378,19 @@ export function useSync() {
          // ลบรายการเดิมออกก่อนเพื่อกันไอเทมซ้ำกรณีซิงค์ใหม่
          await supabase.from('order_items').delete().eq('order_id', insertedOrder.id)
 
-         const orderItemsData = items.map(item => ({
+         const orderItemsData = order.items.map(item => ({
           order_id: insertedOrder.id,
-          product_id: null,
+          product_id: null, // ปล่อยว่างไว้เพราะ ID ของแต่ละเครื่องไม่ตรงกัน ให้ใช้ Name/UUID แทน
+          product_uuid: item.productUuid,
+          category_uuid: item.categoryUuid,
           product_name: item.productName,
           product_sku: item.productSku,
           quantity: item.quantity,
           unit_price: item.unitPrice,
           cost_price: item.costPrice,
-          discount: item.discount,
+          discount_amount: item.discount,
           total_price: item.totalPrice,
-          addons: item.addons, // เพิ่ม Add-ons เข้าไปใน JSONB column
+          addons: item.addons,
           addons_total: item.addonsTotal,
           inventory_deductions: item.inventoryDeductions
          }))
@@ -460,28 +462,46 @@ export function useSync() {
       const existing = await db.orders.where('uuid').equals(remote.uuid).first()
       
       if (!existing) {
-        // เตรียมไอเทมและพยายามหา Product ID ในเครื่องจาก SKU
-        const processedItems = []
+        // เตรียมไอเทมและพยายามหา Product ID ในเครื่องจาก UUID หรือ SKU
+        const processedItems: OrderItem[] = []
         for (const item of remote.order_items) {
           let productId: number | undefined = undefined
-          if (item.product_sku) {
+          let categoryId: number | undefined = undefined
+
+          // 1. ค้นหาจาก UUID (แม่นยำที่สุด)
+          if (item.product_uuid) {
+            const p = await db.products.where('uuid').equals(item.product_uuid).first()
+            productId = p?.id
+            categoryId = p?.categoryId
+          } 
+          // 2. ถ้าหาไม่เจอ ลองค้นจาก SKU (สำรอง)
+          else if (item.product_sku) {
             const p = await db.products.where('sku').equals(item.product_sku).first()
             productId = p?.id
+            categoryId = p?.categoryId
+          }
+
+          // ค้นหา Category ID จาก category_uuid หากยังไม่มี
+          if (!categoryId && item.category_uuid) {
+            const c = await db.categories.where('uuid').equals(item.category_uuid).first()
+            categoryId = c?.id
           }
 
           processedItems.push({
-            productId: productId || 0, // Fallback เป็น 0 เพื่อให้ Type ไม่ Error
-            categoryId: item.category_id || undefined, // เพิ่ม categoryId
+            productId: productId || 0,
+            productUuid: item.product_uuid || '',
+            categoryId: categoryId || 0,
+            categoryUuid: item.category_uuid || '',
             productName: item.product_name,
             productSku: item.product_sku,
             quantity: item.quantity,
             unitPrice: Number(item.unit_price),
             costPrice: Number(item.cost_price),
-            discount: Number(item.discount),
+            discount: Number(item.discount_amount),
             totalPrice: Number(item.total_price),
-            addonsTotal: Number(item.addons_total || 0), // เพิ่ม addonsTotal
-            addons: item.addons,
-            inventoryDeductions: item.inventory_deductions
+            addonsTotal: Number(item.addons_total || 0),
+            addons: item.addons || [],
+            inventoryDeductions: item.inventory_deductions || []
           })
         }
 

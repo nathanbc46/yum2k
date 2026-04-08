@@ -171,8 +171,10 @@ export interface AddonGroup {
  * ใช้สำหรับแสดงรายละเอียดว่าขายอะไรไปบ้าง
  */
 export interface OrderItem {
-  productId: number           // FK → Product.id
+  productId: number           // FK → Product.id (Local)
+  productUuid: string         // UUID สำหรับเชื่อมโยงข้ามเครื่อง
   categoryId: number          // FK → Category.id (Snippet)
+  categoryUuid: string        // UUID ของหมวดหมู่
   productName: string         // ชื่อสินค้า (Snapshot ณ เวลาที่ขาย)
   productSku?: string         // รหัสสินค้า (Snapshot)
 
@@ -202,6 +204,7 @@ export interface OrderItem {
  */
 export interface InventoryDeduction {
   sourceProductId: number     // ID ของสินค้าหลักที่ถูกตัดสต็อก
+  sourceProductUuid: string   // UUID ของสินค้าหลัก
   sourceProductName: string   // ชื่อสินค้าหลัก (Snapshot)
   quantityDeducted: number    // จำนวนที่ตัดสต็อกจริง
 }

@@ -264,34 +264,35 @@ export function useCart() {
         }
       }
 
-      // 2. สร้าง OrderItems พร้อมตัดสต็อก
+      // 2. สร้าง OrderItems พร้อมเชื่อมโยง UUID และตัดสต็อก
+      const posStore = usePosStore()
       const orderItems: OrderItem[] = []
 
       for (const item of cartItems.value) {
-        // ตัดสต็อกและรับ Deduction Log
+        // ตัดสต็อกและหาค่าวินิจฉัยสต็อก
         const deductions: InventoryDeduction[] = await deductStock(
           item.product,
           item.quantity,
         )
 
-        const safeAddons = item.addons && item.addons.length > 0 
-          ? JSON.parse(JSON.stringify(item.addons)) 
-          : undefined
-        const safeDeductions = deductions ? JSON.parse(JSON.stringify(deductions)) : []
-
+        // หา Category UUID
+        const category = posStore.categories.find(c => c.id === item.product.categoryId)
+        
         orderItems.push({
           productId: item.product.id!,
+          productUuid: item.product.uuid,
           categoryId: item.product.categoryId,
+          categoryUuid: category?.uuid || '',
           productName: item.product.name,
           productSku: item.product.sku,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          costPrice: item.product.costPrice,
+          costPrice: item.product.costPrice || (item.product.salePrice * 0.6),
           discount: item.discount,
-          addons: safeAddons,
+          addons: item.addons,
           addonsTotal: item.addonsTotal,
           totalPrice: item.totalPrice,
-          inventoryDeductions: safeDeductions,
+          inventoryDeductions: JSON.parse(JSON.stringify(deductions))
         })
       }
 
@@ -320,7 +321,7 @@ export function useCart() {
         status: 'completed',
         note: note.value,
         deliveryRef: deliveryRef.value,
-        syncStatus: 'pending', // รอ Sync ขึ้น Server
+        syncStatus: 'pending',
         syncRetryCount: 0,
         isDeleted: false,
         createdAt: now,
