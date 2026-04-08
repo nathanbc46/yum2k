@@ -162,36 +162,8 @@ tablesWithTimestamps.forEach((tableName) => {
 // ---------------------------------------------------------------------------
 // Seed Data: Populate Default Users
 // ---------------------------------------------------------------------------
-db.on('populate', async () => {
-  const now = new Date()
-  await db.users.bulkAdd([
-    {
-      uuid: uuidv4(),
-      username: 'admin',
-      passwordHash: '', // ไม่ได้ใช้เนื่องจากเป็น PIN-based (Local)
-      displayName: 'ผู้จัดการ (Admin)',
-      role: 'admin',
-      pin: '1234',
-      isActive: true,
-      isDeleted: false,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      uuid: uuidv4(),
-      username: 'staff',
-      passwordHash: '',
-      displayName: 'พนักงานขาย (Staff)',
-      role: 'staff',
-      pin: '0000',
-      isActive: true,
-      isDeleted: false,
-      createdAt: now,
-      updatedAt: now,
-    }
-  ])
-  console.log('✅ จำลองข้อมูลบัญชีผู้ใช้เริ่มต้นสำเร็จ: Admin(1234), Staff(0000)')
-})
+// Seed Data จะถูกย้ายไปควบคุมที่ app/stores/pos.ts แทน เพื่อความยืดหยุ่นและการใช้ Static UUID
+
 
 // ---------------------------------------------------------------------------
 // DB Helper Functions
