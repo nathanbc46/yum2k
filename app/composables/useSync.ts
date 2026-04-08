@@ -98,7 +98,7 @@ export function useSync() {
 
       const { error } = await supabase
         .from('pos_users')
-        .upsert(usersToSync, { onConflict: 'uuid' })
+        .upsert(usersToSync, { onConflict: 'username' })
 
       if (error) throw error
       console.log('✅ [useSync] ซิงค์รายชื่อพนักงานสำเร็จ')

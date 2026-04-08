@@ -13,6 +13,15 @@
         <h2 class="text-xl font-bold flex items-center gap-2">
           <span>ตะกร้าสินค้า</span>
           <span class="bg-primary-500 text-white text-xs px-2 py-0.5 rounded-full">{{ totalItems }}</span>
+          
+          <!-- สถานะออนไลน์/ออฟไลน์ -->
+          <span 
+            class="ml-2 flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold border"
+            :class="isOnline ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'"
+          >
+            <span class="w-1.5 h-1.5 rounded-full" :class="isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'"></span>
+            {{ isOnline ? 'ONLINE' : 'OFFLINE' }}
+          </span>
         </h2>
       </div>
       <div class="flex items-center gap-2">
@@ -202,6 +211,8 @@ const {
   note,
   deliveryRef
 } = useCart()
+
+const { isOnline } = useSync()
 
 import { usePosStore } from '~/stores/pos'
 import PosOrderSummaryModal from './PosOrderSummaryModal.vue'
