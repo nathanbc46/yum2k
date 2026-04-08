@@ -98,7 +98,7 @@ export function useSync() {
 
       const { error } = await supabase
         .from('pos_users')
-        .upsert(usersToSync, { onConflict: 'username' })
+        .upsert(usersToSync, { onConflict: 'uuid' })
 
       if (error) throw error
       console.log('✅ [useSync] ซิงค์รายชื่อพนักงานสำเร็จ')
@@ -204,6 +204,69 @@ export function useSync() {
   }
 
   /**
+   * Sync ประวัติการปรับสต็อก (Stock Audit Logs) ขึ้น Server
+   */
+  async function syncStockAuditLogs(force = false): Promise<void> {
+    const supabase = import.meta.client ? useSupabaseClient<any>() : null
+    if (!supabase || !isOnline.value) return
+
+    try {
+      let query = db.stockAuditLogs.where('syncStatus').anyOf(['pending', 'failed'])
+      
+      if (!force) {
+        query = query.filter(log => log.syncRetryCount < MAX_RETRY_COUNT)
+      }
+
+      const logsToSync = await query.toArray()
+      if (logsToSync.length === 0) return
+
+      console.log(`📤 [useSync] กำลังซิงค์ประวัติสต็อก ${logsToSync.length} รายการ...`)
+
+      for (const log of logsToSync) {
+        // อัปเดตสถานะเป็นกำลังซิงค์
+        await db.stockAuditLogs.update(log.id!, { syncStatus: 'syncing' })
+
+        const { error } = await supabase
+          .from('stock_audit_logs')
+          .upsert({
+            uuid: log.uuid,
+            product_uuid: (await db.products.get(log.productId))?.uuid,
+            product_name: log.productName,
+            change_quantity: log.changeQuantity,
+            previous_quantity: log.previousQuantity,
+            new_quantity: log.newQuantity,
+            reason: log.reason,
+            note: log.note,
+            staff_uuid: log.staffUuid,
+            staff_name: log.staffName,
+            is_deleted: log.isDeleted,
+            created_at: log.createdAt.toISOString(),
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'uuid' })
+
+        if (error) {
+          await db.stockAuditLogs.update(log.id!, {
+            syncStatus: 'failed',
+            syncRetryCount: log.syncRetryCount + 1,
+            syncError: error.message
+          })
+          continue
+        }
+
+        await db.stockAuditLogs.update(log.id!, {
+          syncStatus: 'synced',
+          syncedAt: new Date(),
+          syncError: undefined
+        })
+      }
+      
+      console.log('✅ [useSync] ซิงค์ประวัติสต็อกสำเร็จ')
+    } catch (err) {
+      console.error('❌ [useSync] ซิงค์ประวัติสต็อกล้มเหลว:', err)
+    }
+  }
+
+  /**
    * Sync Order ทั้งหมดที่รอดำเนินการขึ้น Server
    * @param force หากเป็น true จะซิงค์ทุกรายการที่ยังไม่สำเร็จ โดยไม่สนจำนวนครั้งที่ลอง (Retry Count)
    */
@@ -219,15 +282,14 @@ export function useSync() {
       return
     }
 
-    // ก่อนส่ง Order ให้ซิงค์พนักงานและข้อมูลสินค้าขึ้นไปก่อนเพื่อให้ไม่ติด Foreign Key
+    // 1. ซิงค์ข้อมูลหลักขึ้นไปก่อน
     await syncUsers()
     await syncCategories()
     await syncProducts()
 
-    // ดึง Orders ที่รอ Sync
+    // 2. ซิงค์ออร์เดอร์ที่ค้างอยู่
     let query = db.orders.where('syncStatus').anyOf(['pending', 'failed'])
     
-    // ถ้าไม่ใช่ Force Sync ให้กรองเฉพาะที่ Retry ไม่เกินกำหนด
     if (!force) {
       query = query.filter(order => order.syncRetryCount < MAX_RETRY_COUNT)
     }
@@ -235,75 +297,25 @@ export function useSync() {
     const pendingOrders = await query.toArray()
 
     if (pendingOrders.length === 0) {
-      console.log('ℹ️ [useSync] ไม่มีออเดอร์ค้างส่งที่เข้าเงื่อนไข')
+      // แม้ไม่มีออร์เดอร์ แต่ขอลองซิงค์ Stock Audit Logs ด้วย
+      await syncStockAuditLogs(force)
       await refreshPendingCount()
       return
     }
 
     isSyncing.value = true
-    console.log(`📤 [useSync] เริ่มส่งข้อมูล ${pendingOrders.length} รายการ (Force: ${force})...`)
+    console.log(`📤 [useSync] เริ่มส่งข้อมูล ${pendingOrders.length} รายการ...`)
 
     for (const order of pendingOrders) {
       await syncSingleOrder(order)
     }
 
-    // ต่อด้วยการซิงค์ประวัติสต็อก
+    // 3. ซิงค์ประวัติสต็อกด้วย
     await syncStockAuditLogs(force)
 
     isSyncing.value = false
     lastSyncAt.value = new Date()
     await refreshPendingCount()
-  }
-
-  /**
-   * Sync ประวัติการปรับสต็อก (StockAuditLogs)
-   */
-  async function syncStockAuditLogs(force = false): Promise<void> {
-    const supabase = import.meta.client ? useSupabaseClient<any>() : null
-    if (!supabase) return
-
-    let query = db.stockAuditLogs.where('syncStatus').anyOf(['pending', 'failed'])
-    const pendingLogs = await query.toArray()
-
-    if (pendingLogs.length === 0) return
-
-    console.log(`📤 [useSync] เริ่มส่งประวัติสต็อก ${pendingLogs.length} รายการ...`)
-
-    for (const log of pendingLogs) {
-      try {
-        await db.stockAuditLogs.update(log.id!, { syncStatus: 'syncing' })
-
-        // ดึง Product UUID จาก ID
-        const product = await db.products.get(log.productId)
-        if (!product) continue
-
-        const { error } = await supabase
-          .from('stock_audit_logs')
-          .upsert({
-            uuid: log.uuid,
-            product_uuid: product.uuid,
-            product_name: log.productName,
-            change_quantity: log.changeQuantity,
-            previous_quantity: log.previousQuantity,
-            new_quantity: log.newQuantity,
-            reason: log.reason,
-            note: log.note,
-            staff_uuid: log.staffUuid,
-            staff_name: log.staffName,
-            created_at: new Date(log.createdAt).toISOString()
-          }, { onConflict: 'uuid' })
-
-        if (error) throw error
-
-        await db.stockAuditLogs.update(log.id!, {
-          syncStatus: 'synced',
-          syncedAt: new Date()
-        })
-      } catch (err) {
-        console.error(`❌ Sync Stock Log ${log.uuid} ล้มเหลว:`, err)
-        await db.stockAuditLogs.update(log.id!, { syncStatus: 'failed' })
-      }
-    }
   }
 
   /**

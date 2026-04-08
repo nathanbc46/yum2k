@@ -149,7 +149,10 @@ tablesWithTimestamps.forEach((tableName) => {
     obj.createdAt = obj.createdAt ?? now
     obj.updatedAt = now
     obj.isDeleted = obj.isDeleted ?? false
-    obj.syncStatus = obj.syncStatus ?? (['orders', 'stockAuditLogs'].includes(tableName) ? 'pending' : undefined)
+    if (['orders', 'stockAuditLogs'].includes(tableName)) {
+      obj.syncStatus = obj.syncStatus ?? 'pending'
+      obj.syncRetryCount = obj.syncRetryCount ?? 0
+    }
   })
 
   // Hook: ก่อน Update

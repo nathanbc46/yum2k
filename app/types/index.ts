@@ -287,6 +287,8 @@ export interface StockAuditLog extends BaseEntity {
   staffUuid: string          // สำหรับตาราง Supabase
   syncStatus: SyncStatus     // สถานะการ Sync
   syncedAt?: Date            // เวลาที่ Sync สำเร็จ
+  syncError?: string         // ข้อความ Error ถ้า Sync ล้มเหลว
+  syncRetryCount: number     // จำนวนครั้งที่ลอง Sync
 }
 
 // ---------------------------------------------------------------------------
