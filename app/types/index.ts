@@ -73,6 +73,8 @@ export interface User extends BaseEntity {
 /** หมวดหมู่สินค้า */
 export interface Category extends BaseEntity {
   name: string           // ชื่อหมวดหมู่ (เช่น "ยำ", "ข้าว", "เครื่องดื่ม")
+  parentId?: number      // FK -> Category.id (สำหรับหมวดหมู่ย่อย)
+  parentUuid?: string    // UUID ของหมวดหมู่หลัก (สำหรับ Sync)
   description?: string   // คำอธิบายหมวดหมู่
   iconUrl?: string       // URL ไอคอนหมวดหมู่
   color?: string         // สีประจำหมวดหมู่ (Hex เช่น "#FF5733")

@@ -36,6 +36,7 @@
               <tr>
                 <th class="px-6 py-4">ลำดับ</th>
                 <th class="px-6 py-4">ชื่อหมวดหมู่</th>
+                <th class="px-6 py-4">หมวดหมู่หลัก</th>
                 <th class="px-6 py-4">คำอธิบาย</th>
                 <th class="px-6 py-4 text-center">สถานะ</th>
                 <th class="px-6 py-4 text-right">คำสั่ง</th>
@@ -60,6 +61,16 @@
                     />
                     <span class="font-semibold text-surface-50">{{ cat.name }}</span>
                   </div>
+                </td>
+
+                <td class="px-6 py-4">
+                  <div v-if="cat.parentId" class="flex flex-col gap-0.5">
+                    <span class="text-[10px] text-surface-500 uppercase tracking-wider">ภายใต้</span>
+                    <span class="text-primary-400 font-semibold text-xs transition-colors">
+                      {{ getParentName(cat.parentId) }}
+                    </span>
+                  </div>
+                  <span v-else class="text-surface-700 text-[10px] font-mono italic">ระดับสูงสุด</span>
                 </td>
 
                 <!-- คำอธิบาย -->
@@ -144,6 +155,11 @@ async function loadData() {
   } finally {
     isLoading.value = false
   }
+}
+
+function getParentName(parentId: number): string {
+  const parent = categories.value.find(c => c.id === parentId)
+  return parent ? parent.name : 'ไม่พบหมวดหมู่'
 }
 
 function openCreateModal() {

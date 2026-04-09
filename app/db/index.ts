@@ -19,7 +19,7 @@ import type {
 // ---------------------------------------------------------------------------
 // กำหนด Version ของ Database (เพิ่มทุกครั้งที่เปลี่ยน Schema)
 // ---------------------------------------------------------------------------
-const DB_VERSION = 4
+const DB_VERSION = 5
 const DB_NAME = 'Yum2K_POS_DB'
 
 // ---------------------------------------------------------------------------
@@ -63,7 +63,7 @@ class Yum2KDatabase extends Dexie {
        * - sortOrder: ลำดับการแสดง (Index สำหรับเรียงลำดับ)
        * - updatedAt: สำหรับ Delta Sync (Index)
        */
-      categories: '++id, &uuid, name, isActive, sortOrder, isDeleted, updatedAt',
+      categories: '++id, &uuid, name, parentId, parentUuid, isActive, sortOrder, isDeleted, updatedAt',
 
       /**
        * products: สินค้า

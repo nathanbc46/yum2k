@@ -9,6 +9,8 @@ import type { Category } from '~/types'
 
 export interface CategoryFormData {
   name: string
+  parentId?: number
+  parentUuid?: string
   description?: string
   color?: string
   sortOrder: number
@@ -33,6 +35,8 @@ export function useCategories() {
     const id = await db.categories.add({
       uuid: uuidv4(),
       name: form.name.trim(),
+      parentId: form.parentId,
+      parentUuid: form.parentUuid,
       description: form.description?.trim() || undefined,
       color: form.color || '#6366f1',
       sortOrder: form.sortOrder,
@@ -50,6 +54,8 @@ export function useCategories() {
   async function updateCategory(id: number, form: CategoryFormData): Promise<void> {
     await db.categories.update(id, {
       name: form.name.trim(),
+      parentId: form.parentId,
+      parentUuid: form.parentUuid,
       description: form.description?.trim() || undefined,
       color: form.color || '#6366f1',
       sortOrder: form.sortOrder,

@@ -58,8 +58,10 @@ export async function seedDatabase(): Promise<void> {
 
     // --- Categories ---
     if (catCount === 0) {
+      // 1. หมวดหมู่หลัก: ยำ
+      const yumUuid = '00000000-0000-4000-b000-000000000001'
       await db.categories.add({
-        uuid: '00000000-0000-4000-b000-000000000001', // Static UUID for ยำ
+        uuid: yumUuid,
         name: 'ยำ',
         description: 'ยำสูตรต่างๆ',
         color: '#FF5733',
@@ -69,7 +71,10 @@ export async function seedDatabase(): Promise<void> {
         createdAt: new Date(),
         updatedAt: new Date(),
       } as Category)
-      console.log('✅ สร้าง Categories สำเร็จ: ยำ (Static UUID)')
+
+      console.log('✅ สร้าง Categories สำเร็จ (ตัวอย่างหมวดหมู่หลัก)')
+
+      console.log('✅ สร้าง Categories สำเร็จ (รองรับ Hierarchy)')
     }
 
     // --- Products (ลบออกตามที่ USER ร้องขอ) ---

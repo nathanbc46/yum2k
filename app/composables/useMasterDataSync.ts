@@ -74,6 +74,7 @@ export function useMasterDataSync() {
       sort_order: c.sortOrder,
       is_active: c.isActive,
       is_deleted: c.isDeleted,
+      parent_uuid: c.parentUuid,
       updated_at: c.updatedAt.toISOString(),
     }))
 
@@ -227,6 +228,7 @@ export function useMasterDataSync() {
         iconUrl:     remote.icon_url ?? undefined,
         color:       remote.color ?? '#6366f1',
         sortOrder:   remote.sort_order,
+        parentUuid:  remote.parent_uuid ?? undefined,
         isActive:    remote.is_active,
         isDeleted:   remote.is_deleted,
         createdAt:   new Date(remote.created_at),
@@ -240,6 +242,24 @@ export function useMasterDataSync() {
       }
       count++
     }
+
+    // --- Second Pass: เชื่อมโยง parentId จาก parentUuid ---
+    if (count > 0 || force) {
+      const allCats = await db.categories.toArray()
+      const uuidToId = new Map(allCats.map(c => [c.uuid, c.id!]))
+      
+      for (const cat of allCats) {
+        if (cat.parentUuid) {
+          const parentId = uuidToId.get(cat.parentUuid)
+          if (parentId && cat.parentId !== parentId) {
+            await db.categories.update(cat.id!, { parentId })
+          }
+        } else if (cat.parentId) {
+          await db.categories.update(cat.id!, { parentId: undefined as any })
+        }
+      }
+    }
+
     return count
   }
 

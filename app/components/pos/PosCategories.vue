@@ -2,8 +2,18 @@
   <div class="flex flex-col h-full">
     <!-- ปุ่มหมวดหมู่เรียงลงมา -->
     <div class="flex-1 flex flex-col gap-2 p-2 overflow-y-auto scrollbar-thin">
+      <!-- ปุ่มย้อนกลับ -->
       <button
-        v-for="cat in store.categories"
+        v-if="store.currentParentId"
+        class="btn-touch flex gap-3 rounded-xl p-3 items-center transition-colors border bg-surface-900 text-primary-400 border-primary-500/30 hover:bg-surface-800 active:scale-95 shrink-0 mb-1"
+        @click="store.goBack()"
+      >
+        <ChevronLeft class="w-5 h-5" />
+        <span class="text-sm font-black italic">ย้อนกลับ</span>
+      </button>
+
+      <button
+        v-for="cat in store.displayedCategories"
         :key="cat.id"
         class="btn-touch flex flex-col gap-1 rounded-xl p-3 items-center text-center transition-colors border shrink-0"
         :class="[
@@ -81,7 +91,7 @@
 import { usePosStore } from '~/stores/pos'
 import { useAuthStore } from '~/stores/auth'
 import { useTheme } from '~/composables/useTheme'
-import { LogOut } from 'lucide-vue-next'
+import { LogOut, ChevronLeft } from 'lucide-vue-next'
 
 const store = usePosStore()
 const authUser = useAuthStore()

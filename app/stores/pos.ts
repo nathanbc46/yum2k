@@ -6,6 +6,7 @@ import type { Category, ProductWithCategory, Order } from '~/types'
 export const usePosStore = defineStore('pos', () => {
   // State
   const activeCategoryId = ref<number | null>(null)
+  const currentParentId = ref<number | null>(null)
   const categories = ref<Category[]>([])
   const products = ref<ProductWithCategory[]>([])
   const isLoading = ref<boolean>(false)
@@ -16,9 +17,36 @@ export const usePosStore = defineStore('pos', () => {
     categories.value.find(c => c.id === activeCategoryId.value) ?? null
   )
 
+  const displayedCategories = computed(() => {
+    return categories.value.filter(c => (c.parentId ?? null) === currentParentId.value)
+  })
+
+  const parentCategory = computed(() => {
+    if (!currentParentId.value) return null
+    return categories.value.find(c => c.id === currentParentId.value) ?? null
+  })
+
   const filteredProducts = computed(() => {
     if (!activeCategoryId.value) return products.value
     return products.value.filter(p => p.categoryId === activeCategoryId.value)
+  })
+
+  // สร้างรายชื่อหมวดหมู่ตามลำดับชั้น (Breadcrumbs)
+  const categoryPath = computed(() => {
+    if (!activeCategoryId.value) return []
+    const path: Category[] = []
+    let currentId: number | null = activeCategoryId.value
+    
+    while (currentId) {
+      const cat = categories.value.find(c => c.id === currentId)
+      if (cat) {
+        path.unshift(cat)
+        currentId = cat.parentId ?? null
+      } else {
+        currentId = null
+      }
+    }
+    return path
   })
 
   // Methods
@@ -69,6 +97,33 @@ export const usePosStore = defineStore('pos', () => {
 
   function setActiveCategory(id: number | null) {
     activeCategoryId.value = id
+    
+    // ถ้ามีการเลือกหมวดหมู่ ให้เช็คว่าต้อง Drill-down ไหม
+    if (id) {
+      const hasChildren = categories.value.some(c => c.parentId === id)
+      if (hasChildren) {
+        currentParentId.value = id
+      }
+    }
+  }
+
+  function goBack() {
+    // 1. ถ้าปัจจุบันเราเลือกหมวดหมู่ย่อย (active) ที่ไม่ใช่หมวดหมู่ที่เป็นฐานของแถบข้าง (currentParent)
+    // ให้ถอยกลับมาเลือกหมวดหมู่ที่เป็นฐานก่อน (เพื่อให้เห็นสินค้าในหมวดหมู่ที่เป็น Parent นั้น)
+    if (activeCategoryId.value !== currentParentId.value) {
+      activeCategoryId.value = currentParentId.value
+      return
+    }
+
+    // 2. ถ้าปัจจุบันเราเลือกหมวดหมู่ที่เป็นฐานอยู่แล้ว (หรือไม่มีการเลือก)
+    // ให้ถอยระดับแถบข้างขึ้นไป 1 ชั้นจริงๆ
+    if (currentParentId.value) {
+      const current = categories.value.find(c => c.id === currentParentId.value)
+      const parentId = current?.parentId ?? null
+      
+      currentParentId.value = parentId
+      activeCategoryId.value = parentId
+    }
   }
 
   function setLastOrder(order: Order | null) {
@@ -78,6 +133,7 @@ export const usePosStore = defineStore('pos', () => {
   return {
     // state
     activeCategoryId,
+    currentParentId,
     categories,
     products,
     isLoading,
@@ -85,11 +141,15 @@ export const usePosStore = defineStore('pos', () => {
     
     // computed
     activeCategory,
+    displayedCategories,
+    parentCategory,
     filteredProducts,
+    categoryPath,
 
     // methods
     loadData,
     setActiveCategory,
+    goBack,
     setLastOrder
   }
 })

@@ -2,10 +2,26 @@
   <div class="flex flex-col h-full">
     <!-- Header: แสดงหมวดหมู่ที่กำลังค้นหา หรือเลือกอยู่ -->
     <header class="flex items-center justify-between mb-4 shrink-0">
-      <h2 class="text-2xl font-bold text-surface-50">
-        {{ store.activeCategory?.name ?? 'สินค้าทั้งหมด' }}
-      </h2>
-      <div class="text-surface-400 text-sm">
+      <div>
+        <!-- Breadcrumbs สื่อลำดับชั้น -->
+        <div 
+          v-if="store.categoryPath.length > 1" 
+          class="flex items-center gap-1 text-[10px] text-surface-500 uppercase tracking-widest mb-1 italic font-bold"
+        >
+          <template v-for="(cat, idx) in store.categoryPath" :key="cat.id">
+            <span :class="{ 'text-primary-500/80': idx < store.categoryPath.length - 1 }">
+              {{ cat.name }}
+            </span>
+            <span v-if="idx < store.categoryPath.length - 1" class="opacity-30 mx-0.5">/</span>
+          </template>
+        </div>
+
+        <h2 class="text-2xl font-bold text-surface-50">
+          {{ store.activeCategory?.name ?? 'สินค้าทั้งหมด' }}
+        </h2>
+      </div>
+
+      <div class="text-surface-400 text-sm font-medium">
         {{ store.filteredProducts.length }} รายการ
       </div>
     </header>

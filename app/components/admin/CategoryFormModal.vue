@@ -39,6 +39,32 @@
               />
             </div>
 
+            <!-- หมวดหมู่หลัก (Parent) -->
+            <div>
+              <label class="block text-xs text-surface-400 mb-1.5 font-semibold uppercase tracking-wider">
+                หมวดหมู่หลัก (ถ้ามี)
+              </label>
+              <div class="relative">
+                <select
+                  v-model="form.parentId"
+                  class="w-full bg-surface-950 border border-surface-700 text-surface-50 rounded-xl px-4 py-3 text-sm focus:border-primary-500 outline-none transition-all appearance-none cursor-pointer pr-10"
+                >
+                  <option :value="undefined">--- ไม่มี (เป็นหมวดหมู่หลัก) ---</option>
+                  <option
+                    v-for="cat in parentOptions"
+                    :key="cat.id"
+                    :value="cat.id"
+                  >
+                    {{ cat.name }}
+                  </option>
+                </select>
+                <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-surface-500">
+                  <IconChevronDown class="w-4 h-4" />
+                </div>
+              </div>
+              <p class="text-[10px] text-surface-500 mt-1 italic pl-1">เลือกเพื่อกำหนดให้เป็นหมวดหมู่ย่อย</p>
+            </div>
+
             <!-- คำอธิบาย -->
             <div>
               <label class="block text-xs text-surface-400 mb-1.5 font-semibold uppercase tracking-wider">
@@ -127,6 +153,7 @@
 <script setup lang="ts">
 import { useCategories, type CategoryFormData } from '~/composables/useCategories'
 import type { Category } from '~/types'
+import { ChevronDown as IconChevronDown } from 'lucide-vue-next'
 
 const props = defineProps<{
   isOpen: boolean
@@ -138,7 +165,16 @@ const emit = defineEmits<{
   saved: []
 }>()
 
-const { createCategory, updateCategory } = useCategories()
+const { fetchAll, createCategory, updateCategory } = useCategories()
+
+const allCategories = ref<Category[]>([])
+const parentOptions = computed(() => {
+  // กรองตัวมันเองออก ถ้ากำลังแก้ไขอยู่ (ป้องกันการเลือกตัวเองเป็นพ่อ)
+  if (props.editItem?.id) {
+    return allCategories.value.filter(c => c.id !== props.editItem?.id)
+  }
+  return allCategories.value
+})
 
 // --- ป้องกัน Modal ปิดเมื่อลากเมาส์ (Drag to Select) ---
 let backdropMousedownFlag = false
@@ -155,6 +191,8 @@ const errorMsg = ref('')
 // ฟอร์มเริ่มต้น
 const defaultForm = (): CategoryFormData => ({
   name: '',
+  parentId: undefined,
+  parentUuid: undefined,
   description: '',
   color: '#6366f1',
   sortOrder: 1,
@@ -169,9 +207,17 @@ watch(
   (open) => {
     if (!open) return
     errorMsg.value = ''
+    
+    // โหลดรายการหมวดหมู่ทั้งหมดเพื่อทำ Dropdown
+    fetchAll().then(res => {
+      allCategories.value = res
+    })
+
     if (props.editItem) {
       form.value = {
         name: props.editItem.name,
+        parentId: props.editItem.parentId,
+        parentUuid: props.editItem.parentUuid,
         description: props.editItem.description ?? '',
         color: props.editItem.color ?? '#6366f1',
         sortOrder: props.editItem.sortOrder,
@@ -191,6 +237,14 @@ async function handleSubmit() {
   }
   isSaving.value = true
   errorMsg.value = ''
+  // ค้นหา UUID ของ Parent ก่อนส่ง
+  if (form.value.parentId) {
+    const parent = allCategories.value.find(c => c.id === form.value.parentId)
+    form.value.parentUuid = parent?.uuid
+  } else {
+    form.value.parentUuid = undefined
+  }
+
   try {
     if (isEditing.value && props.editItem?.id) {
       await updateCategory(props.editItem.id, form.value)
