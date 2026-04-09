@@ -10,8 +10,8 @@
 //   เพื่อรองรับการ Sync ข้ามอุปกรณ์
 // =============================================================================
 
-import { db } from '~/db'
-import type { Category, Product, User, UserRole } from '~/types'
+import { db, getSetting, setSetting } from '~/db'
+import type { Category, Product, User, UserRole, StockAuditLog } from '~/types'
 
 // --- Global State ---
 const isSyncingMaster = ref(false)
@@ -21,7 +21,31 @@ const masterSyncError = ref<string | null>(null)
 /** รหัสเวลาสำหรับการ Pull ล่าสุด (ใช้เป็น Signal ให้หน้าต่างๆ Refresh) */
 const lastPullTimestamp = ref(0)
 
+const SETTING_KEY_PUSH = 'last_master_push_at'
+const SETTING_KEY_PULL = 'last_master_pull_at'
+const SETTING_KEY_STOCK_PULL = 'last_stock_pull_at'
+
 export function useMasterDataSync() {
+  // -----------------------------------------------------------------------
+  // Helpers: Sync Timestamps
+  // -----------------------------------------------------------------------
+  async function getLastPushAt(): Promise<Date | null> {
+    const val = await getSetting<string | null>(SETTING_KEY_PUSH, null)
+    return val ? new Date(val) : null
+  }
+
+  async function getLastPullAt(): Promise<Date | null> {
+    const val = await getSetting<string | null>(SETTING_KEY_PULL, null)
+    return val ? new Date(val) : null
+  }
+
+  async function updateLastPushAt(date: Date) {
+    await setSetting(SETTING_KEY_PUSH, date.toISOString())
+  }
+
+  async function updateLastPullAt(date: Date) {
+    await setSetting(SETTING_KEY_PULL, date.toISOString())
+  }
   // -----------------------------------------------------------------------
   // PUSH: ดันข้อมูล LOCAL → CLOUD
   // -----------------------------------------------------------------------
@@ -29,29 +53,35 @@ export function useMasterDataSync() {
   /**
    * Push หมวดหมู่ทั้งหมดขึ้น Supabase (Upsert by uuid)
    */
-  async function pushCategories(): Promise<number> {
+  async function pushCategories(force = false): Promise<number> {
     const supabase = useSupabaseClient<any>()
-    const localCats = await db.categories.toArray()
-    if (!localCats.length) return 0
+    const lastPushAt = force ? null : await getLastPushAt()
+
+    let query = db.categories.toCollection()
+    if (lastPushAt) {
+      query = db.categories.where('updatedAt').above(lastPushAt)
+    }
+
+    const localCats = await query.toArray()
+    if (localCats.length === 0) return 0
 
     const payload = localCats.map(c => ({
-      uuid:        c.uuid,
-      name:        c.name,
-      description: c.description ?? null,
-      icon_url:    c.iconUrl ?? null,
-      color:       c.color ?? '#6366f1',
-      sort_order:  c.sortOrder,
-      is_active:   c.isActive,
-      is_deleted:  c.isDeleted,
-      created_at:  new Date(c.createdAt).toISOString(),
-      updated_at:  new Date(c.updatedAt).toISOString(),
+      uuid: c.uuid,
+      name: c.name,
+      description: c.description,
+      icon_url: c.iconUrl,
+      color: c.color,
+      sort_order: c.sortOrder,
+      is_active: c.isActive,
+      is_deleted: c.isDeleted,
+      updated_at: c.updatedAt.toISOString(),
     }))
 
     const { error } = await supabase
       .from('categories')
       .upsert(payload, { onConflict: 'uuid' })
 
-    if (error) throw new Error(`Push Categories ล้มเหลว: ${error.message}`)
+    if (error) throw error
     console.log(`✅ Push Categories สำเร็จ: ${localCats.length} รายการ`)
     return localCats.length
   }
@@ -60,46 +90,57 @@ export function useMasterDataSync() {
    * Push สินค้าทั้งหมดขึ้น Supabase (Upsert by uuid)
    * แปลง inventoryMappings: sourceProductId → sourceProductUuid
    */
-  async function pushProducts(): Promise<number> {
+  async function pushProducts(force = false): Promise<number> {
     const supabase = useSupabaseClient<any>()
-    const localProducts = await db.products.toArray()
-    if (!localProducts.length) return 0
+    const lastPushAt = force ? null : await getLastPushAt()
 
-    // โหลด Category map: id → uuid
+    let query = db.products.toCollection()
+    if (lastPushAt) {
+      query = db.products.where('updatedAt').above(lastPushAt)
+    }
+
+    const localProducts = await query.toArray()
+    if (localProducts.length === 0) return 0
+
+    // --- Bulk Fetch: ดึง Category และ Product ทั้งหมดมาสร้าง Map ก่อนเข้าลูป ---
+    // หลีกเลี่ยงการ Query ฐานข้อมูลซ้ำๆ ภายในลูป (N+1 Problem)
     const allCats = await db.categories.toArray()
     const catIdToUuid = new Map(allCats.map(c => [c.id!, c.uuid]))
 
-    // โหลด Product map: id → uuid (สำหรับ inventoryMappings)
     const allProds = await db.products.toArray()
     const prodIdToUuid = new Map(allProds.map(p => [p.id!, p.uuid]))
 
     const payload = localProducts.map(p => {
-      // แปลง inventoryMappings: ใช้ UUID แทน Local ID
-      const mappingsForCloud = p.inventoryMappings?.map(m => ({
-        sourceProductUuid: prodIdToUuid.get(m.sourceProductId) ?? null,
-        quantity:          m.quantity,
-      })).filter(m => m.sourceProductUuid) ?? null
+      const category_uuid = catIdToUuid.get(p.categoryId)
+
+      const mappingsForCloud = p.inventoryMappings?.length
+        ? p.inventoryMappings
+            .map(m => {
+              const uuid = prodIdToUuid.get(m.sourceProductId)
+              return uuid ? { source_product_uuid: uuid, quantity: m.quantity } : null
+            })
+            .filter((m): m is { source_product_uuid: string; quantity: number } => m !== null)
+        : null
 
       return {
-        uuid:               p.uuid,
-        category_uuid:      catIdToUuid.get(p.categoryId) ?? '',
-        sku:                p.sku ?? null,
-        name:               p.name,
-        description:        p.description ?? null,
-        sale_price:         p.salePrice,
-        cost_price:         p.costPrice,
-        stock_quantity:     p.stockQuantity,
-        alert_threshold:    p.alertThreshold,
-        track_inventory:    p.trackInventory,
-        mapping_type:       p.mappingType ?? null,
+        uuid: p.uuid,
+        category_uuid,
+        sku: p.sku,
+        name: p.name,
+        description: p.description,
+        image_url: p.imageUrl,
+        sale_price: p.salePrice,
+        cost_price: p.costPrice,
+        stock_quantity: p.stockQuantity,
+        alert_threshold: p.alertThreshold,
+        track_inventory: p.trackInventory,
+        mapping_type: p.mappingType,
         inventory_mappings: mappingsForCloud,
-        is_active:          p.isActive,
-        sort_order:         p.sortOrder,
-        image_url:          p.imageUrl ?? null,
-        is_deleted:         p.isDeleted,
-        addon_groups:       p.addonGroups ?? null, // เพิ่มเทมเพลตตัวเลือกเสริม
-        created_at:         new Date(p.createdAt).toISOString(),
-        updated_at:         new Date(p.updatedAt).toISOString(),
+        addon_groups: p.addonGroups ?? null,
+        is_active: p.isActive,
+        sort_order: p.sortOrder,
+        is_deleted: p.isDeleted,
+        updated_at: p.updatedAt.toISOString(),
       }
     })
 
@@ -107,37 +148,42 @@ export function useMasterDataSync() {
       .from('products')
       .upsert(payload, { onConflict: 'uuid' })
 
-    if (error) throw new Error(`Push Products ล้มเหลว: ${error.message}`)
-    console.log(`✅ Push Products สำเร็จ: ${localProducts.length} รายการ`)
-    return localProducts.length
+    if (error) throw error
+    console.log(`✅ Push Products สำเร็จ: ${payload.length} รายการ`)
+    return payload.length
   }
 
   /**
    * Push พนักงาน (Users) ทั้งหมดขึ้น Supabase (Upsert by username)
    */
-  async function pushUsers(): Promise<number> {
+  async function pushUsers(force = false): Promise<number> {
     const supabase = useSupabaseClient<any>()
-    const localUsers = await db.users.toArray()
-    if (!localUsers.length) return 0
+    const lastPushAt = force ? null : await getLastPushAt()
+
+    let query = db.users.toCollection()
+    if (lastPushAt) {
+      query = db.users.where('updatedAt').above(lastPushAt)
+    }
+
+    const localUsers = await query.toArray()
+    if (localUsers.length === 0) return 0
 
     const payload = localUsers.map(u => ({
-      uuid:         u.uuid,
-      username:     u.username,
+      uuid: u.uuid,
+      username: u.username,
       display_name: u.displayName,
-      role:         u.role,
-      pin:          u.pin,
-      is_active:    u.isActive,
-      is_deleted:   u.isDeleted,
-      created_at:   new Date(u.createdAt).toISOString(),
-      updated_at:   new Date(u.updatedAt).toISOString(),
+      role: u.role,
+      pin: u.pin,
+      is_active: u.isActive,
+      is_deleted: u.isDeleted,
+      updated_at: u.updatedAt.toISOString(),
     }))
 
-    // ใช้ username เป็น onConflict เพื่อป้องกันปัญหา "Duplicate username" ตอน Push
     const { error } = await supabase
       .from('pos_users')
-      .upsert(payload, { onConflict: 'username' })
+      .upsert(payload, { onConflict: 'uuid' })
 
-    if (error) throw new Error(`Push Users ล้มเหลว: ${error.message}`)
+    if (error) throw error
     console.log(`✅ Push Users สำเร็จ: ${localUsers.length} รายการ`)
     return localUsers.length
   }
@@ -148,14 +194,17 @@ export function useMasterDataSync() {
 
   /**
    * Pull หมวดหมู่จาก Supabase ลงเครื่อง (Merge by uuid)
-   * @returns จำนวนรายการที่เพิ่ม/อัปเดต
    */
-  async function pullCategories(): Promise<number> {
+  async function pullCategories(force = false): Promise<number> {
     const supabase = useSupabaseClient<any>()
+    const lastPullAt = force ? null : await getLastPullAt()
 
-    const { data: remoteCats, error } = await supabase
-      .from('categories')
-      .select('*')
+    let query = supabase.from('categories').select('*')
+    if (lastPullAt) {
+      query = query.gt('updated_at', lastPullAt.toISOString())
+    }
+
+    const { data: remoteCats, error } = await query
       .order('sort_order', { ascending: true })
 
     if (error) throw new Error(`Pull Categories ล้มเหลว: ${error.message}`)
@@ -163,15 +212,11 @@ export function useMasterDataSync() {
 
     let count = 0
     for (const remote of remoteCats) {
-      // 1. ลองหาด้วย UUID ก่อน
       let existing = await db.categories.where('uuid').equals(remote.uuid).first()
-
-      // 2. ถ้าไม่พบด้วย UUID ให้ลองหาด้วย "ชื่อ" (ป้องกันข้อมูลซ้ำตอนเริ่มที่ไอดีไม่ตรงกัน)
       if (!existing) {
         existing = await db.categories.where('name').equals(remote.name).first()
       }
 
-      // อัปเดตเฉพาะถ้า Cloud ใหม่กว่า Local หรือไม่มีในเครื่อง
       const remoteUpdatedAt = new Date(remote.updated_at)
       if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) continue
 
@@ -189,47 +234,42 @@ export function useMasterDataSync() {
       }
 
       if (existing?.id) {
-        await db.categories.update(existing.id, { ...localCategory, uuid: remote.uuid }) // อัปเดต UUID ให้ตรงกับ Cloud เสมอ
+        await db.categories.update(existing.id, { ...localCategory, uuid: remote.uuid })
       } else {
         await db.categories.add(localCategory as Category)
       }
       count++
     }
-
-    console.log(`✅ Pull Categories สำเร็จ: อัปเดต ${count} รายการ`)
     return count
   }
 
   /**
    * Pull สินค้าจาก Supabase ลงเครื่อง (Merge by uuid)
-   * แปลง inventoryMappings: sourceProductUuid → sourceProductId (local)
-   * @returns จำนวนรายการที่เพิ่ม/อัปเดต
    */
-  async function pullProducts(): Promise<number> {
+  async function pullProducts(force = false): Promise<number> {
     const supabase = useSupabaseClient<any>()
+    const lastPullAt = force ? null : await getLastPullAt()
 
-    const { data: remoteProds, error } = await supabase
-      .from('products')
-      .select('*')
+    let query = supabase.from('products').select('*')
+    if (lastPullAt) {
+      query = query.gt('updated_at', lastPullAt.toISOString())
+    }
+
+    const { data: remoteProds, error } = await query
       .order('sort_order', { ascending: true })
 
     if (error) throw new Error(`Pull Products ล้มเหลว: ${error.message}`)
     if (!remoteProds?.length) return 0
 
-    // สร้าง Map: categoryUuid → local id
     const localCats = await db.categories.toArray()
     const catUuidToId = new Map(localCats.map(c => [c.uuid, c.id!]))
 
-    // สร้าง Map: productUuid → local id (สำหรับ Resolve inventoryMappings)
     const localProds = await db.products.toArray()
     const prodUuidToId = new Map(localProds.map(p => [p.uuid, p.id!]))
 
     let count = 0
     for (const remote of remoteProds) {
-      // 1. ลองหาด้วย UUID ก่อน
       let existing = await db.products.where('uuid').equals(remote.uuid).first()
-
-      // 2. ถ้าไม่พบด้วย UUID ลองหาด้วย SKU หรือ ชื่อ
       if (!existing) {
         if (remote.sku) {
           existing = await db.products.where('sku').equals(remote.sku).first()
@@ -242,18 +282,16 @@ export function useMasterDataSync() {
       const remoteUpdatedAt = new Date(remote.updated_at)
       if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) continue
 
-      // Resolve categoryId จาก uuid
       const categoryId = catUuidToId.get(remote.category_uuid)
       if (!categoryId) {
         console.warn(`⚠️ ไม่พบหมวดหมู่ uuid=${remote.category_uuid} สำหรับสินค้า "${remote.name}" — ข้าม`)
         continue
       }
 
-      // แปลง inventoryMappings: uuid → local id
       const inventoryMappings = remote.inventory_mappings
-        ? (remote.inventory_mappings as Array<{ sourceProductUuid: string; quantity: number }>)
+        ? (remote.inventory_mappings as Array<{ source_product_uuid: string; quantity: number }>)
             .map(m => {
-              const localId = prodUuidToId.get(m.sourceProductUuid)
+              const localId = prodUuidToId.get(m.source_product_uuid)
               return localId ? { sourceProductId: localId, quantity: m.quantity } : null
             })
             .filter((m): m is { sourceProductId: number; quantity: number } => m !== null)
@@ -272,7 +310,7 @@ export function useMasterDataSync() {
         trackInventory:     remote.track_inventory,
         mappingType:        remote.mapping_type ?? undefined,
         inventoryMappings:  inventoryMappings?.length ? inventoryMappings : undefined,
-        addonGroups:        remote.addon_groups ?? undefined, // ดึงเทมเพลตตัวเลือกเสริมลงเครื่อง
+        addonGroups:        remote.addon_groups ?? undefined,
         isActive:           remote.is_active,
         sortOrder:          remote.sort_order,
         imageUrl:           remote.image_url ?? undefined,
@@ -281,46 +319,43 @@ export function useMasterDataSync() {
         updatedAt:          remoteUpdatedAt,
       }
 
-      if (existing?.id) {
-        await db.products.update(existing.id, { ...localProduct, uuid: remote.uuid }) // อัปเดต UUID ให้ตรงกับ Cloud
+      let productId = existing?.id
+      if (productId) {
+        await db.products.update(productId, { ...localProduct, uuid: remote.uuid })
       } else {
-        const newId = await db.products.add(localProduct as Product)
-        // อัปเดต Map เพื่อใช้ Resolve mapping ของสินค้าถัดๆ ไป
-        prodUuidToId.set(remote.uuid, newId as number)
+        productId = await db.products.add(localProduct as Product) as number
       }
+      prodUuidToId.set(remote.uuid, productId!)
       count++
     }
-
-    console.log(`✅ Pull Products สำเร็จ: อัปเดต ${count} รายการ`)
     return count
   }
 
   /**
-   * Pull พนักงานจาก Supabase ลงเครื่อง (Merge by uuid / username fallback)
+   * Pull พนักงานจาก Supabase ลงเครื่อง
    */
-  async function pullUsers(): Promise<number> {
+  async function pullUsers(force = false): Promise<number> {
     const supabase = useSupabaseClient<any>()
+    const lastPullAt = force ? null : await getLastPullAt()
 
-    const { data: remoteUsers, error } = await supabase
-      .from('pos_users')
-      .select('*')
+    let query = supabase.from('pos_users').select('*')
+    if (lastPullAt) {
+      query = query.gt('updated_at', lastPullAt.toISOString())
+    }
 
+    const { data: remoteUsers, error } = await query
     if (error) throw new Error(`Pull Users ล้มเหลว: ${error.message}`)
     if (!remoteUsers?.length) return 0
 
     let count = 0
     for (const remote of remoteUsers) {
-      // 1. ลองหาด้วย UUID ก่อน
       let existing = await db.users.where('uuid').equals(remote.uuid).first()
-      
-      // 2. ถ้าไม่พบด้วย UUID ให้ลองหาด้วย username (ป้องกันชื่อซ้ำแต่ UUID ไม่ตรงตอนเริ่มเบื้องต้น)
       if (!existing) {
         existing = await db.users.where('username').equals(remote.username).first()
       }
 
       const remoteUpdatedAt = new Date(remote.updated_at)
       if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) {
-        // หาก UUID ในเครื่องไม่ตรงกับ Cloud (กรณีชื่อซ้ำแต่คนละ ID) ให้แก้ไอดีในเครื่องตาม Cloud
         if (existing.uuid !== remote.uuid) {
             await db.users.update(existing.id!, { uuid: remote.uuid })
         }
@@ -347,8 +382,76 @@ export function useMasterDataSync() {
       }
       count++
     }
+    return count
+  }
 
-    console.log(`✅ Pull Users สำเร็จ: อัปเดต ${count} รายการ`)
+  /**
+   * Pull ประวัติการปรับสต็อก (Stock Audit Logs) จาก Cloud
+   */
+  async function pullStockAuditLogs(force = false): Promise<number> {
+    const supabase = useSupabaseClient<any>()
+    const lastPullAt = force
+      ? null
+      : await getSetting<string | null>(SETTING_KEY_STOCK_PULL, null).then(val => val ? new Date(val) : null)
+
+    let query = supabase.from('stock_audit_logs').select('*')
+    if (lastPullAt) {
+      query = query.gt('updated_at', lastPullAt.toISOString())
+    }
+
+    const { data: remoteLogs, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(200)
+
+    if (error) throw new Error(`Pull Stock Logs ล้มเหลว: ${error.message}`)
+    if (!remoteLogs?.length) return 0
+
+    // --- Bulk Fetch: ดึงทั้ง Products และ Users มาสร้าง Map ก่อนลูปเพื่อประสิทธิภาพ ---
+    const allProds = await db.products.toArray()
+    const prodUuidToLocalId = new Map(allProds.map(p => [p.uuid, p.id!]))
+
+    const allUsers = await db.users.toArray()
+    const userUuidToLocalId = new Map(allUsers.map(u => [u.uuid, u.id!]))
+
+    // ดึงรายการที่มีอยู่แล้วมาตรวจสอบ (Bulk)
+    const remoteUuids = remoteLogs.map(r => r.uuid)
+    const existingLogs = await db.stockAuditLogs.where('uuid').anyOf(remoteUuids).toArray()
+    const existingUuidToId = new Map(existingLogs.map(l => [l.uuid, l.id!]))
+
+    let count = 0
+    for (const remote of remoteLogs) {
+      const existingId = existingUuidToId.get(remote.uuid)
+      if (existingId && !force) continue
+
+      const localLog: Omit<StockAuditLog, 'id'> = {
+        uuid:             remote.uuid,
+        productId:        prodUuidToLocalId.get(remote.product_uuid) || 0,
+        productName:      remote.product_name,
+        changeQuantity:   Number(remote.change_quantity),
+        previousQuantity: Number(remote.previous_quantity),
+        newQuantity:      Number(remote.new_quantity),
+        reason:           remote.reason,
+        note:             remote.note ?? undefined,
+        staffId:          userUuidToLocalId.get(remote.staff_uuid) || 0,
+        staffName:        remote.staff_name,
+        staffUuid:        remote.staff_uuid,
+        syncStatus:       'synced',
+        syncedAt:         new Date(remote.updated_at),
+        syncRetryCount:   0,
+        createdAt:        new Date(remote.created_at),
+        updatedAt:        new Date(remote.updated_at),
+        isDeleted:        remote.is_deleted,
+      }
+
+      if (existingId) {
+        await db.stockAuditLogs.update(existingId, localLog)
+      } else {
+        await db.stockAuditLogs.add(localLog as StockAuditLog)
+      }
+      count++
+    }
+
+    await setSetting(SETTING_KEY_STOCK_PULL, new Date().toISOString())
     return count
   }
 
@@ -356,17 +459,16 @@ export function useMasterDataSync() {
   // Orchestration: Push All / Pull All / Sync All
   // -----------------------------------------------------------------------
 
-  /**
-   * Push ข้อมูล Local ขึ้น Cloud ทั้งหมด
-   */
-  async function pushAll(): Promise<{ categories: number; products: number; users: number }> {
+  async function pushAll(force = false): Promise<{ categories: number; products: number; users: number }> {
     if (isSyncingMaster.value) return { categories: 0, products: 0, users: 0 }
     isSyncingMaster.value = true
     masterSyncError.value = null
+    const syncStartTime = new Date()
     try {
-      const categories = await pushCategories()
-      const products   = await pushProducts()
-      const users      = await pushUsers()
+      const categories = await pushCategories(force)
+      const products   = await pushProducts(force)
+      const users      = await pushUsers(force)
+      await updateLastPushAt(syncStartTime)
       lastMasterSyncAt.value = new Date()
       return { categories, products, users }
     } catch (e: any) {
@@ -377,23 +479,20 @@ export function useMasterDataSync() {
     }
   }
 
-  /**
-   * Pull ข้อมูลจาก Cloud ลงเครื่องทั้งหมด
-   * ลำดับสำคัญ: Categories ก่อน (เพราะ Products อ้างอิง Category uuid)
-   */
-  async function pullAll(): Promise<{ categories: number; products: number; users: number }> {
-    if (isSyncingMaster.value) return { categories: 0, products: 0, users: 0 }
+  async function pullAll(force = false): Promise<{ categories: number; products: number; users: number; stockLogs: number }> {
+    if (isSyncingMaster.value) return { categories: 0, products: 0, users: 0, stockLogs: 0 }
     isSyncingMaster.value = true
     masterSyncError.value = null
+    const syncStartTime = new Date()
     try {
-      const categories = await pullCategories()  // ต้อง pull ก่อนเสมอ
-      const products   = await pullProducts()
-      const users      = await pullUsers()
-      
+      const categories = await pullCategories(force)
+      const products   = await pullProducts(force)
+      const users      = await pullUsers(force)
+      const stockLogs  = await pullStockAuditLogs(force)
+      await updateLastPullAt(syncStartTime)
       lastMasterSyncAt.value = new Date()
-      lastPullTimestamp.value = Date.now() // ส่งสัญญาบอกหน้าต่างๆ ให้โหลดข้อมูลใหม่
-      
-      return { categories, products, users }
+      lastPullTimestamp.value = Date.now()
+      return { categories, products, users, stockLogs }
     } catch (e: any) {
       masterSyncError.value = e.message
       throw e
@@ -402,10 +501,6 @@ export function useMasterDataSync() {
     }
   }
 
-  /**
-   * Full Two-way Sync: Push ขึ้นก่อน แล้ว Pull ลง
-   * ใช้สำหรับ Full Sync เมื่อจะใช้งานหลายอุปกรณ์
-   */
   async function syncAll(): Promise<void> {
     await pushAll()
     await pullAll()
@@ -421,6 +516,8 @@ export function useMasterDataSync() {
     pushAll,
     pullCategories,
     pullProducts,
+    pullUsers,
+    pullStockAuditLogs,
     pullAll,
     syncAll,
   }

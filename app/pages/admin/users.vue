@@ -30,7 +30,7 @@
         <span class="text-surface-300 font-medium">กำลังโหลดข้อมูล...</span>
       </div>
 
-      <div class="flex-1 overflow-y-auto scrollbar-thin">
+      <div class="flex-1 overflow-auto scrollbar-thin">
         <table class="w-full text-left text-sm whitespace-nowrap">
           <thead class="bg-surface-800 text-surface-300 sticky top-0 z-10">
             <tr>

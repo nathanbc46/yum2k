@@ -30,81 +30,83 @@
 
       <!-- Table -->
       <div v-else class="bg-surface-900 border border-surface-800 rounded-2xl overflow-hidden shadow-2xl">
-        <table class="w-full text-left text-sm border-collapse">
-          <thead class="bg-surface-950 text-surface-500 text-[10px] uppercase tracking-widest border-b border-surface-800">
-            <tr>
-              <th class="px-6 py-4">ลำดับ</th>
-              <th class="px-6 py-4">ชื่อหมวดหมู่</th>
-              <th class="px-6 py-4">คำอธิบาย</th>
-              <th class="px-6 py-4 text-center">สถานะ</th>
-              <th class="px-6 py-4 text-right">คำสั่ง</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-surface-800">
-            <tr
-              v-for="cat in categories"
-              :key="cat.id"
-              class="hover:bg-surface-800/40 transition-colors"
-              :class="{ 'opacity-50': !cat.isActive }"
-            >
-              <!-- ลำดับ -->
-              <td class="px-6 py-4 font-mono text-surface-400 text-xs w-16">{{ cat.sortOrder }}</td>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm border-collapse">
+            <thead class="bg-surface-950 text-surface-500 text-[10px] uppercase tracking-widest border-b border-surface-800">
+              <tr>
+                <th class="px-6 py-4">ลำดับ</th>
+                <th class="px-6 py-4">ชื่อหมวดหมู่</th>
+                <th class="px-6 py-4">คำอธิบาย</th>
+                <th class="px-6 py-4 text-center">สถานะ</th>
+                <th class="px-6 py-4 text-right">คำสั่ง</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-800">
+              <tr
+                v-for="cat in categories"
+                :key="cat.id"
+                class="hover:bg-surface-800/40 transition-colors"
+                :class="{ 'opacity-50': !cat.isActive }"
+              >
+                <!-- ลำดับ -->
+                <td class="px-6 py-4 font-mono text-surface-400 text-xs w-16">{{ cat.sortOrder }}</td>
 
-              <!-- ชื่อ + สี -->
-              <td class="px-6 py-4">
-                <div class="flex items-center gap-3">
+                <!-- ชื่อ + สี -->
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-3">
+                    <span
+                      class="w-3 h-3 rounded-full shrink-0"
+                      :style="{ backgroundColor: cat.color ?? '#6366f1' }"
+                    />
+                    <span class="font-semibold text-surface-50">{{ cat.name }}</span>
+                  </div>
+                </td>
+
+                <!-- คำอธิบาย -->
+                <td class="px-6 py-4 text-surface-400 text-xs">{{ cat.description ?? '—' }}</td>
+
+                <!-- สถานะ -->
+                <td class="px-6 py-4 text-center">
                   <span
-                    class="w-3 h-3 rounded-full shrink-0"
-                    :style="{ backgroundColor: cat.color ?? '#6366f1' }"
-                  />
-                  <span class="font-semibold text-surface-50">{{ cat.name }}</span>
-                </div>
-              </td>
-
-              <!-- คำอธิบาย -->
-              <td class="px-6 py-4 text-surface-400 text-xs">{{ cat.description ?? '—' }}</td>
-
-              <!-- สถานะ -->
-              <td class="px-6 py-4 text-center">
-                <span
-                  class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
-                  :class="cat.isActive
-                    ? 'bg-success/10 text-success border border-success/20'
-                    : 'bg-surface-700/50 text-surface-500 border border-surface-700'"
-                >
-                  {{ cat.isActive ? 'เปิดใช้งาน' : 'ซ่อนอยู่' }}
-                </span>
-              </td>
-
-              <!-- Actions -->
-              <td class="px-6 py-4 text-right">
-                <div class="flex justify-end gap-2">
-                  <button
-                    @click="openEditModal(cat)"
-                    class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-surface-300 rounded-lg text-xs font-bold transition-all border border-surface-700"
-                  >
-                    แก้ไข
-                  </button>
-                  <button
-                    @click="handleToggle(cat)"
-                    class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border"
+                    class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
                     :class="cat.isActive
-                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
-                      : 'bg-success/10 text-success border-success/20 hover:bg-success/20'"
+                      ? 'bg-success/10 text-success border border-success/20'
+                      : 'bg-surface-700/50 text-surface-500 border border-surface-700'"
                   >
-                    {{ cat.isActive ? 'ซ่อน' : 'แสดง' }}
-                  </button>
-                  <button
-                    @click="handleDelete(cat)"
-                    class="px-3 py-1.5 bg-danger/10 text-danger hover:bg-danger hover:text-white rounded-lg text-xs font-bold transition-all border border-danger/20"
-                  >
-                    ลบ
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                    {{ cat.isActive ? 'เปิดใช้งาน' : 'ซ่อนอยู่' }}
+                  </span>
+                </td>
+
+                <!-- Actions -->
+                <td class="px-6 py-4 text-right">
+                  <div class="flex justify-end gap-2">
+                    <button
+                      @click="openEditModal(cat)"
+                      class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-surface-300 rounded-lg text-xs font-bold transition-all border border-surface-700"
+                    >
+                      แก้ไข
+                    </button>
+                    <button
+                      @click="handleToggle(cat)"
+                      class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border"
+                      :class="cat.isActive
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
+                        : 'bg-success/10 text-success border-success/20 hover:bg-success/20'"
+                    >
+                      {{ cat.isActive ? 'ซ่อน' : 'แสดง' }}
+                    </button>
+                    <button
+                      @click="handleDelete(cat)"
+                      class="px-3 py-1.5 bg-danger/10 text-danger hover:bg-danger hover:text-white rounded-lg text-xs font-bold transition-all border border-danger/20"
+                    >
+                      ลบ
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </main>
 

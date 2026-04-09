@@ -91,169 +91,171 @@
 
       <!-- Table -->
       <div v-else class="bg-surface-900 border border-surface-800 rounded-2xl overflow-hidden shadow-2xl">
-        <table class="w-full text-left text-sm border-collapse">
-          <thead class="bg-surface-950 text-surface-500 text-[10px] uppercase tracking-widest border-b border-surface-800">
-            <tr>
-              <th class="px-6 py-4">สินค้า</th>
-              <th class="px-6 py-4">หมวดหมู่</th>
-              <th class="px-6 py-4 text-center">ประเภท</th>
-              <th class="px-6 py-4 text-right">ราคาขาย</th>
-              <th class="px-6 py-4 text-center">สต็อก</th>
-              <th class="px-6 py-4 text-center">สถานะ</th>
-              <th class="px-6 py-4 text-right">คำสั่ง</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-surface-800">
-            <tr
-              v-for="product in filteredProducts"
-              :key="product.id"
-              class="hover:bg-surface-800/40 transition-colors"
-              :class="{ 'opacity-50': !product.isActive }"
-            >
-              <!-- ชื่อ + SKU -->
-              <td class="px-6 py-4">
-                <div class="flex items-center gap-3">
-                  <!-- Thumbnail ขนาดเล็ก (ถ้ามีรูป) -->
-                  <div class="w-10 h-10 rounded-lg bg-surface-800 border border-surface-700 overflow-hidden shrink-0 flex items-center justify-center">
-                    <img v-if="product.imageUrl" :src="product.imageUrl" class="w-full h-full object-cover" />
-                    <span v-else class="text-lg opacity-20">🍋</span>
-                  </div>
-                  
-                  <div>
-                    <div class="flex items-center gap-2">
-                      <div class="font-semibold text-surface-50">{{ product.name }}</div>
-                      <!-- Badges/Icons บอกสถานะ -->
-                      <div class="flex items-center gap-1">
-                        <span v-if="product.imageUrl" class="text-[10px]" title="มีรูปภาพ">🖼️</span>
-                        <span v-if="product.addonGroups?.length" class="text-[10px]" title="มี Add-ons">➕</span>
-                      </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm border-collapse">
+            <thead class="bg-surface-950 text-surface-500 text-[10px] uppercase tracking-widest border-b border-surface-800">
+              <tr>
+                <th class="px-6 py-4">สินค้า</th>
+                <th class="px-6 py-4">หมวดหมู่</th>
+                <th class="px-6 py-4 text-center">ประเภท</th>
+                <th class="px-6 py-4 text-right">ราคาขาย</th>
+                <th class="px-6 py-4 text-center">สต็อก</th>
+                <th class="px-6 py-4 text-center">สถานะ</th>
+                <th class="px-6 py-4 text-right">คำสั่ง</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-800">
+              <tr
+                v-for="product in filteredProducts"
+                :key="product.id"
+                class="hover:bg-surface-800/40 transition-colors"
+                :class="{ 'opacity-50': !product.isActive }"
+              >
+                <!-- ชื่อ + SKU -->
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-3">
+                    <!-- Thumbnail ขนาดเล็ก (ถ้ามีรูป) -->
+                    <div class="w-10 h-10 rounded-lg bg-surface-800 border border-surface-700 overflow-hidden shrink-0 flex items-center justify-center">
+                      <img v-if="product.imageUrl" :src="product.imageUrl" class="w-full h-full object-cover" />
+                      <span v-else class="text-lg opacity-20">🍋</span>
                     </div>
-                    <div v-if="product.sku" class="text-[10px] text-surface-500 font-mono mt-0.5">{{ product.sku }}</div>
+                    
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <div class="font-semibold text-surface-50">{{ product.name }}</div>
+                        <!-- Badges/Icons บอกสถานะ -->
+                        <div class="flex items-center gap-1">
+                          <span v-if="product.imageUrl" class="text-[10px]" title="มีรูปภาพ">🖼️</span>
+                          <span v-if="product.addonGroups?.length" class="text-[10px]" title="มี Add-ons">➕</span>
+                        </div>
+                      </div>
+                      <div v-if="product.sku" class="text-[10px] text-surface-500 font-mono mt-0.5">{{ product.sku }}</div>
+                    </div>
                   </div>
-                </div>
-              </td>
+                </td>
 
-              <!-- หมวดหมู่ -->
-              <td class="px-6 py-4">
-                <span
-                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
-                  :style="{
-                    backgroundColor: (getCategoryColor(product.categoryId) + '20'),
-                    color: getCategoryColor(product.categoryId),
-                    borderColor: getCategoryColor(product.categoryId) + '40',
-                    border: '1px solid'
-                  }"
-                >
-                  {{ getCategoryName(product.categoryId) }}
-                </span>
-              </td>
-
-              <!-- ประเภท Mapping -->
-              <td class="px-6 py-4 text-center">
-                <span
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border"
-                  :class="mappingBadgeClass(product.mappingType)"
-                >
-                  {{ mappingBadgeLabel(product.mappingType) }}
-                </span>
-              </td>
-
-              <!-- ราคา -->
-              <td class="px-6 py-4 text-right">
-                <div class="font-bold text-primary-400">฿{{ product.salePrice.toLocaleString() }}</div>
-                <div class="text-[10px] text-surface-500">ต้นทุน ฿{{ product.costPrice.toLocaleString() }}</div>
-              </td>
-
-              <!-- สต็อก -->
-              <td class="px-6 py-4 text-center">
-                <template v-if="product.trackInventory">
-                  <div
-                    class="font-bold text-lg"
-                    :class="product.stockQuantity <= product.alertThreshold ? 'text-amber-400' : 'text-surface-50'"
+                <!-- หมวดหมู่ -->
+                <td class="px-6 py-4">
+                  <span
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
+                    :style="{
+                      backgroundColor: (getCategoryColor(product.categoryId) + '20'),
+                      color: getCategoryColor(product.categoryId),
+                      borderColor: getCategoryColor(product.categoryId) + '40',
+                      border: '1px solid'
+                    }"
                   >
-                    {{ product.stockQuantity }}
-                  </div>
-                  <!-- Progress Bar -->
-                  <div class="w-full bg-surface-800 rounded-full h-1.5 mt-1 max-w-[60px] mx-auto">
+                    {{ getCategoryName(product.categoryId) }}
+                  </span>
+                </td>
+
+                <!-- ประเภท Mapping -->
+                <td class="px-6 py-4 text-center">
+                  <span
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border"
+                    :class="mappingBadgeClass(product.mappingType)"
+                  >
+                    {{ mappingBadgeLabel(product.mappingType) }}
+                  </span>
+                </td>
+
+                <!-- ราคา -->
+                <td class="px-6 py-4 text-right">
+                  <div class="font-bold text-primary-400">฿{{ product.salePrice.toLocaleString() }}</div>
+                  <div class="text-[10px] text-surface-500">ต้นทุน ฿{{ product.costPrice.toLocaleString() }}</div>
+                </td>
+
+                <!-- สต็อก -->
+                <td class="px-6 py-4 text-center">
+                  <template v-if="product.trackInventory">
                     <div
-                      class="h-1.5 rounded-full transition-all"
-                      :class="product.stockQuantity <= product.alertThreshold ? 'bg-amber-400' : 'bg-primary-500'"
-                      :style="{ width: `${Math.min(100, (product.stockQuantity / Math.max(product.stockQuantity, product.alertThreshold * 3)) * 100)}%` }"
-                    />
-                  </div>
-                  <!-- Low Stock Badge -->
-                  <div
-                    v-if="product.stockQuantity <= product.alertThreshold"
-                    class="text-[9px] text-amber-400 mt-0.5 font-bold"
+                      class="font-bold text-lg"
+                      :class="product.stockQuantity <= product.alertThreshold ? 'text-amber-400' : 'text-surface-50'"
+                    >
+                      {{ product.stockQuantity }}
+                    </div>
+                    <!-- Progress Bar -->
+                    <div class="w-full bg-surface-800 rounded-full h-1.5 mt-1 max-w-[60px] mx-auto">
+                      <div
+                        class="h-1.5 rounded-full transition-all"
+                        :class="product.stockQuantity <= product.alertThreshold ? 'bg-amber-400' : 'bg-primary-500'"
+                        :style="{ width: `${Math.min(100, (product.stockQuantity / Math.max(product.stockQuantity, product.alertThreshold * 3)) * 100)}%` }"
+                      />
+                    </div>
+                    <!-- Low Stock Badge -->
+                    <div
+                      v-if="product.stockQuantity <= product.alertThreshold"
+                      class="text-[9px] text-amber-400 mt-0.5 font-bold"
+                    >
+                      ⚠️ ใกล้หมด
+                    </div>
+                  </template>
+                  <span v-else class="text-[10px] text-surface-500">ไม่ Track</span>
+                </td>
+
+                <!-- สถานะ -->
+                <td class="px-6 py-4 text-center">
+                  <span
+                    class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border"
+                    :class="product.isActive
+                      ? 'bg-success/10 text-success border-success/20'
+                      : 'bg-surface-700/50 text-surface-500 border-surface-700'"
                   >
-                    ⚠️ ใกล้หมด
+                    {{ product.isActive ? 'เปิดขาย' : 'ซ่อน' }}
+                  </span>
+                </td>
+
+                <!-- Actions -->
+                <td class="px-6 py-4 text-right">
+                  <div class="flex justify-end gap-2">
+                    <!-- โหมดปกติ -->
+                    <template v-if="!showTrash">
+                      <button
+                        v-if="product.trackInventory"
+                        @click="openAdjustModal(product)"
+                        class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-surface-300 rounded-lg text-xs font-bold transition-all border border-surface-700"
+                        title="ปรับสต็อก"
+                      >
+                        📦 สต็อก
+                      </button>
+                      <button
+                        @click="openEditModal(product)"
+                        class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-surface-300 rounded-lg text-xs font-bold transition-all border border-surface-700"
+                      >
+                        แก้ไข
+                      </button>
+                      <button
+                        @click="handleToggle(product)"
+                        class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border"
+                        :class="product.isActive
+                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
+                          : 'bg-success/10 text-success border-success/20 hover:bg-success/20'"
+                      >
+                        {{ product.isActive ? 'ซ่อน' : 'แสดง' }}
+                      </button>
+                      <button
+                        @click="handleDelete(product)"
+                        class="px-3 py-1.5 bg-danger/10 text-danger hover:bg-danger hover:text-white rounded-lg text-xs font-bold transition-all border border-danger/20"
+                      >
+                        ลบ
+                      </button>
+                    </template>
+
+                    <!-- โหมดถังขยะ -->
+                    <template v-else>
+                      <button
+                        @click="handleRestore(product)"
+                        class="px-4 py-1.5 bg-success/10 text-success hover:bg-success hover:text-white rounded-lg text-xs font-bold transition-all border border-success/20"
+                      >
+                        ✨ กู้คืนสินค้า
+                      </button>
+                    </template>
                   </div>
-                </template>
-                <span v-else class="text-[10px] text-surface-500">ไม่ Track</span>
-              </td>
-
-              <!-- สถานะ -->
-              <td class="px-6 py-4 text-center">
-                <span
-                  class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border"
-                  :class="product.isActive
-                    ? 'bg-success/10 text-success border-success/20'
-                    : 'bg-surface-700/50 text-surface-500 border-surface-700'"
-                >
-                  {{ product.isActive ? 'เปิดขาย' : 'ซ่อน' }}
-                </span>
-              </td>
-
-              <!-- Actions -->
-              <td class="px-6 py-4 text-right">
-                <div class="flex justify-end gap-2">
-                  <!-- โหมดปกติ -->
-                  <template v-if="!showTrash">
-                    <button
-                      v-if="product.trackInventory"
-                      @click="openAdjustModal(product)"
-                      class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-surface-300 rounded-lg text-xs font-bold transition-all border border-surface-700"
-                      title="ปรับสต็อก"
-                    >
-                      📦 สต็อก
-                    </button>
-                    <button
-                      @click="openEditModal(product)"
-                      class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-surface-300 rounded-lg text-xs font-bold transition-all border border-surface-700"
-                    >
-                      แก้ไข
-                    </button>
-                    <button
-                      @click="handleToggle(product)"
-                      class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border"
-                      :class="product.isActive
-                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
-                        : 'bg-success/10 text-success border-success/20 hover:bg-success/20'"
-                    >
-                      {{ product.isActive ? 'ซ่อน' : 'แสดง' }}
-                    </button>
-                    <button
-                      @click="handleDelete(product)"
-                      class="px-3 py-1.5 bg-danger/10 text-danger hover:bg-danger hover:text-white rounded-lg text-xs font-bold transition-all border border-danger/20"
-                    >
-                      ลบ
-                    </button>
-                  </template>
-
-                  <!-- โหมดถังขยะ -->
-                  <template v-else>
-                    <button
-                      @click="handleRestore(product)"
-                      class="px-4 py-1.5 bg-success/10 text-success hover:bg-success hover:text-white rounded-lg text-xs font-bold transition-all border border-success/20"
-                    >
-                      ✨ กู้คืนสินค้า
-                    </button>
-                  </template>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </main>
 

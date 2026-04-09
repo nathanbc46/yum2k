@@ -19,7 +19,7 @@ import type {
 // ---------------------------------------------------------------------------
 // กำหนด Version ของ Database (เพิ่มทุกครั้งที่เปลี่ยน Schema)
 // ---------------------------------------------------------------------------
-const DB_VERSION = 3
+const DB_VERSION = 4
 const DB_NAME = 'Yum2K_POS_DB'
 
 // ---------------------------------------------------------------------------
@@ -50,8 +50,9 @@ class Yum2KDatabase extends Dexie {
        * - role: บทบาท (Index สำหรับ Filter)
        * - isActive: สถานะ (Index สำหรับ Filter)
        * - isDeleted: Soft Delete (Index)
+       * - updatedAt: สำหรับ Delta Sync (Index)
        */
-      users: '++id, &uuid, &username, role, isActive, isDeleted',
+      users: '++id, &uuid, &username, role, isActive, isDeleted, updatedAt',
 
       /**
        * categories: หมวดหมู่สินค้า
@@ -60,8 +61,9 @@ class Yum2KDatabase extends Dexie {
        * - name: ชื่อหมวดหมู่ (Index สำหรับตรวจสอบซ้ำ)
        * - isActive: สถานะ (Index)
        * - sortOrder: ลำดับการแสดง (Index สำหรับเรียงลำดับ)
+       * - updatedAt: สำหรับ Delta Sync (Index)
        */
-      categories: '++id, &uuid, name, isActive, sortOrder, isDeleted',
+      categories: '++id, &uuid, name, isActive, sortOrder, isDeleted, updatedAt',
 
       /**
        * products: สินค้า
@@ -73,10 +75,11 @@ class Yum2KDatabase extends Dexie {
        * - isActive: สถานะ (Index)
        * - stockQuantity: จำนวนสต็อก (Index สำหรับ Query สินค้าใกล้หมด)
        * - mappingType: ประเภท Mapping (Index สำหรับ Filter)
+       * - updatedAt: สำหรับ Delta Sync (Index)
        *
        * หมายเหตุ: inventoryMappings เก็บเป็น JSON (ไม่ Index ได้โดยตรง)
        */
-      products: '++id, &uuid, categoryId, name, sku, isActive, sortOrder, stockQuantity, mappingType, isDeleted',
+      products: '++id, &uuid, categoryId, name, sku, isActive, sortOrder, stockQuantity, mappingType, isDeleted, updatedAt',
 
       /**
        * orders: ออร์เดอร์ / Transaction

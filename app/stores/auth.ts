@@ -70,9 +70,7 @@ export const useAuthStore = defineStore('auth', () => {
         const user = await db.users.get(id)
         if (user && user.isActive && !user.isDeleted) {
           currentUser.value = user
-          
-          // อัปเดตเวลาเข้าใช้ง่าน
-          await db.users.update(id, { lastLoginAt: new Date() })
+          // ไม่ต้องอัปเดต lastLoginAt ตรงนี้ เพื่อป้องกันการกระตุ้น Delta Sync ทุกครั้งที่ Refresh
         } else {
           localStorage.removeItem('yum2k_current_user_id')
         }

@@ -253,13 +253,14 @@ async function handlePull() {
 }
 
 const navLinks = [
-  { to: '/admin',            icon: '📊', label: 'หน้าแรกสรุปยอด' },
-  { to: '/admin/reports',    icon: '📈', label: 'วิเคราะห์ยอดขาย' },
-  { to: '/admin/products',   icon: '📦', label: 'จัดการสินค้า' },
-  { to: '/admin/categories', icon: '🗂️', label: 'จัดการหมวดหมู่' },
-  { to: '/admin/stock-audit',icon: '📋', label: 'ประวัติสต็อก' },
-  { to: '/admin/users',      icon: '👥', label: 'จัดการพนักงาน' },
-  { to: '/admin/settings',   icon: '⚙️', label: 'ตั้งค่าร้านค้า' },
+  { to: '/admin',                icon: '📊', label: 'หน้าแรกสรุปยอด' },
+  { to: '/admin/reports',        icon: '📈', label: 'วิเคราะห์ยอดขาย' },
+  { to: '/admin/closing-report', icon: '🏪', label: 'สรุปยอดปิดร้าน' },
+  { to: '/admin/products',       icon: '📦', label: 'จัดการสินค้า' },
+  { to: '/admin/categories',     icon: '🗂️', label: 'จัดการหมวดหมู่' },
+  { to: '/admin/stock-audit',    icon: '📋', label: 'ประวัติสต็อก' },
+  { to: '/admin/users',          icon: '👥', label: 'จัดการพนักงาน' },
+  { to: '/admin/settings',       icon: '⚙️', label: 'ตั้งค่าร้านค้า' },
 ]
 
 function handleLogout() {

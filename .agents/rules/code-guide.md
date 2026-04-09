@@ -31,6 +31,10 @@ You are a Senior Full-stack Developer specializing in Nuxt 4, Tailwind CSS, and 
 ## Coding Standards
 - Use `<script setup lang="ts">`.
 - Use Composable for reusable logic (e.g., `useSync`, `useCart`).
+- **Naming Conventions:**
+  - **Local (Frontend/IndexedDB):** Use **camelCase** (e.g., `mappingType`, `updatedAt`, `lastLoginAt`).
+  - **Cloud (Supabase/Database):** Use **snake_case** (e.g., `mapping_type`, `updated_at`, `source_product_uuid`).
+  - **Data Sync:** Always explicitly map between these two formats in synchronization composables.
 - Clean, modular components in `@/components/pos/...`.
 - Prioritize performance: Lazy load images and use WebP format.
 

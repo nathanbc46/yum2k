@@ -300,12 +300,12 @@ const handleFetchCloud = async () => {
   
   isFetchingRemote.value = true
   try {
-    const count = await fetchRemoteOrders(100) // ดึง 100 รายการล่าสุด
+    const count = await fetchRemoteOrders(100) // ดึง 100 รายการล่าสุด (รวมข้อมูลพนักงาน/สินค้า)
     if (count > 0) {
-      toast.success(`ดึงข้อมูลสำเร็จ! นำเข้ารายการใหม่ ${count} รายการ`)
+      toast.success(`ดึงข้อมูลสำเร็จ!\n• นำเข้าออร์เดอร์ใหม่ ${count} รายการ\n• อัปเดตข้อมูลสินค้าและพนักงานเรียบร้อย`)
       await loadOrders(true) // รีโหลดหน้าจอ
     } else {
-      toast.info('ข้อมูลในเครื่องเป็นปัจจุบันอยู่แล้ว')
+      toast.info('ข้อมูลออร์เดอร์เป็นปัจจุบันแล้ว (อัปเดตข้อมูลหลักเรียบร้อย)')
     }
   } catch (error: any) {
     toast.error(`เกิดข้อผิดพลาดในการดึงข้อมูล: ${error.message}`)

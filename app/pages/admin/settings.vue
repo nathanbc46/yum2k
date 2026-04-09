@@ -233,8 +233,8 @@ async function handleSyncHistory() {
 
   isSyncingHistory.value = true
   try {
-    const count = await fetchRemoteOrders(200) // ดึง 200 รายการล่าสุด
-    toast.success(`ดึงข้อมูลสำเร็จ: นำเข้า ${count} รายการใหม่\nเลขบิลจะรันต่อจากรายการล่าสุดในระบบครับ`, 5000)
+    const count = await fetchRemoteOrders(200) // ดึง 200 รายการล่าสุด (รวมข้อมูลพนักงาน/สินค้า)
+    toast.success(`ดึงประวัติสำเร็จ!\n• นำเข้าออร์เดอร์ใหม่ ${count} รายการ\n• อัปเดตข้อมูลพนักงานและสินค้าเรียบร้อย\nเลขบิลจะรันต่อจากรายการล่าสุดในระบบครับ`, 7000)
   } catch (err) {
     toast.error('เกิดข้อผิดพลาดในการดึงข้อมูล')
   } finally {
