@@ -11,6 +11,8 @@ export const usePosStore = defineStore('pos', () => {
   const products = ref<ProductWithCategory[]>([])
   const isLoading = ref<boolean>(false)
   const lastOrder = ref<Order | null>(null)
+  const selectedCartItemIndex = ref<number | null>(null)
+  const pendingOrdersCount = ref<number>(0)
 
   // Computed
   const activeCategory = computed(() => 
@@ -88,6 +90,9 @@ export const usePosStore = defineStore('pos', () => {
       
       products.value = mappedProducts
 
+      // 4. โหลดจำนวนคิวค้างจ่าย
+      await refreshPendingOrdersCount()
+
     } catch (e) {
       console.error('โหลดข้อมูลลง POS ไม่สำเร็จ:', e)
     } finally {
@@ -130,6 +135,21 @@ export const usePosStore = defineStore('pos', () => {
     lastOrder.value = order
   }
 
+  function setSelectedCartItemIndex(index: number | null) {
+    selectedCartItemIndex.value = index
+  }
+
+  async function refreshPendingOrdersCount() {
+    try {
+      pendingOrdersCount.value = await db.orders
+        .where('status')
+        .equals('pending')
+        .count()
+    } catch (error) {
+      console.error('ไม่สามารถโหลดจำนวนคิวค้างจ่ายได้:', error)
+    }
+  }
+
   return {
     // state
     activeCategoryId,
@@ -138,6 +158,8 @@ export const usePosStore = defineStore('pos', () => {
     products,
     isLoading,
     lastOrder,
+    selectedCartItemIndex,
+    pendingOrdersCount,
     
     // computed
     activeCategory,
@@ -150,6 +172,8 @@ export const usePosStore = defineStore('pos', () => {
     loadData,
     setActiveCategory,
     goBack,
-    setLastOrder
+    setLastOrder,
+    setSelectedCartItemIndex,
+    refreshPendingOrdersCount
   }
 })

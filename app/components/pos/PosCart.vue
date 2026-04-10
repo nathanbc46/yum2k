@@ -22,12 +22,23 @@
             <span class="w-1.5 h-1.5 rounded-full" :class="isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'"></span>
             {{ isOnline ? 'ONLINE' : 'OFFLINE' }}
           </span>
+
+          <!-- คิวที่ค้างชำระ (Pending) -->
+          <button
+            v-if="posStore.pendingOrdersCount > 0"
+            @click="router.push({ path: '/orders', query: { status: 'pending' } })"
+            class="ml-2 flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-black bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500/20 transition-all active:scale-95 animate-pulse"
+            title="มีออร์เดอร์ค้างชำระ"
+          >
+            <span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
+            คิวค้าง: {{ posStore.pendingOrdersCount }}
+          </button>
         </h2>
       </div>
       <div class="flex items-center gap-2">
         <button 
           v-if="cartItems.length > 0"
-          @click="clearCart()"
+          @click="handleClearCart()"
           class="w-10 h-10 flex items-center justify-center bg-surface-800 rounded-lg text-red-400 hover:text-red-300 transition-colors"
           title="ล้างตะกร้า"
         >
@@ -49,80 +60,93 @@
       <div 
         v-for="(item, idx) in cartItems" 
         :key="`${item.product.id}_${idx}`"
-        class="bg-surface-800 p-3 rounded-xl border border-surface-700 flex flex-col gap-2 relative group"
+        class="relative flex flex-col gap-2 transition-all p-3"
       >
-        <!-- ชื่อกับราคา -->
-        <div class="flex justify-between items-start gap-2 pr-12">
-          <div class="flex-1">
-            <div class="font-bold text-sm leading-tight text-surface-50">
-              {{ item.product.name }}
+        <!-- Background & Clickable Layer (หัวใจสำคัญของ Effect) -->
+        <div 
+          @click.stop="item.product.addonGroups?.length ? posStore.setSelectedCartItemIndex(posStore.selectedCartItemIndex === idx ? null : idx) : null"
+          class="absolute inset-0 z-0 bg-surface-800 rounded-xl border transition-all"
+          :class="[
+            posStore.selectedCartItemIndex === idx 
+              ? 'border-primary-500 ring-2 ring-primary-500/20 bg-surface-700' 
+              : 'border-surface-700 hover:border-surface-600',
+            item.product.addonGroups?.length ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default'
+          ]"
+        />
+
+        <div class="relative z-10 pointer-events-none flex flex-col gap-2">
+          <!-- ชื่อกับราคา -->
+          <div class="flex justify-between items-start gap-2 pr-12">
+            <div class="flex-1">
+              <div class="font-bold text-sm leading-tight text-surface-50">
+                {{ item.product.name }}
+              </div>
+              <!-- แสดง Add-ons ที่เลือก -->
+              <div v-if="item.addons && item.addons.length > 0" class="flex flex-wrap gap-1 mt-1">
+                <span
+                  v-for="addon in item.addons"
+                  :key="addon.id"
+                  class="text-[10px] px-1.5 py-0.5 rounded-full font-bold border transition-colors bg-primary-900/40 text-primary-300 border-primary-700/30 [.light-mode_&]:bg-primary-100 [.light-mode_&]:text-primary-600 [.light-mode_&]:border-primary-300"
+                >
+                  {{ addon.name }}{{ addon.price > 0 ? ` +${addon.price}` : '' }}
+                </span>
+                <!-- ปุ่มแก้ไข (pointer-events-auto เพื่อให้กดได้) -->
+                <button 
+                  v-if="item.product.addonGroups && item.product.addonGroups.length > 0"
+                  @click.stop="editAddons(item)"
+                  class="text-[10px] bg-surface-900 text-surface-400 px-1.5 py-0.5 rounded-full border border-surface-700 transition-colors pointer-events-auto font-normal [.light-mode_&]:text-primary-600 [.light-mode_&]:bg-white [.light-mode_&]:border-primary-200"
+                  title="ตั้งค่าตัวเลือกเสริม"
+                >
+                  ✏️ ตั้งค่า
+                </button>
+              </div>
+              <!-- ปุ่มกรณีที่ยังไม่ได้เลือก Addon -->
+              <div v-else-if="item.product.addonGroups && item.product.addonGroups.length > 0" class="mt-1">
+                <button
+                  @click.stop="editAddons(item)"
+                  class="text-[10px] font-bold px-2 py-1 rounded-full border transition-all flex items-center gap-1 pointer-events-auto font-normal bg-primary-500/10 text-primary-400 border-primary-500/20 [.light-mode_&]:bg-primary-100 [.light-mode_&]:text-primary-600 [.light-mode_&]:border-primary-300"
+                >
+                  <span>+</span> เพิ่มตัวเลือก
+                </button>
+              </div>
             </div>
-            <!-- แสดง Add-ons ที่เลือก -->
-            <div v-if="item.addons && item.addons.length > 0" class="flex flex-wrap gap-1 mt-1">
-              <span
-                v-for="addon in item.addons"
-                :key="addon.id"
-                class="text-[10px] bg-primary-900/40 text-primary-300 border border-primary-700/30 px-1.5 py-0.5 rounded-full"
-              >
-                {{ addon.name }}{{ addon.price > 0 ? ` +${addon.price}` : '' }}
-              </span>
-              <!-- ปุ่มแก้ไข/เพิ่ม Addon กรณีที่สินค้ามีตัวเลือก -->
+            <div class="font-black shrink-0 text-base text-primary-400 [.light-mode_&]:text-primary-600">฿{{ item.totalPrice }}</div>
+          </div>
+          
+          <!-- ตัวควบคุมจำนวน -->
+          <div class="flex justify-between items-center mt-1">
+            <div class="text-[10px] text-surface-500 font-medium">
+              ฿{{ item.unitPrice + item.addonsTotal }} / ชิ้น
+            </div>
+            <div class="flex items-center gap-3 bg-surface-950 rounded-xl p-1 border border-surface-700 pointer-events-auto">
               <button 
-                v-if="item.product.addonGroups && item.product.addonGroups.length > 0"
-                @click="editAddons(item)"
-                class="text-[10px] text-surface-400 hover:text-primary-400 bg-surface-900 px-1.5 py-0.5 rounded-full border border-surface-700 transition-colors"
-                title="ตั้งค่าตัวเลือกเสริม"
+                @click.stop="updateQuantity(item.product.id!, item.quantity - 1)"
+                class="w-12 h-10 flex items-center justify-center bg-surface-800 rounded-lg text-surface-300 hover:text-white hover:bg-surface-700 active:scale-90 transition-all shadow-sm"
+                title="ลดจำนวน"
               >
-                ✏️ ตั้งค่า
+                <span class="text-xl font-bold font-mono">−</span>
+              </button>
+              <span class="w-8 text-center font-bold text-lg text-primary-400 [.light-mode_&]:text-primary-600">{{ item.quantity }}</span>
+              <button 
+                @click.stop="updateQuantity(item.product.id!, item.quantity + 1)"
+                class="w-12 h-10 flex items-center justify-center bg-surface-800 rounded-lg text-surface-300 hover:text-white hover:bg-surface-700 active:scale-90 transition-all shadow-sm"
+                title="เพิ่มจำนวน"
+              >
+                <span class="text-xl font-bold font-mono">+</span>
               </button>
             </div>
-            <!-- ปุ่มกรณีที่ยังไม่ได้เลือก Addon แต่สินค้ามีตัวเลือกให้เลือกได้ -->
-            <div v-else-if="item.product.addonGroups && item.product.addonGroups.length > 0" class="mt-1">
-              <button
-                @click="editAddons(item)"
-                class="text-[10px] text-primary-400 font-bold bg-primary-500/10 px-2 py-1 rounded-full border border-primary-500/20 hover:bg-primary-500/20 transition-all flex items-center gap-1"
-              >
-                <span>+</span> เพิ่มตัวเลือก
-              </button>
-            </div>
-          </div>
-          <div class="font-black text-primary-400 shrink-0 text-base">฿{{ item.totalPrice }}</div>
-        </div>
-        
-        <!-- ตัวควบคุมจำนวน -->
-        <div class="flex justify-between items-center mt-1">
-          <div class="text-[10px] text-surface-500 font-medium">
-            ฿{{ item.unitPrice + item.addonsTotal }} / ชิ้น
-          </div>
-          <div class="flex items-center gap-3 bg-surface-950 rounded-xl p-1 border border-surface-700">
-            <button 
-              @click="updateQuantity(item.product.id!, item.quantity - 1)"
-              class="w-12 h-10 flex items-center justify-center bg-surface-800 rounded-lg text-surface-300 hover:text-white hover:bg-surface-700 active:scale-90 transition-all shadow-sm"
-              title="ลดจำนวน"
-            >
-              <span class="text-xl font-bold leading-none">-</span>
-            </button>
-            <span class="w-8 text-center font-bold text-lg text-primary-400">{{ item.quantity }}</span>
-            <button 
-              @click="updateQuantity(item.product.id!, item.quantity + 1)"
-              class="w-12 h-10 flex items-center justify-center bg-surface-800 rounded-lg text-surface-300 hover:text-white hover:bg-surface-700 active:scale-90 transition-all shadow-sm"
-              title="เพิ่มจำนวน"
-            >
-              <span class="text-xl font-bold leading-none">+</span>
-            </button>
           </div>
         </div>
 
-        <!-- ปุ่มลบอันเดียว (ปรับให้เล็กลงนิดนึง และห่างจากราคา) -->
+        <!-- ปุ่มลบ (pointer-events-auto) -->
         <button 
-          @click="removeItem(item.product.id!)"
-          class="absolute top-1 right-1 w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500/50 hover:text-red-400 hover:bg-red-500/20 rounded-xl transition-all active:scale-90 border border-transparent"
+          @click.stop="handleRemoveItem(idx)"
+          class="absolute top-1 right-1 z-20 w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500/40 hover:text-red-500 rounded-xl transition-all active:scale-90 border border-transparent pointer-events-auto [.light-mode_&]:bg-red-50 [.light-mode_&]:text-red-400 [.light-mode_&]:border-red-100"
           title="ลบรายการ"
         >
           <span class="text-2xl font-light leading-none">×</span>
         </button>
       </div>
-
     </div>
 
     <!-- สรุปผล & Checkout -->
@@ -189,9 +213,14 @@ import { useCart } from '~/composables/useCart'
 import { useAuthStore } from '~/stores/auth'
 import type { CartItem } from '~/composables/useCart'
 import type { Product, AddonOption } from '~/types'
+import { usePosStore } from '~/stores/pos'
+import PosOrderSummaryModal from './PosOrderSummaryModal.vue'
+import PosAddonModal from './PosAddonModal.vue'
+import type { PaymentMethod } from '~/types'
 
 const router = useRouter()
 const authUser = useAuthStore()
+const posStore = usePosStore()
 
 const { 
   cartItems, 
@@ -210,14 +239,17 @@ const {
   deliveryRef
 } = useCart()
 
+async function handleClearCart() {
+  await clearCart()
+  posStore.setSelectedCartItemIndex(null)
+}
+
 const { isOnline } = useSync()
 
-import { usePosStore } from '~/stores/pos'
-import PosOrderSummaryModal from './PosOrderSummaryModal.vue'
-import PosAddonModal from './PosAddonModal.vue'
-import type { PaymentMethod } from '~/types'
-
-const posStore = usePosStore()
+onMounted(async () => {
+  await loadCart()
+  await posStore.refreshPendingOrdersCount()
+})
 
 // สถานะและตัวแปรสำหรับแก้ไข Addons ในตะกร้า
 const isAddonModalOpen = ref(false)
@@ -226,10 +258,26 @@ const editingInitialAddons = ref<AddonOption[]>([])
 const editingOldAddonKey = ref<string>('')
 
 function editAddons(item: CartItem) {
-  editingProduct.value = item.product
-  editingInitialAddons.value = [...item.addons]
-  editingOldAddonKey.value = getAddonKey(item)
-  isAddonModalOpen.value = true
+  // แทนที่จะเปิด Modal ตอนนี้เราเลือกให้แสดงพื้นที่ด้านล่างแทน
+  const idx = cartItems.value.indexOf(item)
+  if (idx !== -1) {
+    posStore.setSelectedCartItemIndex(idx)
+  }
+}
+
+function handleRemoveItem(idx: number) {
+  const item = cartItems.value[idx]
+  if (!item) return
+  
+  removeItem(item.product.id!, getAddonKey(item))
+  
+  // Reset selection ถ้าตัวที่โดนลบคึอตัวที่เลือกอยู่
+  if (posStore.selectedCartItemIndex === idx) {
+    posStore.setSelectedCartItemIndex(null)
+  } else if (posStore.selectedCartItemIndex !== null && posStore.selectedCartItemIndex > idx) {
+    // เลื่อน index ขึ้นถ้าลบตัวก่อนหน้า
+    posStore.setSelectedCartItemIndex(posStore.selectedCartItemIndex - 1)
+  }
 }
 
 async function handleConfirmAddons(selectedAddons: AddonOption[], addonsTotal: number) {
@@ -250,15 +298,12 @@ function openSummaryModal() {
   isSummaryModalOpen.value = true
 }
 
-async function handleConfirmOrder(paymentMethod: PaymentMethod) {
+async function handleConfirmOrder(paymentMethod: PaymentMethod, amountReceived: number) {
   if (isProcessing.value) return
   isProcessing.value = true
   
   try {
-    // 1. รับยอดเงินพอดี (ในอนาคตค่อยเพิ่มระบบทอนเงิน)
-    const amountReceived = totalAmount.value
-    
-    // 2. ปิดการขาย บันทึกลงบิล (IndexedDB > Orders)
+    // 1. ปิดการขาย บันทึกลงบิล (IndexedDB > Orders)
     // ใช้ paymentMethod ที่เลือกจาก Modal
     const staffId = authUser.currentUser?.id || 0
     const staffUuid = authUser.currentUser?.uuid || ''

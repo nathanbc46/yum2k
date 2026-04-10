@@ -15,7 +15,7 @@
       <button
         v-for="cat in store.displayedCategories"
         :key="cat.id"
-        class="btn-touch flex flex-col gap-1 rounded-xl p-3 items-center text-center transition-colors border shrink-0"
+        class="btn-touch relative group flex flex-col gap-1 rounded-xl p-3 items-center text-center transition-colors border shrink-0"
         :class="[
           store.activeCategoryId === cat.id 
             ? 'bg-primary-500 text-white border-primary-500 shadow-md shadow-primary-500/20'
@@ -31,6 +31,15 @@
         ></span>
         
         <span class="text-sm font-medium line-clamp-2">{{ cat.name }}</span>
+
+        <!-- ไอคอนบ่งบอกว่ามีหมวดหมู่ย่อย (Subcategory Indicator) -->
+        <div 
+          v-if="hasSubcategories(cat.id)"
+          class="absolute top-2 right-2 opacity-70 group-hover:opacity-100 transition-opacity"
+          :class="store.activeCategoryId === cat.id ? 'text-white' : 'text-primary-500'"
+        >
+          <ChevronRight class="w-4 h-4 stroke-[3]" />
+        </div>
       </button>
     </div>
 
@@ -91,12 +100,18 @@
 import { usePosStore } from '~/stores/pos'
 import { useAuthStore } from '~/stores/auth'
 import { useTheme } from '~/composables/useTheme'
-import { LogOut, ChevronLeft } from 'lucide-vue-next'
+import { LogOut, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 
 const store = usePosStore()
 const authUser = useAuthStore()
-const { theme, toggleTheme } = useTheme()
 const router = useRouter()
+const { theme, toggleTheme } = useTheme()
+
+// ตรวจสอบว่าหมวดหมู่มีหมวดหมู่ย่อยหรือไม่
+const hasSubcategories = (catId: number | undefined) => {
+  if (!catId) return false
+  return store.categories.some(c => c.parentId === catId)
+}
 
 function handleLogout() {
   if (confirm('ต้องการสลับผู้ใช้/ออกจากระบบหรือไม่?')) {

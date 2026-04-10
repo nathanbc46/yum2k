@@ -55,7 +55,7 @@ export function useReports() {
     const orders = await db.orders
       .where('createdAt')
       .between(startDate, endDate)
-      .filter(o => !o.isDeleted && o.status === 'completed')
+      .filter(o => !o.isDeleted && o.status !== 'cancelled')
       .toArray()
 
     let revenue = 0, cost = 0, profit = 0
@@ -74,7 +74,7 @@ export function useReports() {
     const orders = await db.orders
       .where('createdAt')
       .between(startDate, endDate)
-      .filter(o => !o.isDeleted && o.status === 'completed')
+      .filter(o => !o.isDeleted && o.status !== 'cancelled')
       .toArray()
 
     const productMap = new Map<string, TopProductMetric>()
@@ -105,7 +105,12 @@ export function useReports() {
    * ดึงออร์เดอร์ล่าสุด N รายการ
    */
   async function getRecentOrders(limit: number = 5): Promise<Order[]> {
-    return await db.orders.filter(o => !o.isDeleted).reverse().limit(limit).toArray()
+    return await db.orders
+      .orderBy('createdAt')
+      .reverse()
+      .filter(o => !o.isDeleted)
+      .limit(limit)
+      .toArray()
   }
 
   /**
@@ -118,7 +123,7 @@ export function useReports() {
 
     const orders = await db.orders
       .where('createdAt').between(start, end)
-      .filter(o => !o.isDeleted && o.status === 'completed')
+      .filter(o => !o.isDeleted && o.status !== 'cancelled')
       .toArray()
 
     const dailyMap = new Map<string, { revenue: number; profit: number }>()
@@ -141,7 +146,7 @@ export function useReports() {
   async function getCategorySalesDistribution(startDate: Date, endDate: Date): Promise<Array<{ categoryName: string; value: number }>> {
     const orders = await db.orders
       .where('createdAt').between(startDate, endDate)
-      .filter(o => !o.isDeleted && o.status === 'completed')
+      .filter(o => !o.isDeleted && o.status !== 'cancelled')
       .toArray()
 
     const [categories, products] = await Promise.all([db.categories.toArray(), db.products.toArray()])
@@ -180,7 +185,7 @@ export function useReports() {
   async function getProductDayHeatmap(startDate: Date, endDate: Date, limit = 15): Promise<ProductHeatmapRow[]> {
     const orders = await db.orders
       .where('createdAt').between(startDate, endDate)
-      .filter(o => !o.isDeleted && o.status === 'completed')
+      .filter(o => !o.isDeleted && o.status !== 'cancelled')
       .toArray()
 
     // Map: productKey → { name, dayQty, total }
@@ -213,7 +218,7 @@ export function useReports() {
   async function getProductHourHeatmap(startDate: Date, endDate: Date, limit = 15): Promise<ProductHeatmapRow[]> {
     const orders = await db.orders
       .where('createdAt').between(startDate, endDate)
-      .filter(o => !o.isDeleted && o.status === 'completed')
+      .filter(o => !o.isDeleted && o.status !== 'cancelled')
       .toArray()
 
     const productMap = new Map<string, { name: string; hourQty: Record<number, number>; total: number }>()
@@ -249,7 +254,7 @@ export function useReports() {
 
     const orders = await db.orders
       .where('createdAt').between(start, end)
-      .filter(o => !o.isDeleted && o.status === 'completed')
+      .filter(o => !o.isDeleted && o.status !== 'cancelled')
       .toArray()
 
     // สร้าง Week boundary สำหรับ labels
@@ -306,7 +311,7 @@ export function useReports() {
   async function getProductVelocity(startDate: Date, endDate: Date): Promise<VelocityMetric[]> {
     const orders = await db.orders
       .where('createdAt').between(startDate, endDate)
-      .filter(o => !o.isDeleted && o.status === 'completed')
+      .filter(o => !o.isDeleted && o.status !== 'cancelled')
       .toArray()
 
     const totalDays = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)))

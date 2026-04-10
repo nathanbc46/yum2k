@@ -30,6 +30,7 @@ export type PaymentMethod =
   | 'promptpay'     // พร้อมเพย์
   | 'card'          // บัตรเครดิต/เดบิต
   | 'other'         // อื่นๆ
+  | 'unpaid'        // ยังไม่ชำระเงิน (ค้างจ่าย)
 
 /** ประเภทของ Inventory Mapping */
 export type InventoryMappingType =

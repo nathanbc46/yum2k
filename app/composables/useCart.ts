@@ -301,6 +301,9 @@ export function useCart() {
 
       // 4. บันทึก Order ลง IndexedDB
       const now = new Date()
+      // ปรับเปลี่ยนสถานะตามวิธีชำระเงิน
+      const isUnpaid = paymentMethod === 'unpaid'
+      
       const newOrder: Omit<Order, 'id'> = {
         uuid: uuidv4(),
         orderNumber,
@@ -316,9 +319,9 @@ export function useCart() {
         totalCost: totalCost.value,
         profitAmount: profitAmount.value,
         paymentMethod,
-        amountReceived,
-        changeAmount: amountReceived - totalAmount.value,
-        status: 'completed',
+        amountReceived: isUnpaid ? 0 : amountReceived,
+        changeAmount: isUnpaid ? 0 : amountReceived - totalAmount.value,
+        status: isUnpaid ? 'pending' : 'completed',
         note: note.value,
         deliveryRef: deliveryRef.value,
         syncStatus: 'pending',
@@ -335,7 +338,10 @@ export function useCart() {
       const orderId = await db.orders.add(cleanedOrder as Order)
       const savedOrder = await db.orders.get(orderId)
 
-      // 5. ล้างตะกร้า
+      // 5. อัปเดตจำนวนคิวค้างจ่ายใน Store
+      await posStore.refreshPendingOrdersCount()
+
+      // 6. ล้างตะกร้า
       await clearCart()
 
       return savedOrder as Order

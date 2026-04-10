@@ -26,31 +26,41 @@
       </div>
     </header>
 
-    <!-- Grid สินค้า -->
-    <div class="flex-1 overflow-y-auto scrollbar-thin pb-20 pr-2">
-      <!-- Loading State -->
-      <div v-if="store.isLoading" class="flex items-center justify-center h-full">
-        <div class="animate-pulse text-surface-500">กำลังโหลดสินค้า...</div>
-      </div>
-      
-      <!-- Empty State -->
-      <div v-else-if="store.filteredProducts.length === 0" class="flex flex-col items-center justify-center h-full text-surface-500 space-y-4">
-        <span class="text-5xl opacity-40">🍽️</span>
-        <p>ไม่พบสินค้าในหมวดหมู่นี้</p>
+    <!-- Content Switcher -->
+    <div class="flex-1 overflow-hidden">
+      <!-- 1. ปกติ: แสดงรายการสินค้า Grid -->
+      <div v-if="store.selectedCartItemIndex === null" class="h-full flex flex-col">
+        <div class="flex-1 overflow-y-auto scrollbar-thin pb-20 pr-2">
+          <!-- Loading State -->
+          <div v-if="store.isLoading" class="flex items-center justify-center h-full">
+            <div class="animate-pulse text-surface-500">กำลังโหลดสินค้า...</div>
+          </div>
+          
+          <!-- Empty State -->
+          <div v-else-if="store.filteredProducts.length === 0" class="flex flex-col items-center justify-center h-full text-surface-500 space-y-4">
+            <span class="text-5xl opacity-40">🍽️</span>
+            <p>ไม่พบสินค้าในหมวดหมู่นี้</p>
+          </div>
+
+          <!-- สินค้า Grid -->
+          <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <PosProductCard
+              v-for="product in store.filteredProducts"
+              :key="product.id"
+              :product="product"
+              @add="handleAddProduct(product)"
+            />
+          </div>
+        </div>
       </div>
 
-      <!-- สินค้า Grid -->
-      <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        <PosProductCard
-          v-for="product in store.filteredProducts"
-          :key="product.id"
-          :product="product"
-          @add="handleAddProduct(product)"
-        />
+      <!-- 2. เมื่อมีการเลือกรายการในตะกร้า: แสดงพื้นที่เลือก Add-on แบบเต็มพื้นที่ -->
+      <div v-else class="h-full animate-in fade-in zoom-in-95 duration-300">
+        <PosAddonSelection />
       </div>
     </div>
 
-    <!-- Add-on Selection Modal -->
+    <!-- Add-on Selection Modal (สำหรับการเพิ่มสินค้าใหม่) -->
     <PosAddonModal
       :is-open="addonModalOpen"
       :product="pendingProduct"
@@ -64,6 +74,7 @@
 import { usePosStore } from '~/stores/pos'
 import { useCart } from '~/composables/useCart'
 import type { Product, AddonOption } from '~/types'
+import PosAddonSelection from './PosAddonSelection.vue'
 
 const store = usePosStore()
 

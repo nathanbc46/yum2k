@@ -35,6 +35,7 @@ const paymentMethodLabel = (method: string) => {
     cash: 'เงินสด',
     promptpay: 'พร้อมเพย์',
     card: 'บัตรเครดิต/เดบิต',
+    unpaid: 'ยังไม่ชำระเงิน',
     other: 'อื่นๆ',
   }
   return map[method] ?? method

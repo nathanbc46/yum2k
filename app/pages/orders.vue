@@ -52,25 +52,37 @@
     <main class="flex-1 overflow-auto p-4 md:p-8">
       <div class="max-w-6xl mx-auto space-y-6">
         
-        <!-- Loading State -->
-        <div v-if="isLoading" class="flex flex-col items-center justify-center p-20 space-y-4">
-          <div class="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-          <p class="text-surface-500">กำลังโหลดคำสั่งซื้อ...</p>
+        <div v-if="orders.length > 0 || selectedStatus !== 'all' || isLoading" class="flex flex-wrap items-center gap-2 bg-surface-100/50 dark:bg-surface-900/40 p-1.5 rounded-2xl border border-surface-200 dark:border-surface-800/50">
+          <button 
+            v-for="status in ['all', 'completed', 'pending', 'cancelled']"
+            :key="status"
+            @click="selectedStatus = status"
+            class="px-4 py-2 rounded-xl text-xs font-bold transition-all"
+            :class="selectedStatus === status ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20' : 'text-surface-600 hover:text-surface-50'"
+          >
+            {{ 
+              status === 'all' ? 'ทั้งหมด' : 
+              status === 'completed' ? 'สำเร็จ' : 
+              status === 'pending' ? 'ค้างจ่าย' : 'ยกเลิกแล้ว' 
+            }}
+          </button>
         </div>
 
-        <!-- Empty State -->
-        <div v-else-if="orders.length === 0" class="flex flex-col items-center justify-center p-20 space-y-4 text-surface-500">
-          <span class="text-6xl opacity-20">📭</span>
-          <p>ยังไม่มีประวัติการขายในระบบของคุณ</p>
-          <NuxtLink to="/" class="text-primary-400 hover:underline">เริ่มการขายใหม่</NuxtLink>
-        </div>
+        <!-- Orders List Content -->
+        <template v-if="isLoading">
+          <div class="flex flex-col items-center justify-center p-20 space-y-4">
+            <div class="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-surface-500">กำลังโหลดคำสั่งซื้อ...</p>
+          </div>
+        </template>
 
-        <!-- Orders Table -->
-        <div v-else class="space-y-4">
+        <template v-else-if="orders.length > 0">
+          <!-- Orders Table -->
+          <div class="space-y-4">
           <div class="bg-surface-900 border border-surface-800 rounded-2xl overflow-hidden shadow-2xl">
             <div class="overflow-x-auto">
               <table class="w-full text-left text-sm border-collapse">
-                <thead class="bg-surface-950 text-surface-500 uppercase text-[10px] font-bold tracking-widest border-b border-surface-800">
+                <thead class="bg-surface-50 dark:bg-surface-950 text-surface-600 dark:text-surface-500 uppercase text-[10px] font-bold tracking-widest border-b border-surface-200 dark:border-surface-800">
                   <tr>
                     <th class="px-6 py-4">วันที่/เวลา</th>
                     <th class="px-6 py-4">เลขออร์เดอร์</th>
@@ -103,6 +115,12 @@
                           ยกเลิกแล้ว
                         </span>
                         <span 
+                          v-else-if="order.status === 'pending'"
+                          class="bg-yellow-500/10 text-yellow-500 text-[9px] px-1.5 py-0.5 rounded border border-yellow-500/30 font-bold uppercase"
+                        >
+                          ค้างจ่าย
+                        </span>
+                        <span 
                           v-else
                           class="bg-success/10 text-success text-[9px] px-1.5 py-0.5 rounded border border-success/20 font-bold uppercase"
                         >
@@ -128,13 +146,15 @@
                             :class="[
                               order.paymentMethod === 'cash' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
                               order.paymentMethod === 'promptpay' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                              'bg-surface-800 text-surface-400 border-surface-700'
+                              order.paymentMethod === 'unpaid' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20' :
+                              'bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400 border-surface-200 dark:border-surface-700'
                             ]"
                           >
                             {{ 
                               order.paymentMethod === 'cash' ? '💵 เงินสด' : 
                               order.paymentMethod === 'promptpay' ? '📱 พร้อมเพย์' : 
-                              order.paymentMethod === 'card' ? '💳 บัตร' : '🌀 อื่นๆ' 
+                              order.paymentMethod === 'card' ? '💳 บัตร' : 
+                              order.paymentMethod === 'unpaid' ? '⏳ ยังไม่ชำระ' : '🌀 อื่นๆ' 
                             }}
                           </span>
                         </div>
@@ -146,7 +166,7 @@
                             RIDER: {{ order.deliveryRef }}
                           </span>
                         </div>
-                        <div v-else class="text-surface-500 text-[10px] flex items-center gap-1">
+                        <div v-else class="text-surface-600 dark:text-surface-500 text-[10px] flex items-center gap-1">
                           <span>🚶</span>
                           <span>หน้าร้าน</span>
                         </div>
@@ -169,6 +189,13 @@
                           class="btn-touch px-3 py-1 bg-surface-800 text-surface-300 rounded-lg hover:bg-surface-700 transition-all text-xs font-bold border border-surface-700"
                         >
                           พิมพ์
+                        </button>
+                        <button 
+                          v-if="order.status === 'pending'"
+                          @click="payOrder(order)" 
+                          class="btn-touch px-3 py-1 bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-all text-xs font-bold shadow-lg shadow-primary-900/20"
+                        >
+                          💰 ชำระเงิน
                         </button>
                         <button 
                           v-if="order.status !== 'cancelled'"
@@ -197,8 +224,90 @@
             </button>
           </div>
         </div>
+      </template>
+
+        <!-- Empty State -->
+        <template v-else>
+          <div class="flex flex-col items-center justify-center p-20 space-y-4 text-surface-500 dark:text-surface-400 bg-surface-50/50 dark:bg-surface-900/20 rounded-3xl border border-dashed border-surface-200 dark:border-surface-800">
+            <span class="text-6xl opacity-20">📭</span>
+            <p class="text-xl font-bold text-surface-900 dark:text-white">ไม่พบประวัติการขาย</p>
+            <p class="text-surface-500 dark:text-surface-400 font-medium">ยังไม่มีรายการสั่งซื้อในช่วงเวลานี้</p>
+            <NuxtLink to="/" class="px-6 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-500 transition-all font-bold mt-2">
+              กลับหน้าขาย (POS)
+            </NuxtLink>
+          </div>
+        </template>
       </div>
     </main>
+
+    <!-- Payment Selection Modal -->
+    <Transition name="fade">
+      <div v-if="isPayModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm">
+        <div class="w-full max-w-md bg-surface-900 rounded-[2.5rem] border border-surface-800 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 duration-300">
+          
+          <!-- Modal Header -->
+          <div class="p-6 text-center border-b border-surface-800 bg-surface-950/30">
+            <div class="w-16 h-16 bg-primary-600/10 text-primary-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner">
+              💰
+            </div>
+            <h3 class="text-xl font-black text-surface-50">ชำระเงินออร์เดอร์</h3>
+            <p class="text-surface-600 text-sm mt-1 font-medium">ออร์เดอร์ #{{ selectedOrderToPay?.orderNumber }}</p>
+          </div>
+
+          <!-- Modal Body -->
+          <div class="p-8 space-y-8">
+            <!-- Amount Display -->
+            <div class="text-center">
+              <div class="text-[10px] uppercase tracking-widest text-surface-600 font-bold mb-1">ยอดรวมที่ต้องชำระ</div>
+              <div class="text-4xl font-black text-primary-600">฿{{ selectedOrderToPay?.totalAmount.toLocaleString() }}</div>
+            </div>
+
+            <!-- Payment Methods Grid -->
+            <div class="space-y-4">
+              <label class="text-[10px] uppercase tracking-widest text-surface-600 font-bold ml-1">เลือกวิธีชำระเงิน</label>
+              <div class="grid grid-cols-2 gap-4">
+                <button 
+                  @click="paymentMethodToUpdate = 'cash'"
+                  class="flex flex-col items-center gap-3 p-5 rounded-3xl border-2 transition-all active:scale-95 group relative overflow-hidden"
+                  :class="paymentMethodToUpdate === 'cash' ? 'bg-primary-600/10 border-primary-500 shadow-md' : 'bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 opacity-60'"
+                >
+                  <span class="text-3xl transition-transform group-hover:scale-110">💵</span>
+                  <span class="font-bold whitespace-nowrap" :class="paymentMethodToUpdate === 'cash' ? 'text-primary-600' : 'text-surface-600'">เงินสด</span>
+                </button>
+
+                <button 
+                  @click="paymentMethodToUpdate = 'promptpay'"
+                  class="flex flex-col items-center gap-3 p-5 rounded-3xl border-2 transition-all active:scale-95 group relative overflow-hidden"
+                  :class="paymentMethodToUpdate === 'promptpay' ? 'bg-secondary-500/10 border-secondary-500 shadow-md' : 'bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 opacity-60'"
+                >
+                  <span class="text-3xl transition-transform group-hover:scale-110">📱</span>
+                  <span class="font-bold whitespace-nowrap" :class="paymentMethodToUpdate === 'promptpay' ? 'text-secondary-600' : 'text-surface-600'">พร้อมเพย์</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Footer -->
+          <div class="p-6 bg-surface-950/50 flex gap-4">
+            <button 
+              @click="isPayModalOpen = false"
+              class="flex-1 py-4 rounded-2xl bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-200 font-bold hover:bg-surface-200 dark:hover:bg-surface-700 transition-all active:scale-95"
+            >
+              ยกเลิก
+            </button>
+            <button 
+              @click="confirmPaymentUpdate"
+              :disabled="isProcessingPayment"
+              class="flex-[2] py-4 rounded-2xl bg-primary-600 text-white font-bold text-lg shadow-xl shadow-primary-900/30 hover:bg-primary-500 transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              <span v-if="isProcessingPayment" class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+              <span v-else>ยืนยันรับเงิน</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -220,8 +329,17 @@ const hasMore = ref(true)
 const page = ref(0)
 const PAGE_SIZE = 20
 
+const route = useRoute()
+const selectedStatus = ref<string>((route.query.status as string) || 'all')
+
 const posStore = usePosStore()
 const { restoreStock } = useInventory()
+
+// State สำหรับ Modal ชำระเงิน
+const isPayModalOpen = ref(false)
+const selectedOrderToPay = ref<Order | null>(null)
+const paymentMethodToUpdate = ref<'cash' | 'promptpay'>('cash')
+const isProcessingPayment = ref(false)
 
 const loadOrders = async (reset = true) => {
   if (reset) {
@@ -234,10 +352,18 @@ const loadOrders = async (reset = true) => {
   }
 
   try {
-    // โหลดออเดอร์เรียงจากใหม่ไปเก่า
-    const newOrders = await db.orders
-      .orderBy('createdAt')
-      .reverse()
+    // ใช้ orderBy('createdAt') เป็นหลักเพื่อให้เรียงลำดับถูกต้องเสมอ
+    let collection = db.orders.orderBy('createdAt').reverse()
+    
+    // กรองรายการที่ถูกลบ (isDeleted) เสมอ
+    collection = collection.filter(o => !o.isDeleted)
+
+    // กรองตามสถานะที่เลือก
+    if (selectedStatus.value !== 'all') {
+      collection = collection.filter(o => o.status === selectedStatus.value)
+    }
+
+    const newOrders = await collection
       .offset(page.value * PAGE_SIZE)
       .limit(PAGE_SIZE)
       .toArray()
@@ -252,6 +378,78 @@ const loadOrders = async (reset = true) => {
   } finally {
     isLoading.value = false
     isLoadingMore.value = false
+  }
+}
+
+// โหลดข้อมูลใหม่เมื่อมีการเปลี่ยนสถานะ
+watch(selectedStatus, () => {
+  loadOrders(true)
+})
+
+// คอยดู Query Params เพื่อเปลี่ยนสถานะ (กรณี Deep-link)
+watch(() => route.query.status, (newStatus) => {
+  if (newStatus) {
+    selectedStatus.value = newStatus as string
+  }
+})
+
+const payOrder = (order: Order) => {
+  selectedOrderToPay.value = order
+  paymentMethodToUpdate.value = 'cash'
+  isPayModalOpen.value = true
+}
+
+const confirmPaymentUpdate = async () => {
+  if (!selectedOrderToPay.value) return
+  
+  isProcessingPayment.value = true
+  const orderId = selectedOrderToPay.value.id
+  const orderNumber = selectedOrderToPay.value.orderNumber
+  const finalPaymentMethod = paymentMethodToUpdate.value
+  const amount = selectedOrderToPay.value.totalAmount
+
+  try {
+    // 1. อัปเดตฐานข้อมูล
+    await db.orders.update(orderId!, {
+      status: 'completed',
+      paymentMethod: finalPaymentMethod,
+      amountReceived: amount,
+      changeAmount: 0,
+      syncStatus: 'pending',
+      syncRetryCount: 0,
+      updatedAt: new Date()
+    })
+
+    // 2. อัปเดตใน UI ทันที (Optimistic Update) เพื่อให้ผู้ใช้เห็นการเปลี่ยนแปลงทันที
+    const idx = orders.value.findIndex(o => o.id === orderId)
+    if (idx !== -1) {
+      const targetOrder = orders.value[idx]
+      if (targetOrder) {
+        targetOrder.status = 'completed'
+        targetOrder.paymentMethod = finalPaymentMethod
+        targetOrder.amountReceived = amount
+        targetOrder.syncStatus = 'pending'
+      }
+    }
+
+    toast.success(`อัปเดตสถานะออร์เดอร์ ${orderNumber} สำเร็จ`)
+    isPayModalOpen.value = false
+    
+    // 3. ปรับปรุงสถานะการซิงค์ในระบบหลังบ้าน (รอ DB บันทึกเสร็จแน่นอน)
+    setTimeout(async () => {
+      await refreshPendingCount()
+      await posStore.refreshPendingOrdersCount()
+      
+      if (isOnline.value) {
+        syncPendingOrders()
+      }
+    }, 200)
+
+  } catch (error: any) {
+    console.error('❌ Update Payment Error:', error)
+    toast.error(`ไม่สามารถอัปเดตสถานะไค้: ${error.message}`)
+  } finally {
+    isProcessingPayment.value = false
   }
 }
 
@@ -396,5 +594,16 @@ watch(isSyncing, (newValue, oldValue) => {
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background: var(--color-surface-800);
   border-radius: 10px;
+}
+
+/* Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

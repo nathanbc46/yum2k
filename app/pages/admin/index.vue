@@ -130,7 +130,15 @@
                   </div>
                   <div class="text-right">
                     <div class="font-bold text-lg text-success leading-none">฿{{ order.totalAmount.toLocaleString() }}</div>
-                    <div class="text-[10px] text-surface-500 mt-1 uppercase tracking-wider">{{ order.paymentMethod }}</div>
+                    <div class="flex items-center justify-end gap-2 mt-1">
+                      <div 
+                        class="text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider"
+                        :class="order.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' : 'bg-success/10 text-success border border-success/20'"
+                      >
+                        {{ order.status === 'pending' ? 'ค้างจ่าย' : 'สำเร็จ' }}
+                      </div>
+                      <div class="text-[10px] text-surface-500 uppercase tracking-wider">{{ order.paymentMethod }}</div>
+                    </div>
                   </div>
                 </div>
               </div>
