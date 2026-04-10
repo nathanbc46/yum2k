@@ -234,6 +234,7 @@ export function useSync() {
           status: orderBaseInfo.status,
           note: orderBaseInfo.note,
           delivery_ref: orderBaseInfo.deliveryRef,
+          cash_denominations: orderBaseInfo.cashDenominations,
           is_deleted: orderBaseInfo.isDeleted,
           created_at: new Date(createdAt).toISOString(),
           updated_at: new Date(updatedAt).toISOString()
@@ -370,6 +371,7 @@ export function useSync() {
         status: remote.status,
         note: remote.note,
         deliveryRef: remote.delivery_ref,
+        cashDenominations: remote.cash_denominations,
         isDeleted: remote.is_deleted,
         syncStatus: 'synced',
         syncRetryCount: 0,

@@ -250,6 +250,7 @@ export function useCart() {
     staffName: string,
     paymentMethod: PaymentMethod,
     amountReceived: number,
+    cashDenominations?: Record<string, number>,
   ): Promise<Order | null> {
     if (isEmpty.value) return null
     isLoading.value = true
@@ -321,6 +322,7 @@ export function useCart() {
         paymentMethod,
         amountReceived: isUnpaid ? 0 : amountReceived,
         changeAmount: isUnpaid ? 0 : amountReceived - totalAmount.value,
+        cashDenominations: paymentMethod === 'cash' ? cashDenominations : undefined,
         status: isUnpaid ? 'pending' : 'completed',
         note: note.value,
         deliveryRef: deliveryRef.value,

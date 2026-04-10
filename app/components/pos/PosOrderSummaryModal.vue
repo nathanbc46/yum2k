@@ -14,7 +14,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'confirm', paymentMethod: PaymentMethod, amountReceived: number): void
+  (e: 'close'): void
+  (e: 'confirm', paymentMethod: PaymentMethod, amountReceived: number, cashDenominations?: Record<string, number>): void
 }>()
 
 const selectedPayment = ref<PaymentMethod>('cash')
@@ -23,6 +24,32 @@ const cashHistory = ref<number[]>([]) // เก็บประวัติกา
 
 const changeAmount = computed(() => {
   return Math.max(0, amountReceived.value - props.totalAmount)
+})
+
+// จัดกลุ่มธนบัตร/เหรียญจากประวัติการกด
+const cashDenominationsMap = computed(() => {
+  if (cashHistory.value.length === 0) return undefined
+  
+  const map: Record<string, number> = {}
+  cashHistory.value.forEach(val => {
+    const key = val.toString()
+    map[key] = (map[key] || 0) + 1
+  })
+  return map
+})
+
+// ข้อความสรุปสำหรับแสดงใน UI (เช่น "ใบ 20 x 2, เหรียญ 10 x 1")
+const cashSummaryString = computed(() => {
+  if (!cashDenominationsMap.value) return ''
+  
+  return Object.entries(cashDenominationsMap.value)
+    .sort((a, b) => Number(b[0]) - Number(a[0])) // เรียงจากค่ามากไปน้อย
+    .map(([val, count]) => {
+      const v = Number(val)
+      const label = v < 20 ? 'เหรียญ' : 'ใบ'
+      return `${label} ${v} x ${count}`
+    })
+    .join(', ')
 })
 
 const isAmountEnough = computed(() => {
@@ -55,7 +82,7 @@ const setExactAmount = () => {
 const confirmSale = () => {
   // สำหรับ PromptPay หรือ Unpaid ให้ใช้ยอดพอดี (เพื่อความสมบูรณ์ของข้อมูล)
   const finalAmount = selectedPayment.value === 'cash' ? amountReceived.value : props.totalAmount
-  emit('confirm', selectedPayment.value, finalAmount)
+  emit('confirm', selectedPayment.value, finalAmount, cashDenominationsMap.value)
 }
 
 // เมื่อเปลี่ยนวิธีการชำระเงิน ให้รีเซ็ตค่าถ้าเป็น Cash
@@ -172,6 +199,13 @@ watch(selectedPayment, (newVal) => {
                     </span>
                   </div>
                 </div>
+              </div>
+
+              <!-- รายละเอียดธนบัตร/เหรียญ -->
+              <div v-if="cashSummaryString" class="px-2">
+                <p class="text-[11px] text-primary-300 font-medium bg-primary-500/5 py-1.5 px-3 rounded-xl border border-primary-500/10 italic">
+                  💰 {{ cashSummaryString }}
+                </p>
               </div>
 
               <!-- Denominations Grid -->

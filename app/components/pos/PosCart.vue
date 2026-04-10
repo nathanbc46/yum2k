@@ -298,7 +298,7 @@ function openSummaryModal() {
   isSummaryModalOpen.value = true
 }
 
-async function handleConfirmOrder(paymentMethod: PaymentMethod, amountReceived: number) {
+async function handleConfirmOrder(paymentMethod: PaymentMethod, amountReceived: number, cashDenominations?: Record<string, number>) {
   if (isProcessing.value) return
   isProcessing.value = true
   
@@ -308,7 +308,7 @@ async function handleConfirmOrder(paymentMethod: PaymentMethod, amountReceived: 
     const staffId = authUser.currentUser?.id || 0
     const staffUuid = authUser.currentUser?.uuid || ''
     const staffName = authUser.currentUser?.displayName || 'Unknown'
-    const order = await checkout(staffId, staffUuid, staffName, paymentMethod, amountReceived)
+    const order = await checkout(staffId, staffUuid, staffName, paymentMethod, amountReceived, cashDenominations)
     
     // 3. ปิด Modal และสั่งพิมพ์
     if (order) {

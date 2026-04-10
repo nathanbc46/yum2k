@@ -119,6 +119,19 @@ const paperWidthClass = computed(() =>
         <span>รับเงิน</span>
         <span>{{ order.amountReceived.toLocaleString() }}</span>
       </div>
+      <!-- รายละเอียดธนบัตร/เหรียญ (ถ้ามี) -->
+      <div v-if="order.cashDenominations && Object.keys(order.cashDenominations).length > 0" class="text-[9px] text-gray-600 text-right italic leading-tight pb-1">
+        ({{
+          Object.entries(order.cashDenominations)
+            .sort((a, b) => Number(b[0]) - Number(a[0]))
+            .map(([val, count]) => {
+              const v = Number(val)
+              const label = v < 20 ? 'เหรียญ' : 'ใบ'
+              return `${label} ${v}x${count}`
+            })
+            .join(', ')
+        }})
+      </div>
       <div v-if="order.changeAmount > 0" class="flex justify-between text-[11px] font-bold">
         <span>เงินทอน</span>
         <span>{{ order.changeAmount.toLocaleString() }}</span>

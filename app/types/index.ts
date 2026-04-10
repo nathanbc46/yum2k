@@ -243,6 +243,7 @@ export interface Order extends BaseEntity {
   paymentMethod: PaymentMethod  // วิธีชำระเงิน
   amountReceived: number      // จำนวนเงินที่รับมา
   changeAmount: number        // เงินทอน
+  cashDenominations?: Record<string, number> // รายละเอียดธนบัตร/เหรียญ (เช่น {"20": 2, "10": 1})
 
   // --- สถานะ ---
   status: OrderStatus         // สถานะออร์เดอร์

@@ -124,6 +124,7 @@ CREATE TABLE orders (
   status              TEXT NOT NULL,                -- completed, cancelled
   note                TEXT,
   delivery_ref        TEXT,
+  cash_denominations  JSONB,                        -- รายละเอียดธนบัตร/เหรียญ (เช่น {"20": 2, "10": 1})
   is_deleted          BOOLEAN DEFAULT FALSE,
   created_at          TIMESTAMPTZ DEFAULT NOW(),
   updated_at          TIMESTAMPTZ DEFAULT NOW()
