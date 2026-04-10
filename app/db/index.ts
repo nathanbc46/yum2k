@@ -159,8 +159,16 @@ tablesWithTimestamps.forEach((tableName) => {
   })
 
   // Hook: ก่อน Update
-  table.hook('updating', (modifications) => {
-    ;(modifications as Record<string, unknown>).updatedAt = new Date()
+  table.hook('updating', (modifications, _primKey, _obj) => {
+    // แก้ปัญหาการวนลูป Sync:
+    // ถ้ามีการส่ง updatedAt มาด้วย (เช่น จากการ Pull) ไม่ต้องทำอะไร
+    if ((modifications as any).updatedAt) return modifications
+
+    // ถ้ามีการแก้ไขฟิลด์อื่นๆ (เช่น จากหน้า Admin) ให้เปลี่ยน updatedAt เป็นปัจจุบัน
+    const keys = Object.keys(modifications)
+    if (keys.length > 0) {
+      ;(modifications as any).updatedAt = new Date()
+    }
     return modifications
   })
 })

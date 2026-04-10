@@ -127,6 +127,7 @@
                         <div class="flex items-center gap-1">
                           <span v-if="product.imageUrl" class="text-[10px]" title="มีรูปภาพ">🖼️</span>
                           <span v-if="product.addonGroups?.length" class="text-[10px]" title="มี Add-ons">➕</span>
+                          <span v-if="product.inventoryMappings?.length" class="text-[10px]" title="มีการเชื่อมโยงสต็อก (ตัดสต็อกสินค้าหลัก)">🔗</span>
                         </div>
                       </div>
                       <div v-if="product.sku" class="text-[10px] text-surface-500 font-mono mt-0.5">{{ product.sku }}</div>

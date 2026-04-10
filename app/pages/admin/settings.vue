@@ -128,6 +128,33 @@
             </div>
           </div>
 
+          <!-- ส่วนจัดการข้อมูล (Sync Management) -->
+          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
+            <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-4">การจัดการข้อมูล Cloud</h2>
+            <div class="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+              <div class="flex items-start gap-3">
+                <span class="text-lg">⚠️</span>
+                <div>
+                  <h3 class="text-sm font-bold text-amber-400">บังคับส่งข้อมูลขึ้น Cloud (Force Push)</h3>
+                  <p class="text-[10px] text-surface-400 mt-1">
+                    ใช้ในกรณีที่ฐานข้อมูลบน Cloud ถูกล้างข้อมูล หรือต้องการเขียนทับข้อมูลบน Cloud ด้วยข้อมูลจากเครื่องนี้ทั้งหมด
+                    <br />(หมวดหมู่สินค้า, รายการสินค้า และรายชื่อพนักงาน)
+                  </p>
+                </div>
+              </div>
+              <div class="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  @click="handleForcePush"
+                  :disabled="isForcePushing || !isOnline"
+                  class="btn-touch px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-amber-900/20 disabled:opacity-50"
+                >
+                  {{ isForcePushing ? '⌛ กำลังส่งข้อมูล...' : '📤 เริ่มส่งข้อมูลทั้งหมด (Force Upload)' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- Save Button -->
           <button
             @click="handleSave"
@@ -187,6 +214,7 @@ import { useToast } from '~/composables/useToast'
 definePageMeta({ layout: 'admin' })
 
 const { receiptSettings, isSaving, loadReceiptSettings, saveReceiptSettings } = useSettings()
+const { pushAll } = useMasterDataSync()
 const { fetchRemoteOrders, isOnline } = useSync()
 const toast = useToast()
 
@@ -233,12 +261,33 @@ async function handleSyncHistory() {
 
   isSyncingHistory.value = true
   try {
-    const count = await fetchRemoteOrders(200) // ดึง 200 รายการล่าสุด (รวมข้อมูลพนักงาน/สินค้า)
-    toast.success(`ดึงประวัติสำเร็จ!\n• นำเข้าออร์เดอร์ใหม่ ${count} รายการ\n• อัปเดตข้อมูลพนักงานและสินค้าเรียบร้อย\nเลขบิลจะรันต่อจากรายการล่าสุดในระบบครับ`, 7000)
+    const count = await fetchRemoteOrders(200) // ดึง 200 รายการล่าสุด
+    toast.success(`ดึงประวัติสำเร็จ!\n• นำเข้าออร์เดอร์ใหม่ ${count} รายการ\n• อัปเดตข้อมูลพนักงานและสินค้าเรียบร้อย`, 7000)
   } catch (err) {
     toast.error('เกิดข้อผิดพลาดในการดึงข้อมูล')
   } finally {
     isSyncingHistory.value = false
+  }
+}
+
+const isForcePushing = ref(false)
+async function handleForcePush() {
+  const confirmed = window.confirm(
+    'แจ้งเตือน: นี่คือการส่งข้อมูลทั้งหมดในเครื่องขึ้น Cloud\n' +
+    'ข้อมูลบน Cloud จะถูกอัปเดตตามข้อมูลในเครื่องนี้\n' +
+    'ต้องการดำเนินการต่อหรือไม่?'
+  )
+  if (!confirmed) return
+
+  isForcePushing.value = true
+  try {
+    const res = await pushAll(true) // force = true
+    const total = res.categories + res.products + res.users
+    toast.success(`📤 บังคับส่งข้อมูลสำเร็จทั้งหมด ${total} รายการ\n(หมวดหมู่: ${res.categories}, สินค้า: ${res.products}, พนักงาน: ${res.users})`, 6000)
+  } catch (err: any) {
+    toast.error('การส่งข้อมูลล้มเหลว: ' + err.message)
+  } finally {
+    isForcePushing.value = false
   }
 }
 </script>

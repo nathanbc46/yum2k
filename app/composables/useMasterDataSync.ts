@@ -252,10 +252,11 @@ export function useMasterDataSync() {
         if (cat.parentUuid) {
           const parentId = uuidToId.get(cat.parentUuid)
           if (parentId && cat.parentId !== parentId) {
-            await db.categories.update(cat.id!, { parentId })
+            // ส่ง updatedAt ไปด้วยเพื่อเลี่ยง Hook (ไม่ให้ระบบคิดว่าเราแก้เองแล้ว Push กลับ)
+            await db.categories.update(cat.id!, { parentId, updatedAt: cat.updatedAt })
           }
         } else if (cat.parentId) {
-          await db.categories.update(cat.id!, { parentId: undefined as any })
+          await db.categories.update(cat.id!, { parentId: undefined as any, updatedAt: cat.updatedAt })
         }
       }
     }
@@ -287,6 +288,7 @@ export function useMasterDataSync() {
     const localProds = await db.products.toArray()
     const prodUuidToId = new Map(localProds.map(p => [p.uuid, p.id!]))
 
+    // --- First Pass: Upsert สินค้าเบื้องต้น (ยังไม่เชื่อม Mapping) ---
     let count = 0
     for (const remote of remoteProds) {
       let existing = await db.products.where('uuid').equals(remote.uuid).first()
@@ -308,14 +310,11 @@ export function useMasterDataSync() {
         continue
       }
 
-      const inventoryMappings = remote.inventory_mappings
-        ? (remote.inventory_mappings as Array<{ source_product_uuid: string; quantity: number }>)
-            .map(m => {
-              const localId = prodUuidToId.get(m.source_product_uuid)
-              return localId ? { sourceProductId: localId, quantity: m.quantity } : null
-            })
-            .filter((m): m is { sourceProductId: number; quantity: number } => m !== null)
-        : undefined
+      // บันทึก Log เพื่อตรวจสอบข้อมูล Addon
+      let addonData = remote.addon_groups
+      if (typeof addonData === 'string') {
+        try { addonData = JSON.parse(addonData) } catch (e) { addonData = undefined }
+      }
 
       const localProduct: Omit<Product, 'id'> = {
         uuid:               remote.uuid,
@@ -329,8 +328,9 @@ export function useMasterDataSync() {
         alertThreshold:     Number(remote.alert_threshold),
         trackInventory:     remote.track_inventory,
         mappingType:        remote.mapping_type ?? undefined,
-        inventoryMappings:  inventoryMappings?.length ? inventoryMappings : undefined,
-        addonGroups:        remote.addon_groups ?? undefined,
+        // สำคัญ: รอบแรกห้ามใส่ Mappings เพราะสินค้าปลายทางอาจยังไม่มีในเครื่อง
+        inventoryMappings:  undefined,
+        addonGroups:        Array.isArray(addonData) ? addonData : undefined,
         isActive:           remote.is_active,
         sortOrder:          remote.sort_order,
         imageUrl:           remote.image_url ?? undefined,
@@ -339,15 +339,43 @@ export function useMasterDataSync() {
         updatedAt:          remoteUpdatedAt,
       }
 
-      let productId = existing?.id
-      if (productId) {
-        await db.products.update(productId, { ...localProduct, uuid: remote.uuid })
+      if (existing?.id) {
+        await db.products.update(existing.id, { ...localProduct, uuid: remote.uuid })
       } else {
-        productId = await db.products.add(localProduct as Product) as number
+        await db.products.add(localProduct as Product)
       }
-      prodUuidToId.set(remote.uuid, productId!)
       count++
     }
+
+    // --- Second Pass: เชื่อมโยง Inventory Mappings เมื่อสินค้าครบทุกคนแล้ว ---
+    if (count > 0 || force) {
+      const allProds = await db.products.toArray()
+      const uuidToId = new Map(allProds.map(p => [p.uuid, p.id!]))
+
+      for (const remote of remoteProds) {
+        if (remote.inventory_mappings?.length) {
+          const productId = uuidToId.get(remote.uuid)
+          const localProd = allProds.find(p => p.id === productId)
+          if (!productId || !localProd) continue
+
+          const resolvedMappings = (remote.inventory_mappings as any[])
+            .map(m => {
+              const localId = uuidToId.get(m.source_product_uuid)
+              return localId ? { sourceProductId: localId, quantity: m.quantity } : null
+            })
+            .filter(m => m !== null)
+
+          if (resolvedMappings.length > 0) {
+            // ส่ง updatedAt ไปด้วยเพื่อเลี่ยง Hook
+            await db.products.update(productId, { 
+              inventoryMappings: resolvedMappings,
+              updatedAt: localProd.updatedAt 
+            })
+          }
+        }
+      }
+    }
+
     return count
   }
 
@@ -510,6 +538,11 @@ export function useMasterDataSync() {
       const users      = await pullUsers(force)
       const stockLogs  = await pullStockAuditLogs(force)
       await updateLastPullAt(syncStartTime)
+      
+      // อัปเดต Last Push At ด้วย เพื่อบอกว่าข้อมูลที่เพิ่งดึงมานี้ "ทันสมัยแล้ว"
+      // ป้องกันการกด Push ทันทีแล้วมันดันกลับขึ้นไปเอง
+      await updateLastPushAt(syncStartTime)
+
       lastMasterSyncAt.value = new Date()
       lastPullTimestamp.value = Date.now()
       return { categories, products, users, stockLogs }
