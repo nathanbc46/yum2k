@@ -54,9 +54,11 @@
         </div>
       </div>
 
-      <!-- 2. เมื่อมีการเลือกรายการในตะกร้า: แสดงพื้นที่เลือก Add-on แบบเต็มพื้นที่ -->
-      <div v-else class="h-full animate-in fade-in zoom-in-95 duration-300">
-        <PosAddonSelection />
+      <!-- 2. เมื่อมีการเลือกรายการในตะกร้า: แสดงพื้นที่เลือก Add-on แบบกึ่งกลาง (Compact Center) -->
+      <div v-else class="h-full flex items-center justify-center p-6 bg-surface-950/40 backdrop-blur-[2px] animate-in fade-in duration-300">
+        <div class="w-full max-w-6xl">
+          <PosAddonSelection />
+        </div>
       </div>
     </div>
 

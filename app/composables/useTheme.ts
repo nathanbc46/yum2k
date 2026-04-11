@@ -4,7 +4,7 @@
 // =============================================================================
 
 export function useTheme() {
-  const theme = useState<'dark' | 'light'>('theme', () => 'dark')
+  const theme = useState<'dark' | 'light'>('theme', () => 'light')
 
   // เริ่มต้นตั้งค่าจาก LocalStorage (ถ้ามี)
   onMounted(() => {
@@ -13,12 +13,12 @@ export function useTheme() {
       theme.value = savedTheme
       applyTheme(savedTheme)
     } else {
-      // ถ้าไม่มี ให้ดูจาก System Preference หรือ Default เป็น Dark
+      // ถ้าไม่มี ให้ดูจาก System Preference หรือ Default เป็น Light
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
       const initialTheme = prefersDark ? 'dark' : 'light'
-      // สำหรับแอปนี้เรา Default เป็น Dark ตามสไตล์ร้านยำ
-      theme.value = 'dark'
-      applyTheme('dark')
+      // สำหรับแอปนี้เรา Default เป็น Light ตามความต้องการผู้ใช้
+      theme.value = 'light'
+      applyTheme('light')
     }
   })
 

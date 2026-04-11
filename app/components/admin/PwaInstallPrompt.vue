@@ -12,7 +12,7 @@
         
         <!-- Text -->
         <div class="flex-1 min-w-0">
-          <h4 class="text-sm font-bold text-white truncate">ติดตั้ง Yum2K POS</h4>
+          <h4 class="text-sm font-bold text-surface-50 truncate">ติดตั้ง Yum2K POS</h4>
           <p class="text-xs text-surface-400">ติดตั้งแอปเพื่อใช้งานเต็มหน้าจอและลื่นไหลขึ้น</p>
         </div>
 
@@ -20,7 +20,7 @@
         <div class="flex items-center gap-2">
           <button 
             @click="dismissPrompt"
-            class="px-3 py-2 text-xs font-semibold text-surface-400 hover:text-white transition-colors"
+            class="px-3 py-2 text-xs font-semibold text-surface-400 hover:text-surface-50 transition-colors"
           >
             ไม่ใช่ตอนนี้
           </button>

@@ -15,27 +15,42 @@
       <button
         v-for="cat in store.displayedCategories"
         :key="cat.id"
-        class="btn-touch relative group flex flex-col gap-1 rounded-xl p-3 items-center text-center transition-colors border shrink-0"
+        class="btn-touch relative group flex flex-col gap-1 rounded-2xl p-4 items-center text-center transition-all duration-300 border-2 shrink-0 active:scale-95 shadow-sm"
         :class="[
           store.activeCategoryId === cat.id 
-            ? 'bg-primary-500 text-white border-primary-500 shadow-md shadow-primary-500/20'
-            : 'bg-surface-800 text-surface-300 border-transparent hover:bg-surface-700'
+            ? 'bg-primary-500 text-white border-primary-600 shadow-lg shadow-primary-500/20 -translate-y-0.5'
+            : 'bg-surface-900 text-surface-50 border-surface-800 hover:border-surface-700 hover:shadow-md hover:-translate-y-0.5'
         ]"
         @click="store.setActiveCategory(cat.id!)"
       >
-        <!-- แสดงสีของหมวดหมู่ (ถ้ามี) แบบเป็นจุด / หรือถ้ามีไอคอนใส่ไอคอน -->
-        <span 
+        <!-- จุดสีประจำหมวดหมู่ (แบบเดิม) -->
+        <div 
           v-if="cat.color"
-          class="w-3 h-3 rounded-full mb-1"
+          class="w-3.5 h-3.5 rounded-full mb-1 border-2 border-white/20 shadow-sm"
           :style="{ backgroundColor: cat.color }"
-        ></span>
+        ></div>
         
-        <span class="text-sm font-medium line-clamp-2">{{ cat.name }}</span>
+        <span 
+          class="text-sm font-black line-clamp-2 leading-tight transition-colors duration-300"
+          :class="store.activeCategoryId === cat.id ? 'text-white' : 'text-surface-50'"
+        >
+          {{ cat.name }}
+        </span>
+        
+        <!-- Pill Badge แสดงจำนวนสินค้า -->
+        <span 
+          class="mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider transition-all duration-300 border"
+          :class="store.activeCategoryId === cat.id 
+            ? 'bg-white/20 text-white border-white/30' 
+            : 'bg-surface-950/40 text-surface-500 border-surface-700/50'"
+        >
+          {{ store.categoryProductCounts[cat.id!] }} รายการ
+        </span>
 
         <!-- ไอคอนบ่งบอกว่ามีหมวดหมู่ย่อย (Subcategory Indicator) -->
         <div 
           v-if="hasSubcategories(cat.id)"
-          class="absolute top-2 right-2 opacity-70 group-hover:opacity-100 transition-opacity"
+          class="absolute top-2 right-2 opacity-70 group-hover:opacity-100 transition-all duration-300"
           :class="store.activeCategoryId === cat.id ? 'text-white' : 'text-primary-500'"
         >
           <ChevronRight class="w-4 h-4 stroke-[3]" />
@@ -43,55 +58,86 @@
       </button>
     </div>
 
-    <!-- ปุ่ม Action ด้านล่าง -->
-    <div class="p-2 border-t border-surface-800 space-y-1.5 shrink-0">
-      <!-- ประวัติการขาย -->
-      <NuxtLink
-        to="/orders"
-        class="flex flex-col items-center gap-0.5 py-2 rounded-xl text-surface-400 hover:text-surface-100 hover:bg-surface-800 transition-colors"
-        title="ประวัติการขาย"
+    <!-- ปุ่มจัดการด้านล่างแบบซ่อน (Compact Menu) -->
+    <div class="p-2 border-t border-surface-800 shrink-0 relative">
+      <!-- Pop-over Menu Items -->
+      <Transition 
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="translate-y-4 opacity-0 scale-95"
+        enter-to-class="translate-y-0 opacity-100 scale-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="translate-y-0 opacity-100 scale-100"
+        leave-to-class="translate-y-4 opacity-0 scale-95"
       >
-        <span class="text-lg">📜</span>
-        <span class="text-[10px] font-medium">ออร์เดอร์</span>
-      </NuxtLink>
+        <div 
+          v-if="showMenu" 
+          class="absolute bottom-full left-2 right-2 mb-3 bg-surface-900/95 backdrop-blur-xl border border-surface-700/50 rounded-2xl shadow-2xl p-2 z-[60] flex flex-col gap-1 ring-1 ring-white/5"
+        >
+          <!-- ส่วนข้อมูลผู้ใช้ -->
+          <div class="px-3 py-2.5 mb-1 border-b border-surface-800/50">
+            <div class="text-[10px] text-surface-500 uppercase tracking-widest font-bold mb-0.5">ผู้ใช้งานปัจจุบัน</div>
+            <div class="text-sm font-black text-primary-400 truncate">
+              {{ authUser.currentUser?.displayName || authUser.currentUser?.username }}
+            </div>
+          </div>
 
-      <!-- แผงจัดการ Admin (แสดงเฉพาะ Admin) -->
-      <NuxtLink
-        v-if="authUser.isAdmin"
-        to="/admin"
-        class="flex flex-col items-center gap-0.5 py-2 rounded-xl text-surface-400 hover:text-surface-100 hover:bg-surface-800 transition-colors"
-        title="แผงจัดการร้าน"
-      >
-        <span class="text-lg">⚙️</span>
-        <span class="text-[10px] font-medium">จัดการ</span>
-      </NuxtLink>
+          <!-- ลิงก์ต่างๆ -->
+          <NuxtLink
+            to="/orders"
+            @click="showMenu = false"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl text-surface-400 hover:text-surface-50 hover:bg-surface-800 transition-all font-bold group"
+          >
+            <span class="text-xl group-hover:scale-110 transition-transform">📜</span>
+            <span class="text-sm">ประวัติการขาย</span>
+          </NuxtLink>
 
-      <!-- Divider -->
-      <div class="border-t border-surface-800/60 mx-2 pt-1.5">
-        <!-- ชื่อผู้ใช้ -->
-        <div class="text-center text-[10px] text-surface-500 mb-1 truncate px-1">
-          {{ authUser.currentUser?.displayName || authUser.currentUser?.username }}
+          <NuxtLink
+            v-if="authUser.isAdmin"
+            to="/admin"
+            @click="showMenu = false"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl text-surface-400 hover:text-surface-50 hover:bg-surface-800 transition-all font-bold group"
+          >
+            <span class="text-xl group-hover:scale-110 transition-transform">⚙️</span>
+            <span class="text-sm">จัดการระบบ (Admin)</span>
+          </NuxtLink>
+
+          <div class="h-px bg-surface-800/50 mx-2 my-1"></div>
+
+          <!-- สลับธีม -->
+          <button
+            @click="toggleTheme"
+            class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-surface-500 hover:text-primary-400 hover:bg-primary-500/10 transition-all font-bold group"
+          >
+            <span class="text-xl group-hover:rotate-12 transition-transform">{{ theme === 'dark' ? '☀️' : '🌙' }}</span>
+            <span class="text-sm">โหมด{{ theme === 'dark' ? 'สว่าง' : 'มืด' }}</span>
+          </button>
+
+          <!-- Logout -->
+          <button
+            @click="handleLogout"
+            class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-surface-500 hover:text-red-400 hover:bg-red-500/10 transition-all font-bold group"
+          >
+            <LogOut class="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            <span class="text-sm">ออกจากระบบ</span>
+          </button>
         </div>
-        <!-- สลับธีม -->
-        <button
-          @click="toggleTheme"
-          class="w-full flex flex-col items-center gap-0.5 py-2 rounded-xl text-surface-500 hover:text-primary-400 hover:bg-primary-500/10 transition-colors"
-          :title="theme === 'dark' ? 'สลับเป็นโหมดสว่าง' : 'สลับเป็นโหมดมืด'"
-        >
-          <span class="text-lg leading-none">{{ theme === 'dark' ? '☀️' : '🌙' }}</span>
-          <span class="text-[10px] font-medium">{{ theme === 'dark' ? 'สว่าง' : 'มืด' }}</span>
-        </button>
+      </Transition>
 
-        <!-- Logout -->
-        <button
-          @click="handleLogout"
-          class="w-full flex flex-col items-center gap-0.5 py-2 rounded-xl text-surface-500 hover:text-red-400 hover:bg-red-500/10 transition-colors group"
-          title="ออกจากระบบ"
-        >
-          <LogOut class="w-5 h-5 transition-transform group-hover:-translate-x-0.5" />
-          <span class="text-[10px] font-medium mt-0.5">ออกระบบ</span>
-        </button>
-      </div>
+      <!-- Main Toggle Button -->
+      <button 
+        @click="showMenu = !showMenu"
+        class="w-full flex items-center justify-center gap-3 h-14 rounded-2xl transition-all font-black text-sm group relative overflow-hidden"
+        :class="showMenu 
+          ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' 
+          : 'bg-surface-800 text-surface-400 hover:bg-surface-700'"
+      >
+        <Menu v-if="!showMenu" class="w-6 h-6 transition-transform group-hover:scale-110" />
+        <X v-else class="w-6 h-6 transition-transform group-hover:rotate-90" />
+        <span class="tracking-tight">{{ showMenu ? 'ปิดเมนู' : 'การจัดการ' }}</span>
+        
+        <!-- Subtle Glow for Active -->
+        <div v-if="showMenu" class="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent pointer-events-none"></div>
+      </button>
     </div>
   </div>
 </template>
@@ -100,12 +146,24 @@
 import { usePosStore } from '~/stores/pos'
 import { useAuthStore } from '~/stores/auth'
 import { useTheme } from '~/composables/useTheme'
-import { LogOut, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { LogOut, ChevronLeft, ChevronRight, Menu, X } from 'lucide-vue-next'
 
 const store = usePosStore()
 const authUser = useAuthStore()
 const router = useRouter()
 const { theme, toggleTheme } = useTheme()
+
+const showMenu = ref(false)
+
+// ปิดเมนูเมื่อคลิกที่อื่น
+if (process.client) {
+  window.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement
+    if (!target.closest('.relative')) {
+      showMenu.value = false
+    }
+  })
+}
 
 // ตรวจสอบว่าหมวดหมู่มีหมวดหมู่ย่อยหรือไม่
 const hasSubcategories = (catId: number | undefined) => {

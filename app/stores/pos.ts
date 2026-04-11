@@ -20,7 +20,37 @@ export const usePosStore = defineStore('pos', () => {
   )
 
   const displayedCategories = computed(() => {
-    return categories.value.filter(c => (c.parentId ?? null) === currentParentId.value)
+    return categories.value
+      .filter(c => (c.parentId ?? null) === currentParentId.value)
+      .filter(c => (categoryProductCounts.value[c.id!] || 0) > 0)
+  })
+
+  // คำนวณจำนวนสินค้าในแต่ละหมวดหมู่ (นับรวมหมวดหมู่ย่อยแบบ Recursive)
+  const categoryProductCounts = computed(() => {
+    const counts: Record<number, number> = {}
+    
+    // 1. นับสินค้าที่อยู่ในหมวดหมู่โดยตรง
+    products.value.forEach(p => {
+      if (p.categoryId) {
+        counts[p.categoryId] = (counts[p.categoryId] || 0) + 1
+      }
+    })
+
+    // 2. ฟังก์ชันช่วยนับรวมลูกๆ ทั้งหมด
+    const getRecursiveCount = (catId: number): number => {
+      let total = counts[catId] || 0
+      const children = categories.value.filter(c => c.parentId === catId)
+      children.forEach(child => {
+        if (child.id) total += getRecursiveCount(child.id)
+      })
+      return total
+    }
+
+    const result: Record<number, number> = {}
+    categories.value.forEach(cat => {
+      if (cat.id) result[cat.id] = getRecursiveCount(cat.id)
+    })
+    return result
   })
 
   const parentCategory = computed(() => {
@@ -101,6 +131,13 @@ export const usePosStore = defineStore('pos', () => {
   }
 
   function setActiveCategory(id: number | null) {
+    // ถ้ากดอันเดิม ให้ย้อนกลับไปหาระดับบน (Toggle to Parent)
+    if (activeCategoryId.value === id) {
+      const current = categories.value.find(c => c.id === id)
+      activeCategoryId.value = current?.parentId ?? null
+      return
+    }
+
     activeCategoryId.value = id
     
     // ถ้ามีการเลือกหมวดหมู่ ให้เช็คว่าต้อง Drill-down ไหม
@@ -164,6 +201,7 @@ export const usePosStore = defineStore('pos', () => {
     // computed
     activeCategory,
     displayedCategories,
+    categoryProductCounts,
     parentCategory,
     filteredProducts,
     categoryPath,

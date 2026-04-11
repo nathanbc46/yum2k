@@ -8,7 +8,7 @@
   <div 
     v-if="selectedItem" 
     @click.stop 
-    class="h-full flex flex-col bg-surface-900 border-2 border-primary-500/50 rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-300"
+    class="flex flex-col bg-surface-900 border-2 border-primary-500/50 rounded-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-300 max-h-[95%]"
   >
     <!-- Header -->
     <div class="px-6 py-3 border-b border-surface-800 flex items-center justify-between bg-gradient-to-r from-primary-500/10 dark:from-primary-500/10 to-transparent">
@@ -32,11 +32,11 @@
     </div>
 
     <!-- Addon Groups Body -->
-    <div class="flex-1 overflow-x-auto overflow-y-hidden scrollbar-thin flex gap-10 px-8 py-4 bg-surface-950/30">
+    <div class="overflow-x-auto overflow-y-hidden scrollbar-thin flex gap-10 px-8 py-8 bg-surface-950/30">
       <div 
         v-for="group in selectedItem.product.addonGroups" 
         :key="group.id"
-        class="min-w-[320px] max-w-[450px] flex flex-col h-full bg-surface-900/40 p-5 rounded-3xl border border-surface-800/50 shadow-inner"
+        class="min-w-[320px] max-w-[450px] flex flex-col bg-surface-900/40 p-5 rounded-3xl border border-surface-800/50 shadow-inner h-fit"
       >
         <div class="flex items-center justify-between mb-6 px-1">
           <div class="flex items-center gap-3">
