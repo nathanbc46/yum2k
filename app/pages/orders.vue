@@ -52,20 +52,65 @@
     <main class="flex-1 overflow-auto p-4 md:p-8">
       <div class="max-w-6xl mx-auto space-y-6">
         
-        <div v-if="orders.length > 0 || selectedStatus !== 'all' || isLoading" class="flex flex-wrap items-center gap-2 bg-surface-100/50 dark:bg-surface-900/40 p-1.5 rounded-2xl border border-surface-200 dark:border-surface-800/50">
-          <button 
-            v-for="status in ['all', 'completed', 'pending', 'cancelled']"
-            :key="status"
-            @click="selectedStatus = status"
-            class="px-4 py-2 rounded-xl text-xs font-bold transition-all"
-            :class="selectedStatus === status ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20' : 'text-surface-600 hover:text-surface-50'"
-          >
-            {{ 
-              status === 'all' ? 'ทั้งหมด' : 
-              status === 'completed' ? 'สำเร็จ' : 
-              status === 'pending' ? 'ค้างจ่าย' : 'ยกเลิกแล้ว' 
-            }}
-          </button>
+        <!-- Filters Section -->
+        <div class="flex flex-wrap items-center gap-4 animate-in fade-in duration-500">
+          <!-- Date Range Filter -->
+          <div class="flex items-center gap-2 bg-surface-100/50 dark:bg-surface-900/40 p-1.5 rounded-2xl border border-surface-200 dark:border-surface-800/50">
+            <button 
+              v-for="range in [
+                { id: 'today', label: 'วันนี้' },
+                { id: '7days', label: '7 วันล่าสุด' },
+                { id: '30days', label: '30 วันล่าสุด' }
+              ]"
+              :key="range.id"
+              @click="selectedDateRange = range.id as any"
+              class="px-5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
+              :class="selectedDateRange === range.id ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20' : 'text-surface-600 hover:text-surface-50'"
+            >
+              {{ range.label }}
+            </button>
+            
+            <!-- Custom Date Selector -->
+            <div class="relative">
+              <button 
+                @click="($refs.dateInput as HTMLInputElement).showPicker()"
+                class="px-5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2"
+                :class="selectedDateRange === 'custom' ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20' : 'text-surface-600 hover:text-surface-50'"
+              >
+                <span>📅</span>
+                <span>{{ selectedDateRange === 'custom' ? customDate : 'ระบุวันที่' }}</span>
+              </button>
+              <input 
+                ref="dateInput"
+                type="date"
+                class="absolute inset-0 opacity-0 pointer-events-none"
+                :value="customDate"
+                @input="(e) => { 
+                  customDate = (e.target as HTMLInputElement).value; 
+                  selectedDateRange = 'custom';
+                }"
+              />
+            </div>
+          </div>
+
+          <!-- Status Filter -->
+          <div class="flex items-center gap-2 bg-surface-100/50 dark:bg-surface-900/40 p-1.5 rounded-2xl border border-surface-200 dark:border-surface-800/50">
+            <button 
+              v-for="status in [
+                { id: 'all', label: 'ทั้งหมด' },
+                { id: 'completed', label: 'สำเร็จ' },
+                { id: 'pending', label: 'ค้างจ่าย' },
+                { id: 'cancelled', label: 'ยกเลิกแล้ว' }
+              ]"
+              :key="status.id"
+              @click="selectedStatus = status.id"
+              class="px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
+              :class="selectedStatus === status.id ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20' : 'text-surface-600 hover:text-surface-50'"
+            >
+              {{ status.label }} 
+              <span class="ml-1 opacity-70">({{ statusCounts[status.id as keyof typeof statusCounts] }})</span>
+            </button>
+          </div>
         </div>
 
         <!-- Orders List Content -->
@@ -228,10 +273,10 @@
 
         <!-- Empty State -->
         <template v-else>
-          <div class="flex flex-col items-center justify-center p-20 space-y-4 text-surface-500 dark:text-surface-400 bg-surface-50/50 dark:bg-surface-900/20 rounded-3xl border border-dashed border-surface-200 dark:border-surface-800">
+          <div class="flex flex-col items-center justify-center p-20 space-y-4 text-surface-500 dark:text-surface-400 bg-surface-100/50 dark:bg-surface-900/20 rounded-3xl border border-dashed border-surface-200 dark:border-surface-800">
             <span class="text-6xl opacity-20">📭</span>
-            <p class="text-xl font-bold text-surface-900 dark:text-white">ไม่พบประวัติการขาย</p>
-            <p class="text-surface-500 dark:text-surface-400 font-medium">ยังไม่มีรายการสั่งซื้อในช่วงเวลานี้</p>
+            <p class="text-xl font-bold text-surface-50 uppercase tracking-tight">ไม่พบประวัติการขาย</p>
+            <p class="text-surface-500 font-medium">ยังไม่มีรายการสั่งซื้อในช่วงเวลานี้</p>
             <NuxtLink to="/" class="px-6 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-500 transition-all font-bold mt-2">
               กลับหน้าขาย (POS)
             </NuxtLink>
@@ -331,6 +376,14 @@ const PAGE_SIZE = 20
 
 const route = useRoute()
 const selectedStatus = ref<string>((route.query.status as string) || 'all')
+const selectedDateRange = ref<'today' | '7days' | '30days' | 'custom'>('today')
+const customDate = ref<string>(new Date().toISOString().substring(0, 10))
+const statusCounts = ref({
+  all: 0,
+  completed: 0,
+  pending: 0,
+  cancelled: 0
+})
 
 const posStore = usePosStore()
 const { restoreStock } = useInventory()
@@ -352,16 +405,55 @@ const loadOrders = async (reset = true) => {
   }
 
   try {
-    // ใช้ orderBy('createdAt') เป็นหลักเพื่อให้เรียงลำดับถูกต้องเสมอ
-    let collection = db.orders.orderBy('createdAt').reverse()
-    
-    // กรองรายการที่ถูกลบ (isDeleted) เสมอ
-    collection = collection.filter(o => !o.isDeleted)
+    // 1. คำนวณช่วงวันที่ (startDate ถึง endDate)
+    const now = new Date()
+    let startDate = new Date()
+    let endDate = new Date() // Default ถึงปัจจุบัน
 
-    // กรองตามสถานะที่เลือก
-    if (selectedStatus.value !== 'all') {
-      collection = collection.filter(o => o.status === selectedStatus.value)
+    if (selectedDateRange.value === 'today') {
+      startDate.setHours(0, 0, 0, 0)
+      endDate.setHours(23, 59, 59, 999)
+    } else if (selectedDateRange.value === '7days') {
+      startDate.setDate(now.getDate() - 7)
+      startDate.setHours(0, 0, 0, 0)
+      endDate.setHours(23, 59, 59, 999)
+    } else if (selectedDateRange.value === '30days') {
+      startDate.setDate(now.getDate() - 30)
+      startDate.setHours(0, 0, 0, 0)
+      endDate.setHours(23, 59, 59, 999)
+    } else if (selectedDateRange.value === 'custom') {
+      // ตรวจสอบกรณีผู้ใช้กด Clear ใน Date Picker
+      if (!customDate.value) {
+        selectedDateRange.value = 'today'
+        customDate.value = new Date().toISOString().substring(0, 10)
+        return // ออกจากฟังก์ชันก่อน แล้ว Watcher จะเรียก loadOrders อีกครั้งด้วยช่วงเวลา 'today'
+      }
+      startDate = new Date(customDate.value)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(customDate.value)
+      endDate.setHours(23, 59, 59, 999)
     }
+
+    // 2. คำนวณจำนวนรายการแยกตามสถานะ (Status Counts) สำหรับช่วงเวลาที่เลือก
+    if (reset) {
+      // ดึงออร์เดอร์ทั้งหมดในช่วงเวลามานับ (สำหรับระบบ Offline/Local ข้อมูลหลักร้อยหลักพันทำในหน่วยความจำได้เร็ว)
+      const allInRange = await db.orders.where('createdAt').between(startDate, endDate, true, true).toArray()
+      const nonDeleted = allInRange.filter(o => !o.isDeleted)
+      
+      statusCounts.value.all = nonDeleted.length
+      statusCounts.value.completed = nonDeleted.filter(o => o.status === 'completed').length
+      statusCounts.value.pending = nonDeleted.filter(o => o.status === 'pending').length
+      statusCounts.value.cancelled = nonDeleted.filter(o => o.status === 'cancelled').length
+    }
+
+    // 3. ดึงข้อมูลออร์เดอร์แบบแบ่งหน้า (Pagination)
+    let collection = db.orders.where('createdAt').between(startDate, endDate, true, true).reverse()
+    
+    collection = collection.filter(o => {
+      if (o.isDeleted) return false
+      if (selectedStatus.value !== 'all' && o.status !== selectedStatus.value) return false
+      return true
+    })
 
     const newOrders = await collection
       .offset(page.value * PAGE_SIZE)
@@ -384,6 +476,18 @@ const loadOrders = async (reset = true) => {
 // โหลดข้อมูลใหม่เมื่อมีการเปลี่ยนสถานะ
 watch(selectedStatus, () => {
   loadOrders(true)
+})
+
+// โหลดข้อมูลใหม่เมื่อมีการเปลี่ยนช่วงวันที่
+watch(selectedDateRange, () => {
+  loadOrders(true)
+})
+
+// โหลดข้อมูลใหม่เมื่อมีการเลือกวันที่ใหม่ในโหมด Custom
+watch(customDate, () => {
+  if (selectedDateRange.value === 'custom') {
+    loadOrders(true)
+  }
 })
 
 // คอยดู Query Params เพื่อเปลี่ยนสถานะ (กรณี Deep-link)

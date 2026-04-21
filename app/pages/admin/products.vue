@@ -19,6 +19,34 @@
             <span>{{ showTrash ? '⬅️ กลับหน้าปกติ' : '🗑️ ดูถังขยะ' }}</span>
           </button>
           
+          <!-- Excel Actions -->
+          <div class="relative group">
+            <button
+              class="flex items-center gap-2 px-4 py-2.5 bg-surface-800 hover:bg-surface-700 text-surface-200 text-sm font-bold rounded-xl transition-all border border-surface-700"
+            >
+              <span>📊 Excel</span>
+              <span class="text-[10px] opacity-50">▼</span>
+            </button>
+            <div class="absolute right-0 mt-2 w-48 bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20">
+              <button @click="downloadTemplate" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 border-b border-surface-800 flex items-center gap-2">
+                <span>📄</span> ดาวน์โหลด Template
+              </button>
+              <button @click="handleExportExcel" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 border-b border-surface-800 flex items-center gap-2">
+                <span>📤</span> ส่งออกสินค้า (Export)
+              </button>
+              <button @click="triggerImport" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 flex items-center gap-2 text-primary-400">
+                <span>📥</span> นำเข้าสินค้า (Import)
+              </button>
+            </div>
+            <input 
+              ref="excelInput"
+              type="file"
+              accept=".xlsx,.xls"
+              class="hidden"
+              @change="handleImportExcel"
+            />
+          </div>
+
           <button
             v-if="!showTrash"
             @click="openCreateModal"
@@ -95,13 +123,14 @@
           <table class="w-full text-left text-sm border-collapse">
             <thead class="bg-surface-950 text-surface-500 text-[10px] uppercase tracking-widest border-b border-surface-800">
               <tr>
-                <th class="px-6 py-4">สินค้า</th>
-                <th class="px-6 py-4">หมวดหมู่</th>
-                <th class="px-6 py-4 text-center">ประเภท</th>
-                <th class="px-6 py-4 text-right">ราคาขาย</th>
-                <th class="px-6 py-4 text-center">สต็อก</th>
-                <th class="px-6 py-4 text-center">สถานะ</th>
-                <th class="px-6 py-4 text-right">คำสั่ง</th>
+                <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-surface-500">สินค้า</th>
+                <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-surface-500">หมวดหมู่</th>
+                <th class="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-widest text-surface-500">ประเภท</th>
+                <th class="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-surface-500">ความสัมพันธ์ (Add-ons/สต็อก)</th>
+                <th class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-surface-500">ราคาขาย</th>
+                <th class="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-widest text-surface-500">สต็อก</th>
+                <th class="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-widest text-surface-500">สถานะ</th>
+                <th class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-surface-500">คำสั่ง</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-surface-800">
@@ -123,12 +152,6 @@
                     <div>
                       <div class="flex items-center gap-2">
                         <div class="font-semibold text-surface-50">{{ product.name }}</div>
-                        <!-- Badges/Icons บอกสถานะ -->
-                        <div class="flex items-center gap-1">
-                          <span v-if="product.imageUrl" class="text-[10px]" title="มีรูปภาพ">🖼️</span>
-                          <span v-if="product.addonGroups?.length" class="text-[10px]" title="มี Add-ons">➕</span>
-                          <span v-if="product.inventoryMappings?.length" class="text-[10px]" title="มีการเชื่อมโยงสต็อก (ตัดสต็อกสินค้าหลัก)">🔗</span>
-                        </div>
                       </div>
                       <div v-if="product.sku" class="text-[10px] text-surface-500 font-mono mt-0.5">{{ product.sku }}</div>
                     </div>
@@ -150,7 +173,6 @@
                   </span>
                 </td>
 
-                <!-- ประเภท Mapping -->
                 <td class="px-6 py-4 text-center">
                   <span
                     class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border"
@@ -158,6 +180,44 @@
                   >
                     {{ mappingBadgeLabel(product.mappingType) }}
                   </span>
+                </td>
+
+                <!-- รายละเอียดส่วนเสริม/สต็อก (เหมือนหน้า Preview) -->
+                <td class="px-6 py-4">
+                  <div class="flex flex-col gap-2 min-w-[140px]">
+                    <!-- Addons -->
+                    <div v-if="product.addonGroups?.length" class="flex flex-col gap-1">
+                      <div class="flex flex-wrap gap-1">
+                        <span 
+                          v-for="(group, gIdx) in product.addonGroups"
+                          :key="gIdx"
+                          class="px-1.5 py-0.5 rounded bg-amber-500/10 text-[9px] text-amber-400 border border-amber-500/20 cursor-help"
+                          :title="group.options?.map((opt: any) => `${opt.name} (+${opt.price || 0})`).join('\n')"
+                        >
+                          {{ group.name }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Inventory Mapping -->
+                    <div v-if="product.inventoryMappings?.length" class="flex flex-col gap-1">
+                      <div class="flex flex-col gap-0.5">
+                        <span 
+                          v-for="(map, mIdx) in product.inventoryMappings"
+                          :key="mIdx"
+                          class="text-[9px] text-blue-400 flex items-center gap-1"
+                        >
+                          <span class="opacity-50">🔗</span>
+                          <span class="truncate max-w-[120px]">{{ getProductName(map.sourceProductId) }}</span>
+                          <span class="font-bold whitespace-nowrap">x{{ map.quantity }}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <span v-if="!product.addonGroups?.length && !product.inventoryMappings?.length" class="text-[10px] text-surface-600 italic">
+                      -
+                    </span>
+                  </div>
                 </td>
 
                 <!-- ราคา -->
@@ -275,6 +335,13 @@
       @close="isAdjustModalOpen = false"
       @saved="handleStockAdjusted"
     />
+
+    <AdminProductImportPreviewModal
+      :is-open="isImportPreviewOpen"
+      :items="importPreviewItems"
+      @close="closeImportPreview"
+      @confirm="handleConfirmImport"
+    />
   </div>
 </template>
 
@@ -284,6 +351,7 @@ import { useProducts } from '~/composables/useProducts'
 import { useCategories } from '~/composables/useCategories'
 import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import { useToast } from '~/composables/useToast'
+import { useProductExcel, type ImportPreviewItem } from '~/composables/useProductExcel'
 import type { Product, Category, InventoryMappingType } from '~/types'
 
 definePageMeta({ layout: 'admin' })
@@ -292,6 +360,7 @@ const { fetchAll: fetchProducts, toggleProductActive, deleteProduct, restoreProd
 const { fetchAll: fetchCategories } = useCategories()
 const { lastPullTimestamp } = useMasterDataSync()
 const toast = useToast()
+const { exportProducts, prepareImportData, executeImport, downloadTemplate } = useProductExcel()
 
 // --- State ---
 const products = ref<Product[]>([])
@@ -309,6 +378,11 @@ const filterActive = ref<string>('')
 const isProductModalOpen = ref(false)
 const isAdjustModalOpen = ref(false)
 const selectedProduct = ref<Product | null>(null)
+const excelInput = ref<HTMLInputElement | null>(null)
+
+// Excel Import Preview State
+const isImportPreviewOpen = ref(false)
+const importPreviewItems = ref<ImportPreviewItem[]>([])
 
 // --- Computed: Filtered Products ---
 const filteredProducts = computed(() => {
@@ -330,6 +404,10 @@ const filteredProducts = computed(() => {
 // --- Helpers ---
 function getCategoryName(categoryId: number): string {
   return categories.value.find(c => c.id === categoryId)?.name ?? '—'
+}
+
+function getProductName(productId: number): string {
+  return products.value.find(p => p.id === productId)?.name ?? 'ไม่พบสินค้า'
 }
 
 function getCategoryColor(categoryId: number): string {
@@ -434,6 +512,71 @@ async function handleDelete(product: Product) {
 async function handleRestore(product: Product) {
   await restoreProduct(product.id!)
   await loadData()
+}
+
+// --- Excel Handlers ---
+async function handleExportExcel() {
+  try {
+    toast.info('กำลังเตรียมไฟล์ Excel...')
+    await exportProducts()
+    toast.success('ส่งออกสำเร็จ')
+  } catch (err: any) {
+    toast.error('ไม่สามารถส่งออกได้: ' + err.message)
+  }
+}
+
+function triggerImport() {
+  excelInput.value?.click()
+}
+
+async function handleImportExcel(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (!input.files?.length) return
+
+  const file = input.files[0]
+  if (!file) return
+
+  isLoading.value = true
+  
+  try {
+    toast.info('กำลังตรวจสอบข้อมูล Excel...')
+    const items = await prepareImportData(file)
+    importPreviewItems.value = items
+    isImportPreviewOpen.value = true
+  } catch (err: any) {
+    toast.error('เกิดข้อผิดพลาดในการอ่านไฟล์: ' + err.message)
+  } finally {
+    isLoading.value = false
+    input.value = '' // Reset input
+  }
+}
+
+function closeImportPreview() {
+  isImportPreviewOpen.value = false
+  importPreviewItems.value = []
+}
+
+async function handleConfirmImport() {
+  isLoading.value = true
+  try {
+    toast.info('กำลังบันทึกข้อมูลสินค้า...')
+    const result = await executeImport(importPreviewItems.value)
+    
+    if (result.success > 0) {
+      toast.success(`นำเข้าสำเร็จ ${result.success} รายการ`)
+    }
+    
+    if (result.failed > 0) {
+      toast.error(`ล้มเหลว ${result.failed} รายการ`)
+    }
+    
+    closeImportPreview()
+    await loadData()
+  } catch (err: any) {
+    toast.error('เกิดข้อผิดพลาดในการนำเข้า: ' + err.message)
+  } finally {
+    isLoading.value = false
+  }
 }
 
 function toggleTrashMode() {
