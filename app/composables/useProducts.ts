@@ -90,6 +90,7 @@ export function useProducts() {
       addonGroups: form.addonGroups?.length ? toPlain(form.addonGroups) : undefined,
       isActive: form.isActive,
       sortOrder: form.sortOrder,
+      totalSold: 0,
       imageUrl: form.imageUrl || undefined,
       isDeleted: false,
       createdAt: now,
@@ -206,6 +207,23 @@ export function useProducts() {
     })
   }
 
+  /**
+   * บันทึกการเรียงลำดับสินค้าใหม่ (Bulk Update sortOrder)
+   */
+  async function reorderProducts(orderedItems: Product[]): Promise<void> {
+    const now = new Date()
+    await db.transaction('rw', db.products, async () => {
+      for (let i = 0; i < orderedItems.length; i++) {
+        const item = orderedItems[i]
+        if (!item?.id) continue
+        await db.products.update(item.id, {
+          sortOrder: i + 1,
+          updatedAt: now
+        })
+      }
+    })
+  }
+
   return {
     fetchAll,
     createProduct,
@@ -215,6 +233,7 @@ export function useProducts() {
     deleteProduct,
     restoreProduct,
     getNextSku,
+    reorderProducts,
   }
 }
 

@@ -143,6 +143,7 @@ export interface Product extends BaseEntity {
 
   isActive: boolean           // แสดง/ซ่อนสินค้าในหน้าขาย
   sortOrder: number           // ลำดับการแสดงผล
+  totalSold: number           // ยอดขายสะสม (จำนวนชิ้น)
 }
 
 // ---------------------------------------------------------------------------

@@ -75,6 +75,7 @@ CREATE TABLE products (
   addon_groups        JSONB,                        -- รายการตัวเลือกเสริม (Spicy, Topping)
   is_active           BOOLEAN DEFAULT TRUE,
   sort_order          INT  DEFAULT 1,
+  total_sold          INT  DEFAULT 0,
   is_deleted          BOOLEAN DEFAULT FALSE,
   created_at          TIMESTAMPTZ DEFAULT NOW(),
   updated_at          TIMESTAMPTZ DEFAULT NOW()

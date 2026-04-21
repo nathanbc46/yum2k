@@ -70,6 +70,46 @@
       </div>
 
     </div>
+
+    <!-- Modal: Internet Required for First-time Setup -->
+    <Transition 
+      enter-active-class="transition duration-300 ease-out"
+      enter-from-class="opacity-0 scale-95"
+      enter-to-class="opacity-100 scale-100"
+      leave-active-class="transition duration-200 ease-in"
+      leave-from-class="opacity-100 scale-100"
+      leave-to-class="opacity-0 scale-95"
+    >
+      <div v-if="initStatus === 'need_online'" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-surface-950/80 backdrop-blur-sm" />
+        
+        <!-- Modal Card -->
+        <div class="bg-surface-900 border border-surface-800 rounded-3xl p-8 max-w-sm w-full shadow-2xl relative z-10 text-center">
+          <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-amber-500/10 text-amber-500 mb-6 border border-amber-500/20">
+            <span class="text-4xl">🌐</span>
+          </div>
+          <h2 class="text-xl font-black text-surface-50 mb-4">ต้องการการเชื่อมต่ออินเทอร์เน็ต</h2>
+          <p class="text-surface-400 text-sm leading-relaxed mb-8">
+            เนื่องจากเป็นการเข้าใช้งานครั้งแรกบนอุปกรณ์นี้ ระบบจำเป็นต้องเชื่อมต่ออินเทอร์เน็ตเพื่อตรวจสอบข้อมูลร้านและพนักงานจาก Cloud ครับ
+          </p>
+          <button 
+            @click="retryInit"
+            :disabled="isInitializing"
+            class="w-full h-14 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white font-black rounded-2xl transition-all shadow-lg shadow-primary-500/25 active:scale-95 flex items-center justify-center gap-3"
+          >
+            <span v-if="isInitializing" class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+            {{ isInitializing ? 'กำลังตรวจสอบ...' : 'ลองใหม่อีกครั้ง' }}
+          </button>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Global Loading Overlay for Initialization -->
+    <div v-if="isInitializing && initStatus === 'ready'" class="fixed inset-0 z-[60] bg-surface-950/80 backdrop-blur-xl flex flex-col items-center justify-center">
+      <div class="w-16 h-16 border-4 border-primary-500/20 border-t-primary-500 rounded-full animate-spin mb-6"></div>
+      <p class="text-surface-100 font-bold tracking-widest uppercase text-xs">กำลังเตรียมข้อมูลระบบ...</p>
+    </div>
   </div>
 </template>
 
@@ -85,6 +125,23 @@ const authUser = useAuthStore()
 
 const pin = ref('')
 const errorMsg = ref('')
+const initStatus = ref<'ready' | 'need_online' | 'error'>('ready')
+const isInitializing = ref(false)
+
+// เริ่มต้นระบบเมื่อหน้าจอโหลด
+onMounted(async () => {
+  await retryInit()
+})
+
+async function retryInit() {
+  isInitializing.value = true
+  const result = await authUser.initUserSystem()
+  initStatus.value = result.status
+  if (result.status === 'error') {
+    errorMsg.value = result.message || 'เกิดข้อผิดพลาดในการเริ่มระบบ'
+  }
+  isInitializing.value = false
+}
 
 async function addNumber(num: string) {
   if (pin.value.length < 4) {

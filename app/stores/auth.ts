@@ -15,54 +15,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   // ดึงข้อมูล User จาก Local Storage / IndexedDB
   async function hydrate() {
-    // ---- ตรวจสอบและสร้าง Admin ถ้ายังไม่มี ----
-    const adminExists = await db.users.where('username').equals('admin').first()
-    if (!adminExists) {
-      await db.users.add({
-        uuid: '00000000-0000-4000-a000-000000000001', // Static UUID
-        username: 'admin',
-        passwordHash: '',
-        displayName: 'ผู้จัดการ (Admin)',
-        role: 'admin',
-        pin: await hashSHA256('1234'), // เข้ารหัส PIN
-        isActive: true,
-        isDeleted: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      console.log('✅ สร้างบัญชี: Admin (Static UUID)')
-    }
-
-    // ---- ตรวจสอบและสร้าง Staff ถ้ายังไม่มี ----
-    const staffExists = await db.users.where('username').equals('staff').first()
-    if (!staffExists) {
-      await db.users.add({
-        uuid: '00000000-0000-4000-a000-000000000002', // Static UUID
-        username: 'staff',
-        passwordHash: '',
-        displayName: 'พนักงานขาย (Staff)',
-        role: 'staff',
-        pin: await hashSHA256('0000'), // เข้ารหัส PIN
-        isActive: true,
-        isDeleted: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      console.log('✅ สร้างบัญชี: Staff (Static UUID)')
-    }
-
-    // ---- Migrate PIN เก่าที่ยังเป็น plain text → Hash อัตโนมัติ ----
-    const allUsers = await db.users.toArray()
-    for (const user of allUsers) {
-      if (user.pin && !isAlreadyHashed(user.pin)) {
-        const hashed = await hashSHA256(user.pin)
-        await db.users.update(user.id!, { pin: hashed, updatedAt: new Date() })
-        console.log(`🔄 Migrate PIN สำเร็จ: ${user.username}`)
-      }
-    }
-    // -----------------------------------------------------------------
-
-
     const savedId = localStorage.getItem('yum2k_current_user_id')
     if (savedId) {
       const id = parseInt(savedId, 10)
@@ -101,6 +53,58 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('yum2k_current_user_id')
   }
 
+  /**
+   * ระบบเริ่มต้นผู้ใช้งาน (เฉพาะกรณีเครื่องใหม่ที่ไม่มีข้อมูล)
+   * 1. เช็ค Local Users
+   * 2. หากไม่มี -> เช็คเน็ต -> เช็ค Cloud -> Pull หรือ Seed
+   */
+  async function initUserSystem(): Promise<{ status: 'ready' | 'need_online' | 'error', message?: string }> {
+    const [userCount, catCount] = await Promise.all([
+      db.users.count(),
+      db.categories.count()
+    ])
+
+    // หากมีทั้ง User และ Category แล้ว ถือว่าพร้อม (สินค้าอาจจะเป็น 0 ได้ถ้ายังไม่ได้สร้าง)
+    if (userCount > 0 && catCount > 0) return { status: 'ready' }
+
+    // กรณีไม่มี User ในเครื่องเลย (เครื่องใหม่)
+    if (typeof window !== 'undefined' && !window.navigator.onLine) {
+      return { status: 'need_online', message: 'กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อเริ่มต้นใช้งานครั้งแรก' }
+    }
+
+    try {
+      const { checkRemoteUsersExist, pullAll } = useMasterDataSync()
+      const hasCloudUsers = await checkRemoteUsersExist()
+
+      if (hasCloudUsers) {
+        console.log('☁️ ตรวจพบข้อมูลใน Cloud กำลังดึงข้อมูลทั้งหมด...')
+        await pullAll(true)
+        return { status: 'ready' }
+      } else {
+        console.log('🌱 ไม่พบผู้ใช้ใน Cloud กำลังสร้างข้อมูลเริ่มต้น (Seed Data)...')
+        const { seedDatabase } = await import('~/db/seedData')
+        await seedDatabase()
+        return { status: 'ready' }
+      }
+    } catch (error: any) {
+      console.error('❌ ไม่สามารถเริ่มต้นระบบผู้ใช้งานได้:', error)
+      return { status: 'error', message: error.message }
+    }
+  }
+
+  /**
+   * จัดการกรณีตรวจพบการเปลี่ยนรหัสผ่านจากเครื่องอื่น
+   */
+  function handleSecurityInvalidation() {
+    const toast = useToast()
+    toast.error('รหัสผ่านของคุณถูกเปลี่ยนจากอุปกรณ์อื่น เพื่อความปลอดภัยกรุณาเข้าสู่ระบบใหม่', 10000)
+    logout()
+    // ใช้เวลาเล็กน้อยให้ Toast แสดงก่อน Redirect
+    setTimeout(() => {
+      navigateTo('/login')
+    }, 1500)
+  }
+
   // ตรวจสอบสิทธิ์
   const isAuthenticated = computed(() => currentUser.value !== null)
   const isAdmin = computed(() => currentUser.value?.role === 'admin')
@@ -113,6 +117,8 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     isStaff,
     hydrate,
+    initUserSystem,
+    handleSecurityInvalidation,
     loginWithPin,
     logout,
   }

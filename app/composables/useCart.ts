@@ -340,8 +340,20 @@ export function useCart() {
       const orderId = await db.orders.add(cleanedOrder as Order)
       const savedOrder = await db.orders.get(orderId)
 
-      // 5. อัปเดตจำนวนคิวค้างจ่ายใน Store
+      // 5. อัปเดตยอดขายสะสม (totalSold) ของสินค้าแต่ละรายการ
+      for (const item of cartItems.value) {
+        const product = await db.products.get(item.product.id!)
+        if (product) {
+          await db.products.update(item.product.id!, {
+            totalSold: (product.totalSold || 0) + item.quantity
+          })
+        }
+      }
+
+      // 6. อัปเดตจำนวนคิวค้างจ่ายใน Store
       await posStore.refreshPendingOrdersCount()
+      // โหลดข้อมูลสินค้าใหม่เพื่อให้ยอดขายสะสมใน Store อัปเดต
+      await posStore.loadData()
 
       // 6. ล้างตะกร้า
       await clearCart()

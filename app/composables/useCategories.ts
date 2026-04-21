@@ -87,11 +87,29 @@ export function useCategories() {
     })
   }
 
+  /**
+   * บันทึกการเรียงลำดับหมวดหมู่ใหม่ (Bulk Update sortOrder)
+   */
+  async function reorderCategories(orderedItems: Category[]): Promise<void> {
+    const now = new Date()
+    await db.transaction('rw', db.categories, async () => {
+      for (let i = 0; i < orderedItems.length; i++) {
+        const item = orderedItems[i]
+        if (!item?.id) continue
+        await db.categories.update(item.id, {
+          sortOrder: i + 1,
+          updatedAt: now
+        })
+      }
+    })
+  }
+
   return {
     fetchAll,
     createCategory,
     updateCategory,
     toggleCategoryActive,
     deleteCategory,
+    reorderCategories,
   }
 }

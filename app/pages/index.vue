@@ -37,5 +37,10 @@ import { usePosStore } from '~/stores/pos'
 
 const posStore = usePosStore()
 
+// โหลดข้อมูลเมื่อเข้าหน้าจอขาย
+onMounted(async () => {
+  await posStore.loadData()
+})
+
 definePageMeta({ layout: false })
 </script>

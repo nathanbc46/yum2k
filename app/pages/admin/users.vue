@@ -7,19 +7,42 @@
         <h1 class="text-2xl font-bold flex items-center gap-3">
           <span>👥</span>
           <span>จัดการพนักงาน (Users)</span>
+          <!-- Online/Offline Badge -->
+          <span 
+            v-if="!isOnline"
+            class="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full animate-pulse"
+          >
+            OFFLINE - งดแก้ไขข้อมูล
+          </span>
+          <span 
+            v-else
+            class="text-[10px] bg-success/20 text-success border border-success/30 px-2 py-0.5 rounded-full uppercase tracking-widest"
+          >
+            Online
+          </span>
         </h1>
         <p class="text-surface-400 text-sm mt-1">
-          เพิ่ม/ลบ สิทธิ์และรหัสเข้าใช้งานของพนักงานภายในร้าน
+          เพิ่ม/ลบ สิทธิ์และรหัสเข้าใช้งานของพนักงานภายในร้าน (ต้องใช้อินเทอร์เน็ตในการจัดการ)
         </p>
       </div>
       
       <button 
         @click="openCreateModal"
-        class="bg-primary-600 hover:bg-primary-500 text-white px-5 py-2.5 rounded-xl font-bold font-sans flex items-center gap-2 shadow-lg shadow-primary-900/40 transition-transform active:scale-95"
+        :disabled="!isOnline"
+        class="bg-primary-600 hover:bg-primary-500 text-white px-5 py-2.5 rounded-xl font-bold font-sans flex items-center gap-2 shadow-lg shadow-primary-900/40 transition-transform active:scale-95 disabled:grayscale disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <span>+</span>
         <span>เพิ่มผู้ใช้งาน</span>
       </button>
+    </div>
+
+    <!-- ⚠️ Offline Warning Banner -->
+    <div 
+      v-if="!isOnline"
+      class="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-200 text-sm"
+    >
+      <span class="text-xl">⚠️</span>
+      <p>ขออภัย ขณะนี้ระบบอยู่ในโหมดออฟไลน์ <strong>ไม่สามารถเพิ่ม แก้ไข หรือลบพนักงานได้</strong> เพื่อป้องกันความผิดพลาดของข้อมูล กรุณาเชื่อมต่ออินเทอร์เน็ตก่อนทำรายการ</p>
     </div>
 
     <!-- 🟢 Main Table Area -->
@@ -90,14 +113,15 @@
                 <div class="flex items-center justify-end gap-2">
                   <button 
                     @click="openEditModal(user)"
-                    class="p-2 bg-surface-800 hover:bg-surface-700 text-surface-300 hover:text-white rounded-lg transition-colors border border-surface-700"
+                    :disabled="!isOnline"
+                    class="p-2 bg-surface-800 hover:bg-surface-700 text-surface-300 hover:text-white rounded-lg transition-colors border border-surface-700 disabled:opacity-30 disabled:cursor-not-allowed"
                     title="แก้ไขข้อมูล"
                   >
                     ✏️
                   </button>
                   <button 
                     @click="handleDelete(user)"
-                    :disabled="user.username === 'admin'"
+                    :disabled="user.username === 'admin' || !isOnline"
                     class="p-2 bg-surface-800 hover:bg-red-500/20 text-surface-500 hover:text-red-400 rounded-lg transition-colors border border-surface-700 disabled:opacity-30 disabled:cursor-not-allowed"
                     title="ลบผู้ใช้นี้"
                   >
@@ -136,7 +160,7 @@ import UserFormModal from '~/components/admin/UserFormModal.vue'
 
 definePageMeta({ layout: 'admin' })
 
-const { loadUsers, createUser, updateUser, deleteUser } = useUsers()
+const { isOnline, loadUsers, createUser, updateUser, deleteUser } = useUsers()
 const { lastPullTimestamp } = useMasterDataSync()
 const toast = useToast()
 

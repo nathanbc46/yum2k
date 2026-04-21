@@ -79,7 +79,7 @@ class Yum2KDatabase extends Dexie {
        *
        * หมายเหตุ: inventoryMappings เก็บเป็น JSON (ไม่ Index ได้โดยตรง)
        */
-      products: '++id, &uuid, categoryId, name, sku, isActive, sortOrder, stockQuantity, mappingType, isDeleted, updatedAt',
+      products: '++id, &uuid, categoryId, name, sku, isActive, sortOrder, totalSold, stockQuantity, mappingType, isDeleted, updatedAt',
 
       /**
        * orders: ออร์เดอร์ / Transaction

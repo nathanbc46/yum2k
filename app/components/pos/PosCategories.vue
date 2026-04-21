@@ -12,6 +12,32 @@
         <span class="text-sm font-black italic">ย้อนกลับ</span>
       </button>
 
+      <!-- ปุ่มสินค้าทั้งหมด (ขายดี) -->
+      <button
+        v-if="!store.currentParentId"
+        class="btn-touch relative group flex flex-col gap-1 rounded-2xl p-4 items-center text-center transition-all duration-300 border-2 shrink-0 active:scale-95 shadow-sm"
+        :class="[
+          store.activeCategoryId === null 
+            ? 'bg-amber-500 text-white border-amber-600 shadow-lg shadow-amber-500/20 -translate-y-0.5'
+            : 'bg-surface-900 text-surface-50 border-surface-800 hover:border-surface-700 hover:shadow-md hover:-translate-y-0.5'
+        ]"
+        @click="store.setActiveCategory(null)"
+      >
+        <div class="text-xl mb-0.5">🔥</div>
+        <span 
+          class="text-sm font-black line-clamp-2 leading-tight transition-colors duration-300"
+          :class="store.activeCategoryId === null ? 'text-white' : 'text-surface-50'"
+        >
+          ทั้งหมด (ขายดี)
+        </span>
+        <span 
+          class="mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider transition-all duration-300 border bg-white/20 text-white border-white/30"
+          v-if="store.activeCategoryId === null"
+        >
+          {{ store.products.length }} รายการ
+        </span>
+      </button>
+
       <button
         v-for="cat in store.displayedCategories"
         :key="cat.id"

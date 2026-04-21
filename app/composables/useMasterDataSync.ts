@@ -140,6 +140,7 @@ export function useMasterDataSync() {
         addon_groups: p.addonGroups ?? null,
         is_active: p.isActive,
         sort_order: p.sortOrder,
+        total_sold: p.totalSold || 0,
         is_deleted: p.isDeleted,
         updated_at: p.updatedAt.toISOString(),
       }
@@ -333,6 +334,7 @@ export function useMasterDataSync() {
         addonGroups:        Array.isArray(addonData) ? addonData : undefined,
         isActive:           remote.is_active,
         sortOrder:          remote.sort_order,
+        totalSold:          Number(remote.total_sold || 0),
         imageUrl:           remote.image_url ?? undefined,
         isDeleted:          remote.is_deleted,
         createdAt:          new Date(remote.created_at),
@@ -380,10 +382,29 @@ export function useMasterDataSync() {
   }
 
   /**
+   * ตรวจสอบว่าใน Supabase มีพนักงาน (pos_users) หรือยัง
+   * ใช้สำหรับการตัดสินใจว่าจะ Pull หรือ Seed ข้อมูลในเครื่องที่ยังว่างเปล่า
+   */
+  async function checkRemoteUsersExist(): Promise<boolean> {
+    const supabase = useSupabaseClient<any>()
+    const { count, error } = await supabase
+      .from('pos_users')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_deleted', false)
+
+    if (error) {
+      console.error('❌ เช็ค Remote Users ล้มเหลว:', error)
+      return false
+    }
+    return (count || 0) > 0
+  }
+
+  /**
    * Pull พนักงานจาก Supabase ลงเครื่อง
    */
   async function pullUsers(force = false): Promise<number> {
     const supabase = useSupabaseClient<any>()
+    const authStore = useAuthStore() // ใช้สำหรับเช็ค Session ปัจจุบัน
     const lastPullAt = force ? null : await getLastPullAt()
 
     let query = supabase.from('pos_users').select('*')
@@ -425,6 +446,15 @@ export function useMasterDataSync() {
 
       if (existing?.id) {
         await db.users.update(existing.id, localUser)
+        
+        // --- SECURITY CHECK: ตรวจสอบว่าพนักงานที่กำลัง Login อยู่ ถูกเปลี่ยนรหัสจากเครื่องอื่นหรือไม่ ---
+        if (authStore.currentUser?.uuid === remote.uuid) {
+          if (authStore.currentUser?.pin !== remote.pin) {
+            console.warn('⚠️ ตรวจพบการเปลี่ยนรหัสผ่านจากอุปกรณ์อื่น สำหรับผู้ใช้ปัจจุบัน')
+            // ส่งสัญญาณให้หน้าจอแจ้งเตือนและ Logout (ผ่าน Global Hook หรือ Store)
+            authStore.handleSecurityInvalidation()
+          }
+        }
       } else {
         await db.users.add(localUser as User)
       }
@@ -566,7 +596,9 @@ export function useMasterDataSync() {
     lastPullTimestamp,
     pushCategories,
     pushProducts,
+    pushUsers,
     pushAll,
+    checkRemoteUsersExist,
     pullCategories,
     pullProducts,
     pullUsers,

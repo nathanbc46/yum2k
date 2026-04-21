@@ -22,6 +22,7 @@ export const usePosStore = defineStore('pos', () => {
   const displayedCategories = computed(() => {
     return categories.value
       .filter(c => (c.parentId ?? null) === currentParentId.value)
+      // เปิดใช้การกรองหมวดหมู่ว่างเหมือนเดิม เพื่อความสวยงาม (ตอนนี้ข้อมูลน่าจะมาแล้ว)
       .filter(c => (categoryProductCounts.value[c.id!] || 0) > 0)
   })
 
@@ -59,8 +60,14 @@ export const usePosStore = defineStore('pos', () => {
   })
 
   const filteredProducts = computed(() => {
-    if (!activeCategoryId.value) return products.value
-    return products.value.filter(p => p.categoryId === activeCategoryId.value)
+    // 1. ถ้าไม่ได้เลือกหมวดหมู่ (แสดงทั้งหมด) -> เรียงตามสินค้าขายดี (totalSold DESC)
+    if (!activeCategoryId.value) {
+      return [...products.value].sort((a, b) => (b.totalSold || 0) - (a.totalSold || 0))
+    }
+    // 2. ถ้าเลือกหมวดหมู่แล้ว -> กรองตามหมวดหมู่ และเรียงตามลำดับที่เราจัดไว้ (sortOrder ASC)
+    return products.value
+      .filter(p => p.categoryId === activeCategoryId.value)
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
   })
 
   // สร้างรายชื่อหมวดหมู่ตามลำดับชั้น (Breadcrumbs)
@@ -83,48 +90,48 @@ export const usePosStore = defineStore('pos', () => {
 
   // Methods
   async function loadData() {
-    if (isLoading.value) return // ป้องกันการเรียกซ้อน
+    if (isLoading.value) return
     isLoading.value = true
     
     try {
-      // 1. เช็คก่อนว่ามีข้อมูลไหม, ถ้าไม่มี ให้สั่งรัน Seed ลงฐานข้อมูล
-      const catCount = await db.categories.count()
-      if (catCount === 0) {
-        await seedDatabase()
+      // 1. ระบบเริ่มต้นผู้ใช้งาน (เช็ค Local/Cloud/Seed)
+      const authStore = useAuthStore()
+      const userInit = await authStore.initUserSystem()
+      
+      if (userInit.status !== 'ready') {
+        isLoading.value = false
+        return
       }
 
-      // 2. โหลด Category
-      const loadedCats = await db.categories
-        .filter(c => c.isActive && !c.isDeleted)
-        .sortBy('sortOrder')
+      // 2. โหลด Category ทั้งหมด
+      // ดึงมาทั้งหมดแล้วค่อยกรองเพื่อความเสถียรของประเภทข้อมูล (Boolean/Number)
+      const allCats = await db.categories.toArray()
+      const loadedCats = allCats
+        .filter(c => (!c.isDeleted || c.isDeleted === (0 as any)) && c.isActive)
+        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+      
       categories.value = loadedCats
 
-      // Select อันแรกอัตโนมัติ
-      if (loadedCats.length > 0 && !activeCategoryId.value) {
-        activeCategoryId.value = loadedCats.at(0)?.id ?? null
-      }
-
       // 3. โหลด Product พร้อมโยงหา Category
-      const loadedProducts = await db.products
-        .filter(p => p.isActive && !p.isDeleted)
-        .sortBy('sortOrder')
-        
-      // จอยข้อมูล Category ลงใน Product (ทำ ProductWithCategory)
-      const mappedProducts: ProductWithCategory[] = loadedProducts.map(p => {
+      const allProds = await db.products.toArray()
+      const activeProds = allProds.filter(p => 
+        (!p.isDeleted || p.isDeleted === (0 as any)) && p.isActive
+      )
+      
+      // จอยข้อมูล Category ลงใน Product
+      products.value = activeProds.map(p => {
         const cat = loadedCats.find(c => c.id === p.categoryId)
         return {
           ...p,
           category: cat as Category
         }
       })
-      
-      products.value = mappedProducts
 
       // 4. โหลดจำนวนคิวค้างจ่าย
       await refreshPendingOrdersCount()
 
     } catch (e) {
-      console.error('โหลดข้อมูลลง POS ไม่สำเร็จ:', e)
+      console.error('❌ POS Store Error:', e)
     } finally {
       isLoading.value = false
     }
