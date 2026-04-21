@@ -55,9 +55,22 @@
       </div>
 
       <!-- 2. เมื่อมีการเลือกรายการในตะกร้า: แสดงพื้นที่เลือก Add-on แบบกึ่งกลาง (Compact Center) -->
-      <div v-else class="h-full flex items-center justify-center p-6 bg-surface-950/40 backdrop-blur-[2px] animate-in fade-in duration-300">
-        <div class="w-full max-w-6xl">
-          <PosAddonSelection />
+      <div 
+        v-else 
+        class="h-full flex items-start justify-center p-6 bg-surface-950/40 backdrop-blur-[2px] animate-in fade-in duration-300 cursor-pointer"
+        @click="store.setSelectedCartItemIndex(null)"
+      >
+        <!-- Tablet/Desktop: แสดงแบบ Inline -->
+        <div class="hidden md:flex w-full h-fit max-w-6xl cursor-default" @click.stop>
+          <PosAddonSelection is-inline />
+        </div>
+
+        <!-- Mobile: แสดงข้อความแจ้งเตือน (เพราะจะมี Modal ลอยทับ) -->
+        <div class="md:hidden flex flex-col items-center gap-4 text-surface-400 mt-20">
+          <div class="w-16 h-16 bg-surface-800 rounded-full flex items-center justify-center text-3xl animate-bounce">
+            📋
+          </div>
+          <p class="font-bold">กำลังปรับแต่งรายการ...</p>
         </div>
       </div>
     </div>

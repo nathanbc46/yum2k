@@ -22,14 +22,17 @@
   <div class="hidden print:block print:absolute print:inset-0 print:bg-white print:z-50">
     <PosReceipt v-if="posStore.lastOrder" :order="posStore.lastOrder" />
   </div>
+
+  <!-- Modal สำหรับเลือก/แก้ไข Addons (Global Overlay) -->
+  <PosAddonSelection />
 </template>
 
 <script setup lang="ts">
 import PosLayout from '~/components/pos/PosLayout.vue'
 import PosCategories from '~/components/pos/PosCategories.vue'
-import PosProductGrid from '~/components/pos/PosProductGrid.vue'
 import PosCart from '~/components/pos/PosCart.vue'
 import PosReceipt from '~/components/pos/PosReceipt.vue'
+import PosAddonSelection from '~/components/pos/PosAddonSelection.vue'
 import { usePosStore } from '~/stores/pos'
 
 const posStore = usePosStore()

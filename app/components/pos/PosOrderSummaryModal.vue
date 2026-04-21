@@ -224,7 +224,7 @@ watch(selectedPayment, (newVal) => {
                         v-model.number="amountReceived"
                         type="number"
                         ref="cashInput"
-                        class="w-full bg-surface-900 border-2 border-surface-700 rounded-2xl py-4 pl-10 pr-4 text-3xl font-black text-primary-400 focus:border-primary-500 outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        class="w-full bg-surface-900 border-2 border-surface-700 rounded-2xl py-4 pl-10 pr-4 text-3xl font-black text-success focus:border-success outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </div>
                   </div>
@@ -232,7 +232,7 @@ watch(selectedPayment, (newVal) => {
                     <span class="text-xs text-surface-500 font-bold">เงินทอน</span>
                     <div class="bg-surface-900 border-2 border-dashed border-surface-700 rounded-2xl py-4 px-5 flex items-center justify-between">
                       <span class="text-surface-500 font-bold text-xl">฿</span>
-                      <span class="text-3xl font-black" :class="changeAmount > 0 ? 'text-orange-400' : 'text-surface-600'">
+                      <span class="text-3xl font-black" :class="changeAmount > 0 ? 'text-blue-400' : 'text-surface-600'">
                         {{ changeAmount.toLocaleString() }}
                       </span>
                     </div>
