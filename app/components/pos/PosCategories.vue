@@ -153,7 +153,7 @@
 
       <!-- Main Toggle Button -->
       <button 
-        @click="showMenu = !showMenu"
+        @click.stop="showMenu = !showMenu"
         class="w-full flex items-center justify-center gap-3 h-14 rounded-2xl transition-all font-black text-sm group relative overflow-hidden"
         :class="showMenu 
           ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' 
