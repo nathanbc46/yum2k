@@ -6,7 +6,7 @@
     <!-- Network Status Banner: แสดงเฉพาะเมื่อมีเน็ตและมีงานค้าง -->
     <Transition name="slide-down">
       <div 
-        v-if="isOnline && (pendingCount > 0 || pendingStockAuditCount > 0)" 
+      v-if="!isAdminPage && !bannerDismissed && isOnline && pendingCount > 0" 
         class="bg-orange-500 text-white px-4 py-2 text-center text-sm font-medium flex items-center justify-center gap-4 z-[60] relative shrink-0 shadow-lg"
       >
         <span class="flex items-center gap-2">
@@ -15,7 +15,7 @@
         </span>
         <span class="flex items-center gap-2">
           <span class="bg-surface-950/20 px-2 py-0.5 rounded-full text-xs font-mono">
-             ออร์เดอร์ {{ pendingCount }} | สต็อก {{ pendingStockAuditCount }}
+            ออร์เดอร์รอส่ง {{ pendingCount }} รายการ
           </span>
           <button 
             @click="() => syncPendingOrders(true)"
@@ -24,6 +24,24 @@
           >
             <span v-if="isSyncing" class="w-3 h-3 border-2 border-orange-200 border-t-orange-600 rounded-full animate-spin"></span>
             <span>{{ isSyncing ? 'กำลังส่ง...' : 'ซิงค์ตอนนี้ 📤' }}</span>
+            <!-- Countdown เดียวกับ Background Heartbeat -->
+            <span 
+              v-if="!isSyncing"
+              class="ml-0.5 px-1.5 py-0.5 rounded-md bg-orange-100 text-[10px] font-mono tabular-nums font-bold"
+              :class="nextSyncCountdown <= 60 ? 'text-red-600' : 'text-orange-500'"
+            >
+              {{ Math.floor(nextSyncCountdown / 60) }}:{{ String(nextSyncCountdown % 60).padStart(2, '0') }}
+            </span>
+          </button>
+          <!-- ปุ่มปิดแถบ -->
+          <button
+            @click="bannerDismissed = true"
+            class="ml-1 p-1 rounded-full hover:bg-white/20 active:scale-90 transition-all text-white/80 hover:text-white"
+            title="ปิดแถบนี้"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
           </button>
         </span>
       </div>
@@ -63,11 +81,23 @@ import ToastProvider from '~/components/ui/ToastProvider.vue'
 const { 
   isOnline, isSyncing, pendingCount, pendingStockAuditCount,
   setupNetworkListener, syncPendingOrders, refreshPendingCount,
-  startHeartbeatSync, stopHeartbeatSync
+  startHeartbeatSync, stopHeartbeatSync, nextSyncCountdown
 } = useSync()
 const posStore = usePosStore()
 const { theme, toggleTheme } = useTheme()
 const toast = useToast()
+const route = useRoute()
+
+// ซ่อนแถบสีส้มในหน้า Admin เพราะมี AdminSyncBar จัดการแทนแล้ว
+const isAdminPage = computed(() => route.path.startsWith('/admin'))
+
+// ให้พนักงาน POS ปิดแถบได้ชั่วคราว
+const bannerDismissed = ref(false)
+
+// แสดงแถบใหม่อีกครั้งเมื่อมี Order ใหม่เข้ามา
+watch(pendingCount, (newVal, oldVal) => {
+  if (newVal > oldVal) bannerDismissed.value = false
+})
 
 let cleanupNetwork: (() => void) | null = null
 

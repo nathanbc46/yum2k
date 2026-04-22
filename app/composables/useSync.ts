@@ -23,6 +23,10 @@ const pendingStockAuditCount = ref(0)
 const lastSyncAt = ref<Date | null>(null)
 const syncIntervalId = ref<any>(null)
 
+// Countdown ร่วมกันกับ Background Heartbeat Sync (หน่วย: วินาที)
+const HEARTBEAT_SECONDS = 5 * 60
+const nextSyncCountdown = ref(HEARTBEAT_SECONDS)
+
 export function useSync() {
   const toast = useToast()
   const masterSync = useMasterDataSync()
@@ -35,8 +39,11 @@ export function useSync() {
   function setupNetworkListener(): () => void {
     const onOnline = () => {
       isOnline.value = true
-      console.log('🌐 มีอินเตอร์เน็ตแล้ว — เริ่ม Sync...')
-      syncPendingOrders()
+      console.log('🌐 มีอินเตอร์เน็ตแล้ว — รอ 3 วินาทีก่อน Sync...')
+      // delay เล็กน้อยเพราะ browser online event อาจ fire ก่อนที่สัญญาณจะพร้อมจริงๆ
+      setTimeout(() => {
+        if (navigator.onLine) syncPendingOrders()
+      }, 3000)
     }
 
     const onOffline = () => {
@@ -75,14 +82,21 @@ export function useSync() {
    */
   async function syncPendingOrders(force = false): Promise<{ 
     orders: { total: number, success: number, failed: number, errors: string[] },
-    auditLogs: { total: number, success: number, failed: number, errors: string[] }
+    auditLogs: { total: number, success: number, failed: number, errors: string[] },
+    categories: number,
+    products: number
   }> {
     const summary = {
       orders: { total: 0, success: 0, failed: 0, errors: [] as string[] },
-      auditLogs: { total: 0, success: 0, failed: 0, errors: [] as string[] }
+      auditLogs: { total: 0, success: 0, failed: 0, errors: [] as string[] },
+      categories: 0,
+      products: 0
     }
 
-    if (!isOnline.value || isSyncing.value) return summary
+    // ตรวจสอบ navigator.onLine โดยตรง (real-time) แทน cached isOnline ref
+    // เพื่อป้องกัน race condition ที่ isOnline=true แต่จริงๆ ยังไม่มีสัญญาณ
+    if (!navigator.onLine || isSyncing.value) return summary
+    isOnline.value = navigator.onLine // sync ค่าให้ตรงกัน
 
     // 1. Sync Master Data (Delta Push Categories, Products, Stock Logs)
     const masterRes = await masterSync.pushAll().catch(err => {
@@ -114,22 +128,25 @@ export function useSync() {
     }
 
     // 3. Sync Audit Logs
-    // หมายเหตุ: ปัจจุบันถูกรวมอยู่ใน pushAll() แล้ว เพื่อความสม่ำเสมอ
     summary.auditLogs.success = masterRes.stockLogs
     summary.auditLogs.total = masterRes.stockLogs
+    
+    // 4. Master Data Counts
+    summary.categories = masterRes.categories
+    summary.products = masterRes.products
 
     lastSyncAt.value = new Date()
     await refreshPendingCount()
 
     // --- แจ้งเตือนการซิงค์เบื้องหลัง ---
-    const totalMasterPushed = masterRes.categories + masterRes.products
+    const totalMasterPushed = summary.categories + summary.products
     const hasSuccessfulSync = summary.orders.success > 0 || summary.auditLogs.success > 0 || totalMasterPushed > 0
 
     if (!force && hasSuccessfulSync) {
       const msg = [
         '🔄 ซิงค์ข้อมูลอัตโนมัติสำเร็จ',
-        masterRes.categories > 0 ? `• หมวดหมู่: ${masterRes.categories} รายการ` : '',
-        masterRes.products > 0 ? `• สินค้า: ${masterRes.products} รายการ` : '',
+        summary.categories > 0 ? `• หมวดหมู่: ${summary.categories} รายการ` : '',
+        summary.products > 0 ? `• สินค้า: ${summary.products} รายการ` : '',
         summary.orders.success > 0 ? `• ออร์เดอร์: ${summary.orders.success} รายการ` : '',
         summary.auditLogs.success > 0 ? `• ประวัติสต็อก: ${summary.auditLogs.success} รายการ` : ''
       ].filter(Boolean).join('\n')
@@ -344,19 +361,29 @@ export function useSync() {
     isSyncing,
     isOnline,
     pendingCount,
+    pendingStockAuditCount,
     lastSyncAt,
     setupNetworkListener,
     syncPendingOrders,
     refreshPendingCount,
     fetchRemoteOrders,
     getLastRemoteOrderSequence,
-    pendingStockAuditCount,
+    nextSyncCountdown,
     startHeartbeatSync: () => {
       if (syncIntervalId.value) return
-      syncPendingOrders()
+      // เรียก Sync ทันทีเมื่อเริ่ม (ไม่ await เพื่อไม่ block การตั้ง interval)
+      if (isOnline.value) syncPendingOrders()
+      nextSyncCountdown.value = HEARTBEAT_SECONDS
+      // Countdown วิ่งทุก 1 วินาทีเสมอ ไม่มีการหยุด
+      // guard สำหรับ isSyncing อยู่เฉพาะตอนจะ trigger sync เท่านั้น (ไม่ใช่ตอน decrement)
       syncIntervalId.value = setInterval(() => {
-        if (isOnline.value && !isSyncing.value) syncPendingOrders()
-      }, 5 * 60 * 1000)
+        if (nextSyncCountdown.value > 0) {
+          nextSyncCountdown.value--
+        } else {
+          nextSyncCountdown.value = HEARTBEAT_SECONDS
+          if (isOnline.value && !isSyncing.value) syncPendingOrders()
+        }
+      }, 1000)
     },
     stopHeartbeatSync: () => {
       if (syncIntervalId.value) {

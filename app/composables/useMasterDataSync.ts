@@ -675,6 +675,59 @@ export function useMasterDataSync() {
     await pullAll()
   }
 
+  /**
+   * ดึงจำนวนรายการที่รอ Sync ขึ้น Cloud (ใช้ Logic เดียวกับ pushAll)
+   * เพื่อให้ตัวเลขใน UI แม่นยำและสอดคล้องกับสิ่งที่จะถูก Push จริงๆ
+   */
+  async function getPendingCounts(): Promise<{
+    categories: number; categoryNames: string[]
+    products: number; productNames: string[]
+    orders: number; orderNumbers: string[]
+    stockLogs: number; stockLogDetails: string[]
+  }> {
+    const lastPushAt = await getLastPushAt()
+    const MAX_RETRY = 5
+
+    // Categories: เหมือน pushCategories (delta vs all)
+    let pendingCats: any[] = []
+    if (lastPushAt) {
+      pendingCats = await db.categories.where('updatedAt').above(lastPushAt).toArray()
+    } else {
+      pendingCats = await db.categories.toArray()
+    }
+
+    // Products: เหมือน pushProducts (delta vs all)
+    let pendingProds: any[] = []
+    if (lastPushAt) {
+      pendingProds = await db.products.where('updatedAt').above(lastPushAt).toArray()
+    } else {
+      pendingProds = await db.products.toArray()
+    }
+
+    // Orders: pending/failed ที่ยังไม่เกิน retry limit
+    const pendingOrders = await db.orders
+      .where('syncStatus').anyOf(['pending', 'failed'])
+      .filter(o => (o.syncRetryCount || 0) < MAX_RETRY)
+      .toArray()
+
+    // Stock Logs: pending/failed ที่ยังไม่เกิน retry limit
+    const pendingStocks = await db.stockAuditLogs
+      .where('syncStatus').anyOf(['pending', 'failed'])
+      .filter(l => (l.syncRetryCount || 0) < MAX_RETRY)
+      .toArray()
+
+    return {
+      categories: pendingCats.length,
+      categoryNames: pendingCats.map(c => c.name),
+      products: pendingProds.length,
+      productNames: pendingProds.map(p => p.name),
+      orders: pendingOrders.length,
+      orderNumbers: pendingOrders.map(o => o.orderNumber),
+      stockLogs: pendingStocks.length,
+      stockLogDetails: pendingStocks.map(l => `${l.productName} (${l.changeQuantity > 0 ? '+' : ''}${l.changeQuantity})`),
+    }
+  }
+
   return {
     isSyncingMaster,
     lastMasterSyncAt,
@@ -685,6 +738,7 @@ export function useMasterDataSync() {
     pushUsers,
     pushStockAuditLogs,
     pushAll,
+    getPendingCounts,
     checkRemoteUsersExist,
     pullCategories,
     pullProducts,

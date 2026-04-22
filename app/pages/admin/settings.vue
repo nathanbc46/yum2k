@@ -201,7 +201,7 @@ definePageMeta({ layout: 'admin' })
 
 const { receiptSettings, isSaving, loadReceiptSettings, saveReceiptSettings } = useSettings()
 const masterSync = useMasterDataSync()
-const { fetchRemoteOrders, isOnline } = useSync()
+const { fetchRemoteOrders, syncPendingOrders, isOnline } = useSync()
 const toast = useToast()
 
 // ใช้ reactive copy เพื่อแก้ไขก่อนบันทึก
@@ -250,12 +250,14 @@ async function handleForcePush() {
 
   isForcePushing.value = true
   try {
-    const res = await masterSync.pushAll(true) // force = true
+    // ซิงค์ทุกอย่าง (รวมถึง Order) เพื่อความสมบูรณ์
+    const res = await syncPendingOrders(true) 
     toast.success([
       '📤 บังคับส่งข้อมูลเสร็จสมบูรณ์',
+      `• ข้อมูลออร์เดอร์: ${res.orders.success} รายการ`,
       `• หมวดหมู่สินค้า: ${res.categories} รายการ`,
       `• รายการสินค้า: ${res.products} รายการ`,
-      `• ประวัติสต็อก: ${res.stockLogs} รายการ`,
+      `• ประวัติสต็อก: ${res.auditLogs.success} รายการ`,
     ].join('\n'), 6000)
   } catch (err: any) {
     console.error('Force Push Error:', err)

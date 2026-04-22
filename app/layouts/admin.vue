@@ -148,6 +148,7 @@
 
     <!-- Main Content Area -->
     <main class="flex-1 flex flex-col overflow-hidden">
+      <AdminSyncBar />
       <slot />
     </main>
   </div>
@@ -187,22 +188,19 @@ function formatSyncTime(date: Date) {
 async function handlePush() {
   syncDir.value = 'push'
   try {
-    // 1. ซิงค์ข้อมูลหลัก (Categories, Products)
-    const resMaster = await pushAll()
-    
-    // 2. ซิงค์ข้อมูลธุรกรรม (Orders, Stock Logs)
-    const resTrans = await syncPendingOrders(true) // Force sync
+    // ซิงค์ทุกอย่างในขั้นตอนเดียว (Categories, Products, Orders, Stock Logs)
+    const res = await syncPendingOrders(true) // Force sync
     
     const msg = [
       '📤 ส่งข้อมูลขึ้น Cloud สำเร็จ!',
-      `• ข้อมูลออร์เดอร์: ${resTrans.orders.success} รายการ`,
-      `• หมวดหมู่สินค้า: ${resMaster.categories} รายการ`,
-      `• รายการสินค้า: ${resMaster.products} รายการ`,
-      `• ประวัติสต็อก: ${resTrans.auditLogs.success} รายการ`
+      `• ข้อมูลออร์เดอร์: ${res.orders.success} รายการ`,
+      `• หมวดหมู่สินค้า: ${res.categories} รายการ`,
+      `• รายการสินค้า: ${res.products} รายการ`,
+      `• ประวัติสต็อก: ${res.auditLogs.success} รายการ`
     ].join('\n')
 
     // ถ้ามี Error ให้แจ้งเตือนเพิ่มเติม
-    const allErrors = [...resTrans.orders.errors, ...resTrans.auditLogs.errors]
+    const allErrors = [...res.orders.errors, ...res.auditLogs.errors]
     if (allErrors.length > 0) {
       toast.warning(msg + `\n\n⚠️ พบข้อผิดพลาด ${allErrors.length} รายการ`, 10000)
     } else {
