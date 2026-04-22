@@ -215,11 +215,22 @@ watch(selectedPayment, (newVal) => {
                 </div>
 
                 <!-- Input & Change Display -->
-                <div class="grid grid-cols-2 gap-6">
+                <div class="grid grid-cols-3 gap-4">
+                  <!-- ยอดที่ต้องจ่าย -->
+                  <div class="space-y-2">
+                    <span class="text-xs text-surface-500 font-bold">ยอดสุทธิ</span>
+                    <div class="bg-surface-900 border-2 border-amber-500/30 rounded-2xl py-4 px-5 flex items-center justify-between">
+                      <span class="text-amber-500/50 font-bold text-xl">฿</span>
+                      <span class="text-3xl font-black text-amber-500">
+                        {{ totalAmount.toLocaleString() }}
+                      </span>
+                    </div>
+                  </div>
+
                   <div class="space-y-2">
                     <span class="text-xs text-surface-500 font-bold">จำนวนเงินที่รับ</span>
                     <div class="relative">
-                      <span class="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500 font-bold text-xl">฿</span>
+                      <span class="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500 font-bold text-xl pointer-events-none">฿</span>
                       <input 
                         v-model.number="amountReceived"
                         type="number"
@@ -228,6 +239,7 @@ watch(selectedPayment, (newVal) => {
                       />
                     </div>
                   </div>
+
                   <div class="space-y-2">
                     <span class="text-xs text-surface-500 font-bold">เงินทอน</span>
                     <div class="bg-surface-900 border-2 border-dashed border-surface-700 rounded-2xl py-4 px-5 flex items-center justify-between">

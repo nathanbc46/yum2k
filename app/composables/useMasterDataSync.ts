@@ -190,6 +190,87 @@ export function useMasterDataSync() {
     return localUsers.length
   }
 
+  /**
+   * Push ประวัติการปรับสต็อก (Stock Audit Logs) ทั้งหมดขึ้น Supabase
+   * โดยจะส่งเฉพาะรายการที่ยังไม่ได้ซิงค์ (syncStatus != 'synced') 
+   * หรือถ้า force=true จะส่งทั้งหมดที่มีการเปลี่ยนแปลงหลังจาก lastPushAt
+   */
+  async function pushStockAuditLogs(force = false): Promise<number> {
+    const supabase = useSupabaseClient<any>()
+    const lastPushAt = force ? null : await getLastPushAt()
+
+    let query = db.stockAuditLogs.toCollection()
+    
+    // ตั้งค่าสูงสุดในการลองใหม่ (เหมือนใน useSync.ts)
+    const MAX_RETRY_COUNT = 5
+
+    // ถ้าไม่ใช่ Force ให้ซิงค์เฉพาะที่ยังไม่สำเร็จและยังไม่เกินโควต้าลองใหม่
+    if (!force) {
+      query = db.stockAuditLogs.where('syncStatus').anyOf(['pending', 'failed'])
+        .filter(log => (log.syncRetryCount || 0) < MAX_RETRY_COUNT)
+    } else if (lastPushAt) {
+      query = db.stockAuditLogs.where('updatedAt').above(lastPushAt)
+    }
+
+    const localLogs = await query.toArray()
+    if (localLogs.length === 0) return 0
+
+    // ดึงข้อมูลสินค้าทั้งหมดเพื่อสร้าง Map สำหรับแปลง ID -> UUID
+    const allProds = await db.products.toArray()
+    const prodIdToUuid = new Map(allProds.map(p => [p.id!, p.uuid]))
+
+    // เตรียม Payload
+    const payload = localLogs.map(log => ({
+      uuid: log.uuid,
+      product_uuid: prodIdToUuid.get(log.productId),
+      product_name: log.productName,
+      change_quantity: log.changeQuantity,
+      previous_quantity: log.previousQuantity,
+      new_quantity: log.newQuantity,
+      reason: log.reason,
+      note: log.note,
+      staff_uuid: log.staffUuid,
+      staff_name: log.staffName,
+      is_deleted: log.isDeleted,
+      created_at: log.createdAt.toISOString(),
+      updated_at: new Date().toISOString()
+    }))
+
+    // แบ่งชุดละ 100 รายการเพื่อป้องกัน Payload ใหญ่เกินไป
+    const chunkSize = 100
+    for (let i = 0; i < payload.length; i += chunkSize) {
+      const chunk = payload.slice(i, i + chunkSize)
+      const { error } = await supabase
+        .from('stock_audit_logs')
+        .upsert(chunk, { onConflict: 'uuid' })
+
+      if (error) {
+        // อัปเดตสถานะล้มเหลวและเพิ่มจำนวนครั้งที่ลอง
+        for (const log of localLogs) {
+           await db.stockAuditLogs.update(log.id!, {
+             syncStatus: 'failed',
+             syncRetryCount: (log.syncRetryCount || 0) + 1,
+             syncError: error.message
+           })
+        }
+        throw error
+      }
+    }
+
+    // อัปเดตสถานะใน Local DB
+    const now = new Date()
+    for (const log of localLogs) {
+      await db.stockAuditLogs.update(log.id!, {
+        syncStatus: 'synced',
+        syncedAt: now,
+        syncError: undefined
+      })
+    }
+
+    console.log(`✅ Push Stock Logs สำเร็จ: ${localLogs.length} รายการ`)
+    return localLogs.length
+  }
+
   // -----------------------------------------------------------------------
   // PULL: ดึงข้อมูล CLOUD → LOCAL
   // -----------------------------------------------------------------------
@@ -468,30 +549,33 @@ export function useMasterDataSync() {
    */
   async function pullStockAuditLogs(force = false): Promise<number> {
     const supabase = useSupabaseClient<any>()
-    const lastPullAt = force
-      ? null
-      : await getSetting<string | null>(SETTING_KEY_STOCK_PULL, null).then(val => val ? new Date(val) : null)
-
+    
+    // หาค่าล่าสุดจากในเครื่องโดยอิงจาก ID (เนื่องจากเป็น Auto-increment)
+    const lastLocalLog = await db.stockAuditLogs.orderBy('id').reverse().first()
+    const lastUpdateLocal = lastLocalLog?.updatedAt
+    
+    // ตั้งค่า Query: ถ้าไม่ใช่ force และมีข้อมูลเดิม ให้ดึงเฉพาะตัวที่ใหม่กว่า
     let query = supabase.from('stock_audit_logs').select('*')
-    if (lastPullAt) {
-      query = query.gt('updated_at', lastPullAt.toISOString())
+    if (lastUpdateLocal && !force) {
+      query = query.gt('updated_at', lastUpdateLocal.toISOString())
     }
 
     const { data: remoteLogs, error } = await query
-      .order('created_at', { ascending: false })
-      .limit(200)
+      .order('updated_at', { ascending: true }) // ดึงตัวที่เก่ากว่ามาใหม่กว่า
+      .limit(force ? 1000 : 200)
 
     if (error) throw new Error(`Pull Stock Logs ล้มเหลว: ${error.message}`)
     if (!remoteLogs?.length) return 0
 
-    // --- Bulk Fetch: ดึงทั้ง Products และ Users มาสร้าง Map ก่อนลูปเพื่อประสิทธิภาพ ---
+    // --- Bulk Fetch: ดึงทั้ง Products มาสร้าง Map เพื่อความเร็ว ---
     const allProds = await db.products.toArray()
     const prodUuidToLocalId = new Map(allProds.map(p => [p.uuid, p.id!]))
 
+    // ดึง Users
     const allUsers = await db.users.toArray()
     const userUuidToLocalId = new Map(allUsers.map(u => [u.uuid, u.id!]))
 
-    // ดึงรายการที่มีอยู่แล้วมาตรวจสอบ (Bulk)
+    // ดึงรายการที่มีอยู่เดิมมาตรวจสอบ
     const remoteUuids = remoteLogs.map(r => r.uuid)
     const existingLogs = await db.stockAuditLogs.where('uuid').anyOf(remoteUuids).toArray()
     const existingUuidToId = new Map(existingLogs.map(l => [l.uuid, l.id!]))
@@ -499,7 +583,10 @@ export function useMasterDataSync() {
     let count = 0
     for (const remote of remoteLogs) {
       const existingId = existingUuidToId.get(remote.uuid)
-      if (existingId && !force) continue
+      
+      // ถ้ามีอยู่ในเครื่องแล้ว ไม่ว่ากรณีใดๆ (แม้แต่ Force) ให้ข้ามไปเลย 
+      // เพราะประวัติสต็อกเป็นข้อมูลแบบเน้นบันทึกเพิ่ม (Append-only) ไม่ควรแก้ไขของเก่า
+      if (existingId) continue
 
       const localLog: Omit<StockAuditLog, 'id'> = {
         uuid:             remote.uuid,
@@ -521,11 +608,7 @@ export function useMasterDataSync() {
         isDeleted:        remote.is_deleted,
       }
 
-      if (existingId) {
-        await db.stockAuditLogs.update(existingId, localLog)
-      } else {
-        await db.stockAuditLogs.add(localLog as StockAuditLog)
-      }
+      await db.stockAuditLogs.add(localLog as StockAuditLog)
       count++
     }
 
@@ -537,18 +620,21 @@ export function useMasterDataSync() {
   // Orchestration: Push All / Pull All / Sync All
   // -----------------------------------------------------------------------
 
-  async function pushAll(force = false): Promise<{ categories: number; products: number; users: number }> {
-    if (isSyncingMaster.value) return { categories: 0, products: 0, users: 0 }
+  async function pushAll(force = false): Promise<{ categories: number; products: number; stockLogs: number }> {
+    if (isSyncingMaster.value) return { categories: 0, products: 0, stockLogs: 0 }
     isSyncingMaster.value = true
     masterSyncError.value = null
     const syncStartTime = new Date()
     try {
       const categories = await pushCategories(force)
       const products   = await pushProducts(force)
-      const users      = await pushUsers(force)
+      const stockLogs  = await pushStockAuditLogs(force)
+      
+      // หมายเหตุ: Users ไม่ Sync ในนี้แล้ว (เพราะบีบ Online-only ใน useUsers.ts)
+      
       await updateLastPushAt(syncStartTime)
       lastMasterSyncAt.value = new Date()
-      return { categories, products, users }
+      return { categories, products, stockLogs }
     } catch (e: any) {
       masterSyncError.value = e.message
       throw e
@@ -597,6 +683,7 @@ export function useMasterDataSync() {
     pushCategories,
     pushProducts,
     pushUsers,
+    pushStockAuditLogs,
     pushAll,
     checkRemoteUsersExist,
     pullCategories,

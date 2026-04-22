@@ -49,7 +49,7 @@
       <!-- ขวามือ: หมวดหมู่ (Desktop: 15%, Mobile: Fixed Sidebar or Hidden) -->
       <!-- สำหรับมือถือ หมวดหมู่มักถูกซ่อนไว้ใน Drawer หรือเป็นแนวนอนด้านบน ในที่นี้ขอให้เป็นแถบเล็กด้านขวาเหมือนเดิมหรือแนวนอน -->
       <aside 
-        class="w-[60px] sm:w-[80px] md:w-[15%] md:min-w-[120px] md:max-w-[180px] border-l border-surface-800 bg-surface-900 flex flex-col py-2 overflow-y-auto scrollbar-none"
+        class="w-[90px] sm:w-[110px] md:w-[15%] md:min-w-[120px] md:max-w-[180px] border-l border-surface-800 bg-surface-900 flex flex-col py-2 overflow-y-auto scrollbar-none"
         :class="{ 'hidden md:flex': activeTab === 'cart' }"
       >
         <slot name="categories" />

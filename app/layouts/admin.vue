@@ -168,7 +168,7 @@ const toast = useToast()
 
 const isSidebarOpen = ref(false)
 
-const { isOnline } = useSync()
+const { isOnline, syncPendingOrders, fetchRemoteOrders } = useSync()
 const {
   isSyncingMaster,
   lastMasterSyncAt,
@@ -187,42 +187,27 @@ function formatSyncTime(date: Date) {
 async function handlePush() {
   syncDir.value = 'push'
   try {
-    // 1. ซิงค์ข้อมูลหลัก (Categories, Products, Users)
+    // 1. ซิงค์ข้อมูลหลัก (Categories, Products)
     const resMaster = await pushAll()
     
     // 2. ซิงค์ข้อมูลธุรกรรม (Orders, Stock Logs)
-    const { syncPendingOrders } = useSync()
     const resTrans = await syncPendingOrders(true) // Force sync
     
-    const lines = ['📤 สรุปการซิงค์ข้อมูลลง Cloud:']
-    
-    // สรุปยอดขาย
-    if (resTrans.orders.total > 0) {
-      lines.push(`✅ ออร์เดอร์: สำเร็จ ${resTrans.orders.success}/${resTrans.orders.total}`)
-      if (resTrans.orders.failed > 0) {
-        lines.push(`❌ ออร์เดอร์ล้มเหลว: ${resTrans.orders.failed} ใบ`)
-      }
-    } else {
-      lines.push('ℹ️ ไม่มีออร์เดอร์ใหม่ที่ต้องส่ง')
-    }
+    const msg = [
+      '📤 ส่งข้อมูลขึ้น Cloud สำเร็จ!',
+      `• ข้อมูลออร์เดอร์: ${resTrans.orders.success} รายการ`,
+      `• หมวดหมู่สินค้า: ${resMaster.categories} รายการ`,
+      `• รายการสินค้า: ${resMaster.products} รายการ`,
+      `• ประวัติสต็อก: ${resTrans.auditLogs.success} รายการ`
+    ].join('\n')
 
-    // สรุปสต็อก
-    if (resTrans.auditLogs.total > 0) {
-      lines.push(`📦 สต็อก: สำเร็จ ${resTrans.auditLogs.success}/${resTrans.auditLogs.total}`)
-    }
-
-    // สรุปข้อมูลหลัก
-    lines.push(`✨ ข้อมูลร้าน: อัปเดต ${resMaster.categories + resMaster.products + resMaster.users} รายการ`)
-
-    // รายการ Error (ถ้ามี)
+    // ถ้ามี Error ให้แจ้งเตือนเพิ่มเติม
     const allErrors = [...resTrans.orders.errors, ...resTrans.auditLogs.errors]
     if (allErrors.length > 0) {
-      lines.push('\n⚠️ พบข้อผิดพลาด:')
-      allErrors.slice(0, 3).forEach(err => lines.push(`• ${err}`))
-      if (allErrors.length > 3) lines.push(`• และอีก ${allErrors.length - 3} รายการ...`)
+      toast.warning(msg + `\n\n⚠️ พบข้อผิดพลาด ${allErrors.length} รายการ`, 10000)
+    } else {
+      toast.success(msg, 6000)
     }
-
-    toast.success(lines.join('\n'), allErrors.length > 0 ? 10000 : 5000)
   } catch (e: any) {
     console.error(e)
     toast.error('การส่งข้อมูลล้มเหลว: ' + e.message)
@@ -234,16 +219,21 @@ async function handlePush() {
 async function handlePull() {
   syncDir.value = 'pull'
   try {
-    const res = await pullAll()
-    // แสดงผลลัพธ์แบบละเอียด
+    // 1. ดึงข้อมูลหลัก (Force Pull)
+    const resMaster = await pullAll(true)
+    
+    // 2. ดึงข้อมูลออร์เดอร์ย้อนหลัง (เช่น 200 รายการ)
+    const orderCount = await fetchRemoteOrders(200, false)
+    
     const msg = [
-      'Pull ข้อมูลจาก Cloud สำเร็จ!',
-      `• หมวดหมู่: ${res.categories} รายการ`,
-      `• สินค้า: ${res.products} รายการ`,
-      `• พนักงาน: ${res.users} รายการ`
+      '📥 ดึงข้อมูลประวัติจาก Cloud สำเร็จ!',
+      `• ข้อมูลออร์เดอร์: ${orderCount} รายการ`,
+      `• หมวดหมู่สินค้า: ${resMaster.categories} รายการ`,
+      `• รายการสินค้า: ${resMaster.products} รายการ`,
+      `• ประวัติสต็อก: ${resMaster.stockLogs} รายการ`
     ].join('\n')
     
-    toast.success(msg, 5000)
+    toast.success(msg, 7000)
   } catch (e: any) {
     console.error(e)
     toast.error('การดึงข้อมูลล้มเหลว: ' + e.message)

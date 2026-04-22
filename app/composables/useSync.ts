@@ -25,6 +25,8 @@ const syncIntervalId = ref<any>(null)
 
 export function useSync() {
   const toast = useToast()
+  const masterSync = useMasterDataSync()
+  const supabase = import.meta.client ? useSupabaseClient<any>() : null
 
   // ---------------------------------------------------------------------------
   // Network Status Monitoring
@@ -67,66 +69,6 @@ export function useSync() {
       .count()
   }
 
-  async function syncStockAuditLogs(force = false): Promise<{ success: number, failed: number, errors: string[] }> {
-    const supabase = import.meta.client ? useSupabaseClient<any>() : null
-    const result = { success: 0, failed: 0, errors: [] as string[] }
-    
-    if (!supabase || !isOnline.value) return result
-
-    try {
-      let query = db.stockAuditLogs.where('syncStatus').anyOf(['pending', 'failed'])
-      if (!force) {
-        query = query.filter(log => log.syncRetryCount < MAX_RETRY_COUNT)
-      }
-
-      const logsToSync = await query.toArray()
-      if (logsToSync.length === 0) return result
-
-      for (const log of logsToSync) {
-        await db.stockAuditLogs.update(log.id!, { syncStatus: 'syncing' })
-
-        const product = await db.products.get(log.productId)
-        const { error } = await supabase
-          .from('stock_audit_logs')
-          .upsert({
-            uuid: log.uuid,
-            product_uuid: product?.uuid,
-            product_name: log.productName,
-            change_quantity: log.changeQuantity,
-            previous_quantity: log.previousQuantity,
-            new_quantity: log.newQuantity,
-            reason: log.reason,
-            note: log.note,
-            staff_uuid: log.staffUuid,
-            staff_name: log.staffName,
-            is_deleted: log.isDeleted,
-            created_at: log.createdAt.toISOString(),
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'uuid' })
-
-        if (error) {
-          result.failed++
-          result.errors.push(`Stock [${log.productName}]: ${error.message}`)
-          await db.stockAuditLogs.update(log.id!, {
-            syncStatus: 'failed',
-            syncRetryCount: log.syncRetryCount + 1,
-            syncError: error.message
-          })
-          continue
-        }
-
-        result.success++
-        await db.stockAuditLogs.update(log.id!, {
-          syncStatus: 'synced',
-          syncedAt: new Date(),
-          syncError: undefined
-        })
-      }
-    } catch (err: any) {
-      result.errors.push(err.message)
-    }
-    return result
-  }
 
   /**
    * Sync Order ทั้งหมดที่รอดำเนินการขึ้น Server
@@ -142,11 +84,10 @@ export function useSync() {
 
     if (!isOnline.value || isSyncing.value) return summary
 
-    // 1. Sync Master Data (Delta Push)
-    const { pushAll } = useMasterDataSync()
-    const masterRes = await pushAll().catch(err => {
+    // 1. Sync Master Data (Delta Push Categories, Products, Stock Logs)
+    const masterRes = await masterSync.pushAll().catch(err => {
       console.error('❌ Master Push Error:', err)
-      return { categories: 0, products: 0, users: 0 }
+      return { categories: 0, products: 0, stockLogs: 0 }
     })
 
     // 2. Sync Pending Orders
@@ -173,17 +114,15 @@ export function useSync() {
     }
 
     // 3. Sync Audit Logs
-    const auditRes = await syncStockAuditLogs(force)
-    summary.auditLogs.total = auditRes.success + auditRes.failed
-    summary.auditLogs.success = auditRes.success
-    summary.auditLogs.failed = auditRes.failed
-    summary.auditLogs.errors = auditRes.errors
+    // หมายเหตุ: ปัจจุบันถูกรวมอยู่ใน pushAll() แล้ว เพื่อความสม่ำเสมอ
+    summary.auditLogs.success = masterRes.stockLogs
+    summary.auditLogs.total = masterRes.stockLogs
 
     lastSyncAt.value = new Date()
     await refreshPendingCount()
 
     // --- แจ้งเตือนการซิงค์เบื้องหลัง ---
-    const totalMasterPushed = masterRes.categories + masterRes.products + masterRes.users
+    const totalMasterPushed = masterRes.categories + masterRes.products
     const hasSuccessfulSync = summary.orders.success > 0 || summary.auditLogs.success > 0 || totalMasterPushed > 0
 
     if (!force && hasSuccessfulSync) {
@@ -191,7 +130,6 @@ export function useSync() {
         '🔄 ซิงค์ข้อมูลอัตโนมัติสำเร็จ',
         masterRes.categories > 0 ? `• หมวดหมู่: ${masterRes.categories} รายการ` : '',
         masterRes.products > 0 ? `• สินค้า: ${masterRes.products} รายการ` : '',
-        masterRes.users > 0 ? `• พนักงาน: ${masterRes.users} รายการ` : '',
         summary.orders.success > 0 ? `• ออร์เดอร์: ${summary.orders.success} รายการ` : '',
         summary.auditLogs.success > 0 ? `• ประวัติสต็อก: ${summary.auditLogs.success} รายการ` : ''
       ].filter(Boolean).join('\n')
@@ -207,7 +145,6 @@ export function useSync() {
   }
 
   async function syncSingleOrder(order: Order): Promise<{ success: boolean, error?: string }> {
-    const supabase = import.meta.client ? useSupabaseClient<any>() : null
     if (!supabase) return { success: false, error: 'Supabase Client not ready' }
 
     await db.orders.update(order.id!, { syncStatus: 'syncing' })
@@ -283,12 +220,10 @@ export function useSync() {
   }
 
   async function fetchRemoteOrders(limit = 100, includeMasterData = true): Promise<number> {
-    const supabase = import.meta.client ? useSupabaseClient<any>() : null
     if (!supabase) return 0
 
     if (includeMasterData) {
-      const { pullAll } = useMasterDataSync()
-      await pullAll().catch(err => console.error('⚠️ Master Pull Error:', err))
+      await masterSync.pullAll().catch(err => console.error('⚠️ Master Pull Error:', err))
     }
 
     const { data: remoteOrders, error } = await supabase
@@ -388,7 +323,6 @@ export function useSync() {
   }
 
   async function getLastRemoteOrderSequence(deviceCode: string): Promise<number> {
-    const supabase = import.meta.client ? useSupabaseClient<any>() : null
     if (!supabase || !deviceCode) return 0
     const { data, error } = await supabase
       .from('orders')

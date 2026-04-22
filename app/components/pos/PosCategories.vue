@@ -15,7 +15,7 @@
       <!-- ปุ่มสินค้าทั้งหมด (ขายดี) -->
       <button
         v-if="!store.currentParentId"
-        class="btn-touch relative group flex flex-col gap-1 rounded-2xl p-4 items-center text-center transition-all duration-300 border-2 shrink-0 active:scale-95 shadow-sm"
+        class="btn-touch relative group flex flex-col gap-1 rounded-2xl px-2 py-4 items-center text-center transition-all duration-300 border-2 shrink-0 active:scale-95 shadow-sm"
         :class="[
           store.activeCategoryId === null 
             ? 'bg-amber-500 text-white border-amber-600 shadow-lg shadow-amber-500/20 -translate-y-0.5'
@@ -31,8 +31,10 @@
           ทั้งหมด (ขายดี)
         </span>
         <span 
-          class="mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider transition-all duration-300 border bg-white/20 text-white border-white/30"
-          v-if="store.activeCategoryId === null"
+          class="mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider transition-all duration-300 border"
+          :class="store.activeCategoryId === null 
+            ? 'bg-white/20 text-white border-white/30' 
+            : 'bg-surface-950/40 text-surface-500 border-surface-700/50'"
         >
           {{ store.products.length }} รายการ
         </span>
@@ -41,7 +43,7 @@
       <button
         v-for="cat in store.displayedCategories"
         :key="cat.id"
-        class="btn-touch relative group flex flex-col gap-1 rounded-2xl p-4 items-center text-center transition-all duration-300 border-2 shrink-0 active:scale-95 shadow-sm"
+        class="btn-touch relative group flex flex-col gap-1 rounded-2xl px-2 py-4 items-center text-center transition-all duration-300 border-2 shrink-0 active:scale-95 shadow-sm"
         :class="[
           store.activeCategoryId === cat.id 
             ? 'bg-primary-500 text-white border-primary-600 shadow-lg shadow-primary-500/20 -translate-y-0.5'
@@ -114,7 +116,7 @@
             class="flex items-center gap-3 px-4 py-3 rounded-xl text-surface-400 hover:text-surface-50 hover:bg-surface-800 transition-all font-bold group"
           >
             <span class="text-xl group-hover:scale-110 transition-transform">📜</span>
-            <span class="text-sm">ประวัติการขาย</span>
+            <span class="text-sm hidden md:block">ประวัติการขาย</span>
           </NuxtLink>
 
           <NuxtLink
@@ -124,7 +126,7 @@
             class="flex items-center gap-3 px-4 py-3 rounded-xl text-surface-400 hover:text-surface-50 hover:bg-surface-800 transition-all font-bold group"
           >
             <span class="text-xl group-hover:scale-110 transition-transform">⚙️</span>
-            <span class="text-sm">จัดการระบบ (Admin)</span>
+            <span class="text-sm hidden md:block">จัดการระบบ (Admin)</span>
           </NuxtLink>
 
           <div class="h-px bg-surface-800/50 mx-2 my-1"></div>
@@ -135,7 +137,7 @@
             class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-surface-500 hover:text-primary-400 hover:bg-primary-500/10 transition-all font-bold group"
           >
             <span class="text-xl group-hover:rotate-12 transition-transform">{{ theme === 'dark' ? '☀️' : '🌙' }}</span>
-            <span class="text-sm">โหมด{{ theme === 'dark' ? 'สว่าง' : 'มืด' }}</span>
+            <span class="text-sm hidden md:block">โหมด{{ theme === 'dark' ? 'สว่าง' : 'มืด' }}</span>
           </button>
 
           <!-- Logout -->
@@ -144,7 +146,7 @@
             class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-surface-500 hover:text-red-400 hover:bg-red-500/10 transition-all font-bold group"
           >
             <LogOut class="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            <span class="text-sm">ออกจากระบบ</span>
+            <span class="text-sm hidden md:block">ออกจากระบบ</span>
           </button>
         </div>
       </Transition>
@@ -159,7 +161,7 @@
       >
         <Menu v-if="!showMenu" class="w-6 h-6 transition-transform group-hover:scale-110" />
         <X v-else class="w-6 h-6 transition-transform group-hover:rotate-90" />
-        <span class="tracking-tight">{{ showMenu ? 'ปิดเมนู' : 'การจัดการ' }}</span>
+        <span class="tracking-tight hidden md:block">{{ showMenu ? 'ปิดเมนู' : 'การจัดการ' }}</span>
         
         <!-- Subtle Glow for Active -->
         <div v-if="showMenu" class="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent pointer-events-none"></div>
