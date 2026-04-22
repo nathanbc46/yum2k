@@ -255,8 +255,6 @@ async function handleForcePush() {
     toast.success([
       '📤 บังคับส่งข้อมูลเสร็จสมบูรณ์',
       `• ข้อมูลออร์เดอร์: ${res.orders.success} รายการ`,
-      `• หมวดหมู่สินค้า: ${res.categories} รายการ`,
-      `• รายการสินค้า: ${res.products} รายการ`,
       `• ประวัติสต็อก: ${res.auditLogs.success} รายการ`,
     ].join('\n'), 6000)
   } catch (err: any) {

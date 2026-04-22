@@ -107,19 +107,19 @@
                 </div>
 
                 <!-- Options List (Compact Grid Layout) -->
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-3 gap-2">
                   <button
                     v-for="opt in group.options"
                     :key="opt.id"
                     @click="toggleAddon(group.id, opt)"
-                    class="w-full flex items-center justify-between px-2.5 py-2.5 rounded-xl border font-bold transition-all relative overflow-hidden group/opt"
+                    class="w-full flex items-center justify-between px-3 py-3.5 rounded-xl border font-bold transition-all relative overflow-hidden group/opt"
                     :class="[
                       isSelected(group.id, opt.id)
                         ? 'bg-primary-500 border-primary-400 text-white shadow-md active:scale-95'
                         : 'bg-surface-800 border-surface-700 text-surface-50 hover:border-surface-600 hover:bg-surface-750 [.light-mode_&]:bg-surface-800 [.light-mode_&]:text-surface-50 active:scale-98'
                     ]"
                   >
-                    <span class="text-[10px] md:text-[11px] leading-tight text-left font-bold">{{ opt.name }}</span>
+                    <span class="text-xs leading-tight text-left font-bold">{{ opt.name }}</span>
                     <span 
                       class="text-[9px] font-black shrink-0 ml-1"
                       :class="isSelected(group.id, opt.id) ? 'text-primary-100' : 'text-primary-500 [.light-mode_&]:text-primary-600'"

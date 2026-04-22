@@ -34,7 +34,12 @@
               <button @click="handleExportExcel" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 border-b border-surface-800 flex items-center gap-2">
                 <span>📤</span> ส่งออกสินค้า (Export)
               </button>
-              <button @click="triggerImport" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 flex items-center gap-2 text-primary-400">
+              <button 
+                @click="isOnline ? triggerImport() : null" 
+                class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 flex items-center gap-2"
+                :class="isOnline ? 'text-primary-400' : 'text-surface-600 cursor-not-allowed opacity-50'"
+                :title="isOnline ? '' : 'ต้องใช้อินเทอร์เน็ต'"
+              >
                 <span>📥</span> นำเข้าสินค้า (Import)
               </button>
             </div>
@@ -50,7 +55,9 @@
           <button
             v-if="!showTrash"
             @click="openCreateModal"
-            class="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-500 active:scale-95 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-primary-900/20"
+            :disabled="!isOnline"
+            class="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-primary-900/20"
+            :title="isOnline ? '' : 'ต้องใช้อินเทอร์เน็ต'"
           >
             <span>+</span>
             เพิ่มสินค้าใหม่
@@ -377,6 +384,7 @@ const { fetchAll: fetchProducts, toggleProductActive, deleteProduct, restoreProd
 const { fetchAll: fetchCategories } = useCategories()
 const { lastPullTimestamp } = useMasterDataSync()
 const toast = useToast()
+const { isOnline } = useSync()
 const { exportProducts, prepareImportData, executeImport, downloadTemplate } = useProductExcel()
 
 // --- State ---

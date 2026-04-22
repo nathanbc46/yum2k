@@ -47,148 +47,8 @@ export function useMasterDataSync() {
     await setSetting(SETTING_KEY_PULL, date.toISOString())
   }
   // -----------------------------------------------------------------------
-  // PUSH: ดันข้อมูล LOCAL → CLOUD
+  // PUSH: ดันข้อมูล LOCAL → CLOUD (ตอนนี้เหลือแค่ Transactional Data เช่น Stock Logs)
   // -----------------------------------------------------------------------
-
-  /**
-   * Push หมวดหมู่ทั้งหมดขึ้น Supabase (Upsert by uuid)
-   */
-  async function pushCategories(force = false): Promise<number> {
-    const supabase = useSupabaseClient<any>()
-    const lastPushAt = force ? null : await getLastPushAt()
-
-    let query = db.categories.toCollection()
-    if (lastPushAt) {
-      query = db.categories.where('updatedAt').above(lastPushAt)
-    }
-
-    const localCats = await query.toArray()
-    if (localCats.length === 0) return 0
-
-    const payload = localCats.map(c => ({
-      uuid: c.uuid,
-      name: c.name,
-      description: c.description,
-      icon_url: c.iconUrl,
-      color: c.color,
-      sort_order: c.sortOrder,
-      is_active: c.isActive,
-      is_deleted: c.isDeleted,
-      parent_uuid: c.parentUuid,
-      updated_at: c.updatedAt.toISOString(),
-    }))
-
-    const { error } = await supabase
-      .from('categories')
-      .upsert(payload, { onConflict: 'uuid' })
-
-    if (error) throw error
-    console.log(`✅ Push Categories สำเร็จ: ${localCats.length} รายการ`)
-    return localCats.length
-  }
-
-  /**
-   * Push สินค้าทั้งหมดขึ้น Supabase (Upsert by uuid)
-   * แปลง inventoryMappings: sourceProductId → sourceProductUuid
-   */
-  async function pushProducts(force = false): Promise<number> {
-    const supabase = useSupabaseClient<any>()
-    const lastPushAt = force ? null : await getLastPushAt()
-
-    let query = db.products.toCollection()
-    if (lastPushAt) {
-      query = db.products.where('updatedAt').above(lastPushAt)
-    }
-
-    const localProducts = await query.toArray()
-    if (localProducts.length === 0) return 0
-
-    // --- Bulk Fetch: ดึง Category และ Product ทั้งหมดมาสร้าง Map ก่อนเข้าลูป ---
-    // หลีกเลี่ยงการ Query ฐานข้อมูลซ้ำๆ ภายในลูป (N+1 Problem)
-    const allCats = await db.categories.toArray()
-    const catIdToUuid = new Map(allCats.map(c => [c.id!, c.uuid]))
-
-    const allProds = await db.products.toArray()
-    const prodIdToUuid = new Map(allProds.map(p => [p.id!, p.uuid]))
-
-    const payload = localProducts.map(p => {
-      const category_uuid = catIdToUuid.get(p.categoryId)
-
-      const mappingsForCloud = p.inventoryMappings?.length
-        ? p.inventoryMappings
-            .map(m => {
-              const uuid = prodIdToUuid.get(m.sourceProductId)
-              return uuid ? { source_product_uuid: uuid, quantity: m.quantity } : null
-            })
-            .filter((m): m is { source_product_uuid: string; quantity: number } => m !== null)
-        : null
-
-      return {
-        uuid: p.uuid,
-        category_uuid,
-        sku: p.sku,
-        name: p.name,
-        description: p.description,
-        image_url: p.imageUrl,
-        sale_price: p.salePrice,
-        cost_price: p.costPrice,
-        stock_quantity: p.stockQuantity,
-        alert_threshold: p.alertThreshold,
-        track_inventory: p.trackInventory,
-        mapping_type: p.mappingType,
-        inventory_mappings: mappingsForCloud,
-        addon_groups: p.addonGroups ?? null,
-        is_active: p.isActive,
-        sort_order: p.sortOrder,
-        total_sold: p.totalSold || 0,
-        is_deleted: p.isDeleted,
-        updated_at: p.updatedAt.toISOString(),
-      }
-    })
-
-    const { error } = await supabase
-      .from('products')
-      .upsert(payload, { onConflict: 'uuid' })
-
-    if (error) throw error
-    console.log(`✅ Push Products สำเร็จ: ${payload.length} รายการ`)
-    return payload.length
-  }
-
-  /**
-   * Push พนักงาน (Users) ทั้งหมดขึ้น Supabase (Upsert by username)
-   */
-  async function pushUsers(force = false): Promise<number> {
-    const supabase = useSupabaseClient<any>()
-    const lastPushAt = force ? null : await getLastPushAt()
-
-    let query = db.users.toCollection()
-    if (lastPushAt) {
-      query = db.users.where('updatedAt').above(lastPushAt)
-    }
-
-    const localUsers = await query.toArray()
-    if (localUsers.length === 0) return 0
-
-    const payload = localUsers.map(u => ({
-      uuid: u.uuid,
-      username: u.username,
-      display_name: u.displayName,
-      role: u.role,
-      pin: u.pin,
-      is_active: u.isActive,
-      is_deleted: u.isDeleted,
-      updated_at: u.updatedAt.toISOString(),
-    }))
-
-    const { error } = await supabase
-      .from('pos_users')
-      .upsert(payload, { onConflict: 'uuid' })
-
-    if (error) throw error
-    console.log(`✅ Push Users สำเร็จ: ${localUsers.length} รายการ`)
-    return localUsers.length
-  }
 
   /**
    * Push ประวัติการปรับสต็อก (Stock Audit Logs) ทั้งหมดขึ้น Supabase
@@ -626,15 +486,14 @@ export function useMasterDataSync() {
     masterSyncError.value = null
     const syncStartTime = new Date()
     try {
-      const categories = await pushCategories(force)
-      const products   = await pushProducts(force)
       const stockLogs  = await pushStockAuditLogs(force)
       
-      // หมายเหตุ: Users ไม่ Sync ในนี้แล้ว (เพราะบีบ Online-only ใน useUsers.ts)
+      // หมายเหตุ: Categories และ Products ไม่ Sync (Push) ในนี้แล้ว เปลี่ยนไปเขียนฝั่ง Online ทันที
+      // Users ไม่ Sync ในนี้แล้ว (เพราะบีบ Online-only ใน useUsers.ts)
       
       await updateLastPushAt(syncStartTime)
       lastMasterSyncAt.value = new Date()
-      return { categories, products, stockLogs }
+      return { categories: 0, products: 0, stockLogs }
     } catch (e: any) {
       masterSyncError.value = e.message
       throw e
@@ -688,22 +547,6 @@ export function useMasterDataSync() {
     const lastPushAt = await getLastPushAt()
     const MAX_RETRY = 5
 
-    // Categories: เหมือน pushCategories (delta vs all)
-    let pendingCats: any[] = []
-    if (lastPushAt) {
-      pendingCats = await db.categories.where('updatedAt').above(lastPushAt).toArray()
-    } else {
-      pendingCats = await db.categories.toArray()
-    }
-
-    // Products: เหมือน pushProducts (delta vs all)
-    let pendingProds: any[] = []
-    if (lastPushAt) {
-      pendingProds = await db.products.where('updatedAt').above(lastPushAt).toArray()
-    } else {
-      pendingProds = await db.products.toArray()
-    }
-
     // Orders: pending/failed ที่ยังไม่เกิน retry limit
     const pendingOrders = await db.orders
       .where('syncStatus').anyOf(['pending', 'failed'])
@@ -717,14 +560,109 @@ export function useMasterDataSync() {
       .toArray()
 
     return {
-      categories: pendingCats.length,
-      categoryNames: pendingCats.map(c => c.name),
-      products: pendingProds.length,
-      productNames: pendingProds.map(p => p.name),
+      categories: 0,
+      categoryNames: [],
+      products: 0,
+      productNames: [],
       orders: pendingOrders.length,
       orderNumbers: pendingOrders.map(o => o.orderNumber),
       stockLogs: pendingStocks.length,
       stockLogDetails: pendingStocks.map(l => `${l.productName} (${l.changeQuantity > 0 ? '+' : ''}${l.changeQuantity})`),
+    }
+  }
+
+  /**
+   * ดึงจำนวนรายการที่ตรวจสอบเจอการอัปเดตบน Cloud และรอซิงค์ลงมา (Pull)
+   * โดนจะแค่ยิงเช็ค Count/UUID จาก Supabase ตรงๆ เพื่อประหยัด API Quota 
+   */
+  async function getPendingPullCounts(): Promise<{ 
+    categories: number, categoryNames: string[],
+    products: number, productNames: string[],
+    users: number, userNames: string[],
+    stockLogs: number, stockLogDetails: string[],
+    orders: number, orderNumbers: string[]
+  }> {
+    const supabase = useSupabaseClient<any>()
+    const lastPullAt = await getLastPullAt()
+    const emptyResult = { 
+      categories: 0, categoryNames: [], products: 0, productNames: [], 
+      users: 0, userNames: [], stockLogs: 0, stockLogDetails: [], orders: 0, orderNumbers: [] 
+    }
+    
+    // หากไม่เคย Pull เลย ถือเป็นเครื่องใหม่หรือล้างเครื่อง จะมีบังคับ Pull หน้า Login อยู่แล้ว
+    if (!lastPullAt) return emptyResult
+
+    const timeLimit = lastPullAt.toISOString()
+
+    try {
+      // 1. ตรวจสอบกลุ่มที่เป็น "Master Data" (แก้ไข/ลบ ได้จากหลายเครื่อง)
+      const checkMasterUpdates = async (tableName: string, dbTableKey: 'categories' | 'products' | 'users', nameField = 'name') => {
+        const { data: rawData } = await supabase
+          .from(tableName)
+          .select(`uuid, updated_at, ${nameField}`)
+          .gt('updated_at', timeLimit)
+          
+        const data = rawData as any[] | null
+
+        if (!data || data.length === 0) return { count: 0, names: [] }
+        
+        const remoteUuids = data.map((r: any) => r.uuid)
+        const localItems = await (db as any)[dbTableKey].where('uuid').anyOf(remoteUuids).toArray()
+        const localMap = new Map<string, number>(localItems.map((item: any) => [
+          item.uuid, 
+          new Date(item.updatedAt || item.lastLoginAt || 0).getTime()
+        ]))
+
+        let pendingCount = 0
+        const names: string[] = []
+        for (const remote of data) {
+          const remoteTime = new Date(remote.updated_at).getTime()
+          const localTime = localMap.get(remote.uuid) || 0
+          if (remoteTime > localTime) {
+            pendingCount++
+            names.push(remote[nameField])
+          }
+        }
+        return { count: pendingCount, names }
+      }
+
+      // 2. ตรวจสอบกลุ่มที่เป็น "Log / Transaction" 
+      const checkAppendOnlyUpdates = async (tableName: string, dbTableKey: 'orders' | 'stockAuditLogs', nameField = 'order_number') => {
+        const { count: remoteTotal } = await supabase
+          .from(tableName)
+          .select('*', { count: 'exact', head: true })
+        
+        const localTotal = await (db as any)[dbTableKey].count()
+        const localPendingNum = await (db as any)[dbTableKey].where('syncStatus').anyOf(['pending', 'failed']).count()
+        const syncedLocalCount = localTotal - localPendingNum
+        
+        const diff = (remoteTotal || 0) - syncedLocalCount
+        if (diff > 0) {
+          // ดึงรายการล่าสุดตามจำนวนที่ต่างกันเพื่อเอาชื่อมาโชว์ใน Tooltip
+          const { data } = await supabase.from(tableName).select(nameField).order('created_at', { ascending: false }).limit(diff)
+          return { count: diff, names: data ? data.map((d: any) => d[nameField]) : [] }
+        }
+        return { count: 0, names: [] }
+      }
+
+      const [catRes, prodRes, userRes, stockRes, orderRes] = await Promise.all([
+        checkMasterUpdates('categories', 'categories'),
+        checkMasterUpdates('products', 'products'),
+        checkMasterUpdates('pos_users', 'users', 'display_name'),
+        checkAppendOnlyUpdates('stock_audit_logs', 'stockAuditLogs', 'product_name'),
+        checkAppendOnlyUpdates('orders', 'orders', 'order_number')
+      ])
+      
+      return { 
+        categories: catRes.count, categoryNames: catRes.names,
+        products: prodRes.count, productNames: prodRes.names,
+        users: userRes.count, userNames: userRes.names,
+        stockLogs: stockRes.count, stockLogDetails: stockRes.names,
+        orders: orderRes.count, orderNumbers: orderRes.names
+      }
+    } catch(err) {
+      console.warn('⚠️ getPendingPullCounts Error:', err)
+      return emptyResult
     }
   }
 
@@ -733,12 +671,10 @@ export function useMasterDataSync() {
     lastMasterSyncAt,
     masterSyncError,
     lastPullTimestamp,
-    pushCategories,
-    pushProducts,
-    pushUsers,
     pushStockAuditLogs,
     pushAll,
     getPendingCounts,
+    getPendingPullCounts,
     checkRemoteUsersExist,
     pullCategories,
     pullProducts,

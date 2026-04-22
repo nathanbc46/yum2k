@@ -193,6 +193,11 @@ export function useProductExcel() {
   }
 
   async function executeImport(items: ImportPreviewItem[]): Promise<{ success: number; failed: number }> {
+    if (typeof window !== 'undefined' && !window.navigator.onLine) {
+      throw new Error('ไม่สามารถนำเข้าข้อมูลสินค้าได้ขณะออฟไลน์ กรุณาเชื่อมต่ออินเทอร์เน็ต')
+    }
+
+    const supabase = useSupabaseClient<any>()
     const results = { success: 0, failed: 0 }
     let allCategories = await db.categories.toArray()
 
@@ -208,6 +213,20 @@ export function useProductExcel() {
           createdAt: new Date(),
           updatedAt: new Date()
         }
+
+        // Push Category to Cloud
+        const { error: catErr } = await supabase.from('categories').upsert({
+          uuid: newCat.uuid,
+          name: newCat.name,
+          is_active: newCat.isActive,
+          sort_order: newCat.sortOrder,
+          is_deleted: newCat.isDeleted,
+          created_at: newCat.createdAt.toISOString(),
+          updated_at: newCat.updatedAt.toISOString()
+        }, { onConflict: 'uuid' })
+
+        if (catErr) throw new Error(`สร้างหมวดหมู่ใหม่บนคลาวด์ล้มเหลว: ${catErr.message}`)
+
         const id = await db.categories.add(newCat as Category)
         cat = { ...newCat, id: id as number }
         allCategories.push(cat)
@@ -235,16 +254,56 @@ export function useProductExcel() {
           isDeleted: false
         }
 
+        const productUuid = item.product.uuid || uuidv4()
+
+        // Push Product to Cloud
+        let mappingsForCloud = null
+        if (finalData.mappingType && finalData.inventoryMappings?.length) {
+          mappingsForCloud = []
+          for (const m of finalData.inventoryMappings) {
+            const srcProd = await db.products.get(m.sourceProductId)
+            if (srcProd && srcProd.uuid) {
+              mappingsForCloud.push({ source_product_uuid: srcProd.uuid, quantity: m.quantity })
+            }
+          }
+        }
+
+        const catRow = await db.categories.get(categoryId)
+        const payload = {
+          uuid: productUuid,
+          category_uuid: catRow?.uuid || null,
+          sku: finalData.sku || null,
+          name: finalData.name,
+          description: finalData.description || null,
+          image_url: finalData.imageUrl || null,
+          sale_price: finalData.salePrice,
+          cost_price: finalData.costPrice,
+          stock_quantity: finalData.stockQuantity,
+          alert_threshold: finalData.alertThreshold,
+          track_inventory: finalData.trackInventory,
+          mapping_type: finalData.mappingType || null,
+          inventory_mappings: mappingsForCloud,
+          addon_groups: finalData.addonGroups || null,
+          is_active: finalData.isActive,
+          sort_order: finalData.sortOrder,
+          total_sold: finalData.totalSold || 0,
+          is_deleted: finalData.isDeleted,
+          updated_at: finalData.updatedAt.toISOString(),
+        }
+
+        const { error: prodErr } = await supabase.from('products').upsert(payload, { onConflict: 'uuid' })
+        if (prodErr) throw new Error(`บันทึกสินค้าลงคลาวด์ล้มเหลว: ${prodErr.message}`)
+
         if (item.status === 'update' && item.product.id) {
-          await db.products.update(item.product.id, finalData)
+          await db.products.put({ ...finalData, id: item.product.id })
         } else {
           // ลบ id ออกหากมีเผื่อเป็นกรณีที่สถานะสับสน เพื่อให้ Dexie สร้างให้ใหม่
           delete (finalData as any).id 
           
           await db.products.add({
             ...finalData,
-            uuid: item.product.uuid || uuidv4(),
-            createdAt: new Date()
+            uuid: productUuid,
+            createdAt: finalData.createdAt ? new Date(finalData.createdAt) : new Date()
           } as Product)
         }
         results.success++

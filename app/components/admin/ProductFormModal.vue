@@ -426,9 +426,20 @@
             </section>
 
             <!-- Error -->
-            <p v-if="errorMsg" class="text-danger text-sm bg-danger/10 border border-danger/20 rounded-xl px-4 py-3">
+            <p ref="errorBoxRef" v-if="errorMsg" class="text-danger text-sm bg-danger/10 border border-danger/20 rounded-xl px-4 py-3">
               ⚠️ {{ errorMsg }}
             </p>
+
+            <!-- Offline Warning -->
+            <div v-if="!isOnline" class="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+              <span class="text-2xl mt-0.5">📶</span>
+              <div>
+                <h4 class="font-bold text-red-500">ฟีเจอร์นี้ต้องการอินเทอร์เน็ต</h4>
+                <p class="text-sm text-red-400/80 mt-1">
+                  กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อ{{ isEditing ? 'แก้ไข' : 'เพิ่ม' }}สินค้า (ระบบเปลี่ยนเป็นแบบ Online-Only เพื่อป้องกันข้อมูลซ้ำซ้อน)
+                </p>
+              </div>
+            </div>
           </form>
 
           <!-- Footer Actions -->
@@ -442,8 +453,8 @@
             </button>
             <button
               @click="handleSubmit"
-              :disabled="isSaving"
-              class="flex-1 py-3 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-primary-900/20"
+              :disabled="isSaving || !isOnline"
+              class="flex-1 py-3 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-primary-900/20"
             >
               {{ isSaving ? 'กำลังบันทึก...' : (isEditing ? 'บันทึกการแก้ไข' : 'เพิ่มสินค้า') }}
             </button>
@@ -472,6 +483,7 @@ const emit = defineEmits<{
   saved: []
 }>()
 
+const { isOnline } = useSync()
 const { createProduct, updateProduct, getNextSku } = useProducts()
 const { resizeImage, uploadProductImage } = useStorage()
 
@@ -479,6 +491,7 @@ const isEditing = computed(() => !!props.editItem)
 const isSaving = ref(false)
 const isUploading = ref(false)
 const errorMsg = ref('')
+const errorBoxRef = ref<HTMLElement | null>(null)
 
 const fileInput = ref<HTMLInputElement | null>(null)
 
@@ -705,16 +718,22 @@ watch(
   { immediate: true },
 )
 
+async function showError(msg: string) {
+  errorMsg.value = msg
+  await nextTick()
+  errorBoxRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
 async function handleSubmit() {
   errorMsg.value = ''
-  if (!form.value.name.trim()) return (errorMsg.value = 'กรุณาใส่ชื่อสินค้า')
-  if (!form.value.categoryId) return (errorMsg.value = 'กรุณาเลือกหมวดหมู่')
-  if (form.value.salePrice <= 0) return (errorMsg.value = 'ราคาขายต้องมากกว่า 0')
+  if (!form.value.name.trim()) return showError('กรุณาใส่ชื่อสินค้า')
+  if (!form.value.categoryId) return showError('กรุณาเลือกหมวดหมู่')
+  if (form.value.salePrice <= 0) return showError('ราคาขายต้องมากกว่า 0')
 
   // ตรวจ Mapping
   if (form.value.mappingType) {
     const incomplete = form.value.inventoryMappings?.some(m => !m.sourceProductId || !m.quantity)
-    if (incomplete) return (errorMsg.value = 'กรุณาเลือกสินค้าหลักและใส่จำนวนให้ครบทุกแถว')
+    if (incomplete) return showError('กรุณาเลือกสินค้าหลักและใส่จำนวนให้ครบทุกแถว')
   }
 
   isSaving.value = true
@@ -727,7 +746,7 @@ async function handleSubmit() {
     emit('saved')
     emit('close')
   } catch (e: any) {
-    errorMsg.value = e.message ?? 'เกิดข้อผิดพลาด กรุณาลองใหม่'
+    showError(e.message ?? 'เกิดข้อผิดพลาด กรุณาลองใหม่')
   } finally {
     isSaving.value = false
   }

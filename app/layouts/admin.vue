@@ -194,8 +194,6 @@ async function handlePush() {
     const msg = [
       '📤 ส่งข้อมูลขึ้น Cloud สำเร็จ!',
       `• ข้อมูลออร์เดอร์: ${res.orders.success} รายการ`,
-      `• หมวดหมู่สินค้า: ${res.categories} รายการ`,
-      `• รายการสินค้า: ${res.products} รายการ`,
       `• ประวัติสต็อก: ${res.auditLogs.success} รายการ`
     ].join('\n')
 
@@ -226,10 +224,10 @@ async function handlePull() {
     const msg = [
       '📥 ดึงข้อมูลประวัติจาก Cloud สำเร็จ!',
       `• ข้อมูลออร์เดอร์: ${orderCount} รายการ`,
-      `• หมวดหมู่สินค้า: ${resMaster.categories} รายการ`,
-      `• รายการสินค้า: ${resMaster.products} รายการ`,
-      `• ประวัติสต็อก: ${resMaster.stockLogs} รายการ`
-    ].join('\n')
+      resMaster.categories > 0 ? `• หมวดหมู่สินค้า: ${resMaster.categories} รายการ` : '',
+      resMaster.products > 0 ? `• รายการสินค้า: ${resMaster.products} รายการ` : '',
+      resMaster.stockLogs > 0 ? `• ประวัติสต็อก: ${resMaster.stockLogs} รายการ` : ''
+    ].filter(Boolean).join('\n')
     
     toast.success(msg, 7000)
   } catch (e: any) {
@@ -241,9 +239,8 @@ async function handlePull() {
 }
 
 const navLinks = [
-  { to: '/admin',                icon: '📊', label: 'หน้าแรกสรุปยอด' },
-  { to: '/admin/reports',        icon: '📈', label: 'วิเคราะห์ยอดขาย' },
   { to: '/admin/closing-report', icon: '🏪', label: 'สรุปยอดปิดร้าน' },
+  { to: '/admin/reports',        icon: '📈', label: 'วิเคราะห์ยอดขาย' },
   { to: '/admin/products',       icon: '📦', label: 'จัดการสินค้า' },
   { to: '/admin/categories',     icon: '🗂️', label: 'จัดการหมวดหมู่' },
   { to: '/admin/stock-audit',    icon: '📋', label: 'ประวัติสต็อก' },

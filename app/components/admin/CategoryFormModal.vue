@@ -126,6 +126,17 @@
               ⚠️ {{ errorMsg }}
             </p>
 
+            <!-- Offline Warning -->
+            <div v-if="!isOnline" class="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+              <span class="text-2xl mt-0.5">📶</span>
+              <div>
+                <h4 class="font-bold text-red-500">ฟีเจอร์นี้ต้องการอินเทอร์เน็ต</h4>
+                <p class="text-sm text-red-400/80 mt-1">
+                  กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อ{{ isEditing ? 'แก้ไข' : 'เพิ่ม' }}หมวดหมู่ (ระบบเปลี่ยนเป็นแบบ Online-Only เพื่อป้องกันข้อมูลซ้ำซ้อน)
+                </p>
+              </div>
+            </div>
+
             <!-- Actions -->
             <div class="flex gap-3 pt-2">
               <button
@@ -137,8 +148,8 @@
               </button>
               <button
                 type="submit"
-                :disabled="isSaving"
-                class="flex-1 py-3 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-primary-900/20"
+                :disabled="isSaving || !isOnline"
+                class="flex-1 py-3 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-primary-900/20"
               >
                 {{ isSaving ? 'กำลังบันทึก...' : (isEditing ? 'บันทึกการแก้ไข' : 'เพิ่มหมวดหมู่') }}
               </button>
@@ -165,6 +176,7 @@ const emit = defineEmits<{
   saved: []
 }>()
 
+const { isOnline } = useSync()
 const { fetchAll, createCategory, updateCategory } = useCategories()
 
 const allCategories = ref<Category[]>([])

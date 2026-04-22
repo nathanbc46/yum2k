@@ -187,11 +187,11 @@
           <table class="w-full text-sm text-left">
             <thead>
               <tr class="text-surface-500 text-xs border-b border-surface-800">
-                <th class="py-2 pr-4 font-medium">เวลา</th>
-                <th class="py-2 pr-4 font-medium">เลขบิล</th>
-                <th class="py-2 pr-4 font-medium">รายการ</th>
-                <th class="py-2 pr-4 font-medium">ชำระ</th>
-                <th class="py-2 text-right font-medium">ยอด</th>
+                <th class="py-2 pr-4 font-medium whitespace-nowrap">เวลา</th>
+                <th class="py-2 pr-4 font-medium whitespace-nowrap">เลขบิล</th>
+                <th class="py-2 pr-4 font-medium">สินค้าในบิล</th>
+                <th class="py-2 pr-4 font-medium whitespace-nowrap">ชำระ</th>
+                <th class="py-2 text-right font-medium whitespace-nowrap">ยอด</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-surface-800/50">
@@ -206,13 +206,24 @@
                     {{ order.orderNumber }}
                   </span>
                 </td>
-                <td class="py-2 pr-4 text-surface-400 text-xs">{{ order.items?.length || 0 }} รายการ</td>
-                <td class="py-2 pr-4">
+                <td class="py-2 pr-4 max-w-xs">
+                  <div class="flex flex-wrap gap-1">
+                    <span
+                      v-for="item in (order.items || [])"
+                      :key="item.productName + item.quantity"
+                      class="inline-flex items-center gap-1 text-xs bg-surface-800 text-surface-300 px-1.5 py-0.5 rounded-md whitespace-nowrap"
+                    >
+                      <span class="font-medium">{{ item.productName }}</span>
+                      <span class="text-surface-500">×{{ item.quantity }}</span>
+                    </span>
+                  </div>
+                </td>
+                <td class="py-2 pr-4 whitespace-nowrap">
                   <span class="text-xs px-2 py-0.5 rounded-full bg-surface-800 text-surface-300">
                     {{ order.paymentMethod === 'cash' ? '💵 เงินสด' : order.paymentMethod === 'promptpay' ? '📲 พร้อมเพย์' : order.paymentMethod === 'card' ? '💳 บัตร' : order.paymentMethod }}
                   </span>
                 </td>
-                <td class="py-2 text-right font-bold text-success">฿{{ order.totalAmount.toLocaleString() }}</td>
+                <td class="py-2 text-right font-bold text-success whitespace-nowrap">฿{{ order.totalAmount.toLocaleString() }}</td>
               </tr>
             </tbody>
           </table>

@@ -8,7 +8,9 @@
       </div>
       <button
         @click="openCreateModal"
-        class="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-500 active:scale-95 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-primary-900/20"
+        :disabled="!isOnline"
+        class="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-primary-900/20"
+        :title="isOnline ? '' : 'ต้องใช้อินเทอร์เน็ต'"
       >
         <span>+</span>
         เพิ่มหมวดหมู่
@@ -151,12 +153,14 @@ import draggable from 'vuedraggable'
 import { useCategories } from '~/composables/useCategories'
 import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import { useToast } from '~/composables/useToast'
+import { useSync } from '~/composables/useSync'
 import type { Category } from '~/types'
 
 definePageMeta({ layout: 'admin' })
 
 const { fetchAll, toggleCategoryActive, deleteCategory, reorderCategories } = useCategories()
 const { lastPullTimestamp } = useMasterDataSync()
+const { isOnline } = useSync()
 const toast = useToast()
 
 const categories = ref<Category[]>([])

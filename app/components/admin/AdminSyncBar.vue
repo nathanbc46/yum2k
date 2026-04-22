@@ -4,23 +4,31 @@ import { useSync } from '~/composables/useSync'
 
 const masterSync = useMasterDataSync()
 // nextSyncCountdown คือ Countdown เดียวกับ Background Heartbeat ใน useSync.ts
-const { syncPendingOrders, isOnline, isSyncing, lastSyncAt, nextSyncCountdown } = useSync()
+const { syncPendingOrders, fetchRemoteOrders, isOnline, isSyncing, lastSyncAt, nextSyncCountdown } = useSync()
 const toast = useToast()
 
-// จำนวนรายการที่รอ Sync (รวมรายชื่อสำหรับ Tooltip)
-const counts = ref({
-  categories: 0, categoryNames: [] as string[],
-  products: 0, productNames: [] as string[],
+// 🚀 Push Data (Local -> Cloud)
+const pushCounts = ref({
   orders: 0, orderNumbers: [] as string[],
   stockLogs: 0, stockLogDetails: [] as string[],
 })
-const isLoading = ref(false)
 
-const totalPending = computed(() => {
-  return counts.value.categories + counts.value.products + counts.value.orders + counts.value.stockLogs
+// 📥 Pull Data (Cloud -> Local)
+const pullCounts = ref({
+  categories: 0, categoryNames: [] as string[],
+  products: 0, productNames: [] as string[],
+  users: 0, userNames: [] as string[],
+  stockLogs: 0, stockLogDetails: [] as string[],
+  orders: 0, orderNumbers: [] as string[]
 })
 
-// แสดงผล MM:SS จาก Countdown ที่ใช้ร่วมกับ Heartbeat
+const isLoadingPush = ref(false)
+const isLoadingPull = ref(false)
+
+const totalPush = computed(() => pushCounts.value.orders + pushCounts.value.stockLogs)
+const totalPull = computed(() => pullCounts.value.categories + pullCounts.value.products + pullCounts.value.users + pullCounts.value.stockLogs + pullCounts.value.orders)
+
+// แสดงผล MM:SS จาก Countdown ที่ใช้ร่วมกับ Heartbeat (ใช้สำหรับแค่ Push)
 const countdownLabel = computed(() => {
   const v = nextSyncCountdown.value
   const m = Math.floor(v / 60)
@@ -28,163 +36,248 @@ const countdownLabel = computed(() => {
   return `${m}:${s.toString().padStart(2, '0')}`
 })
 
-// เปลี่ยนสีเมื่อเหลือน้อยกว่า 1 นาที
 const countdownClass = computed(() => {
   return nextSyncCountdown.value <= 60 ? 'text-amber-400 font-black' : 'text-white/40'
 })
 
-// โหลดจำนวนรายการที่รอ Sync (ใช้ logic เดียวกับ pushAll)
-async function loadCounts() {
+// โหลดข้อมูลเครื่อง (Push) - ไม่ต้องใช้เน็ต เช็คได้ถี่
+async function loadLocalCounts() {
   if (!import.meta.client) return
   const result = await masterSync.getPendingCounts()
-  counts.value = result
+  pushCounts.value = {
+    orders: result.orders, orderNumbers: result.orderNumbers,
+    stockLogs: result.stockLogs, stockLogDetails: result.stockLogDetails
+  }
 }
 
-// กด Sync ขึ้น Cloud (ทำงานเฉพาะตอนกดปุ่มเท่านั้น)
-async function handleSync() {
-  if (isSyncing.value || !isOnline.value) return
-  isLoading.value = true
+// โหลดข้อมูลจากคลาวด์ (Pull) - ยิงผ่านเน็ต ไม่ควรยิงบ่อย 
+async function loadRemoteCounts() {
+  if (!import.meta.client || !isOnline.value) return
+  const result = await masterSync.getPendingPullCounts()
+  pullCounts.value = result
+}
+
+// กด Sync ขึ้น Cloud (🚀)
+async function handlePush() {
+  if (isSyncing.value || !isOnline.value || isLoadingPush.value) return
+  isLoadingPush.value = true
   try {
-    // ใช้ force=true เพื่อกดดัน toast อัตโนมัติใน syncPendingOrders ไม่ให้ซ้อนกัน
-    // (toast อัตโนมัติจะแสดงเฉพาะเมื่อ force=false เท่านั้น)
     const res = await syncPendingOrders(true)
-    await loadCounts()
+    await loadLocalCounts()
     const msg = [
       '📤 ซิงค์ข้อมูลขึ้น Cloud สำเร็จ!',
       res.orders.success > 0 ? `• ออร์เดอร์: ${res.orders.success} รายการ` : '',
-      res.categories > 0 ? `• หมวดหมู่: ${res.categories} รายการ` : '',
-      res.products > 0 ? `• สินค้า: ${res.products} รายการ` : '',
       res.auditLogs.success > 0 ? `• ประวัติสต็อก: ${res.auditLogs.success} รายการ` : '',
     ].filter(Boolean).join('\n')
     toast.success(msg, 5000)
   } finally {
-    isLoading.value = false
+    isLoadingPush.value = false
   }
 }
 
-// Refresh ตัวเลขเมื่อ Sync เสร็จ (ทั้ง manual และ background)
-watch(lastSyncAt, () => loadCounts())
-watch(() => masterSync.lastMasterSyncAt.value, () => loadCounts())
+// กด Sync ลงมาจาก Cloud (📥)
+async function handlePull() {
+  if (masterSync.isSyncingMaster.value || !isOnline.value || isLoadingPull.value) return
+  isLoadingPull.value = true
+  try {
+    const resMaster = await masterSync.pullAll(true)
+    const orderCount = await fetchRemoteOrders(200, false)
+    const msg = [
+      '📥 ดึงข้อมูลประวัติจาก Cloud สำเร็จ!',
+      orderCount > 0 ? `• ออร์เดอร์: ${orderCount} รายการ` : '',
+      resMaster.categories > 0 ? `• หมวดหมู่สินค้า: ${resMaster.categories} รายการ` : '',
+      resMaster.products > 0 ? `• รายการสินค้า: ${resMaster.products} รายการ` : '',
+      resMaster.users > 0 ? `• พนักงาน: ${resMaster.users} รายการ` : '',
+      resMaster.stockLogs > 0 ? `• ประวัติสต็อก: ${resMaster.stockLogs} รายการ` : ''
+    ].filter(Boolean).join('\n')
+    toast.success(msg, 7000)
+    await loadRemoteCounts()
+  } catch (e: any) {
+    toast.error('การดึงข้อมูลล้มเหลว: ' + e.message)
+  } finally {
+    isLoadingPull.value = false
+  }
+}
+
+// Refresh เมื่อ Sync เสร็จจาก Background
+watch(lastSyncAt, () => loadLocalCounts())
+watch(() => masterSync.lastMasterSyncAt.value, () => loadRemoteCounts())
+
+// รีทริกเกอร์โหลด Remote ถ้าระบบออนไลน์กลับมา
+watch(isOnline, (online) => {
+  if (online) loadRemoteCounts()
+})
 
 if (import.meta.client) {
   onMounted(() => {
-    loadCounts()
-    // Refresh ตัวเลขทุก 30 วินาที (ไม่ต้องจัดการ countdown เองแล้ว)
-    const refreshInterval = setInterval(loadCounts, 30000)
-    onUnmounted(() => clearInterval(refreshInterval))
+    loadLocalCounts()
+    loadRemoteCounts()
+    
+    // Refresh Local (Push) ทุก 10 วินาที
+    const localInterval = setInterval(loadLocalCounts, 10000)
+    // Refresh Remote (Pull) ทุก 5 นาที (300,000 ms) ป้องกัน Quota ล้น
+    const remoteInterval = setInterval(loadRemoteCounts, 300000)
+
+    onUnmounted(() => {
+      clearInterval(localInterval)
+      clearInterval(remoteInterval)
+    })
   })
 }
 </script>
 
 <template>
-  <Transition name="slide-down">
-    <div
-      v-if="totalPending > 0"
-      class="bg-amber-500/5 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between gap-4 sticky top-0 z-[45] backdrop-blur-md overflow-visible"
-    >
-      <!-- Left: Indicator + Badges -->
-      <div class="flex items-center gap-3 min-w-0">
-        <!-- Pulse dot -->
-        <div class="relative flex h-2 w-2 shrink-0">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-        </div>
-
-        <span class="text-[11px] font-bold text-amber-600/80 dark:text-amber-400/80 shrink-0 hidden sm:inline">รอ Sync:</span>
-
-        <!-- Badges with Hover Tooltip -->
-        <div class="flex items-center gap-1.5 flex-wrap">
-
-          <!-- Orders Badge -->
-          <div v-if="counts.orders > 0" class="tooltip-wrapper">
-            <span class="badge badge-order">
-              📦 <span>ออร์เดอร์</span> <span class="font-black">{{ counts.orders }}</span>
-            </span>
-            <div class="tooltip-popup">
-              <div class="tooltip-title">📦 ออร์เดอร์ที่รอ Sync</div>
-              <div v-for="num in counts.orderNumbers.slice(0, 5)" :key="num" class="tooltip-item">
-                {{ num }}
-              </div>
-              <div v-if="counts.orderNumbers.length > 5" class="tooltip-more">
-                +{{ counts.orderNumbers.length - 5 }} รายการ
-              </div>
-            </div>
-          </div>
-
-          <!-- Categories Badge -->
-          <div v-if="counts.categories > 0" class="tooltip-wrapper">
-            <span class="badge badge-cat">
-              📂 <span>หมวดหมู่</span> <span class="font-black">{{ counts.categories }}</span>
-            </span>
-            <div class="tooltip-popup">
-              <div class="tooltip-title">📂 หมวดหมู่ที่รอ Sync</div>
-              <div v-for="name in counts.categoryNames.slice(0, 5)" :key="name" class="tooltip-item">
-                {{ name }}
-              </div>
-              <div v-if="counts.categoryNames.length > 5" class="tooltip-more">
-                +{{ counts.categoryNames.length - 5 }} รายการ
-              </div>
-            </div>
-          </div>
-
-          <!-- Products Badge -->
-          <div v-if="counts.products > 0" class="tooltip-wrapper">
-            <span class="badge badge-prod">
-              🏷️ <span>สินค้า</span> <span class="font-black">{{ counts.products }}</span>
-            </span>
-            <div class="tooltip-popup">
-              <div class="tooltip-title">🏷️ สินค้าที่รอ Sync</div>
-              <div v-for="name in counts.productNames.slice(0, 5)" :key="name" class="tooltip-item">
-                {{ name }}
-              </div>
-              <div v-if="counts.productNames.length > 5" class="tooltip-more">
-                +{{ counts.productNames.length - 5 }} รายการ
-              </div>
-            </div>
-          </div>
-
-          <!-- Stock Logs Badge -->
-          <div v-if="counts.stockLogs > 0" class="tooltip-wrapper">
-            <span class="badge badge-stock">
-              📊 <span>สต็อก</span> <span class="font-black">{{ counts.stockLogs }}</span>
-            </span>
-            <div class="tooltip-popup">
-              <div class="tooltip-title">📊 ประวัติสต็อกที่รอ Sync</div>
-              <div v-for="detail in counts.stockLogDetails.slice(0, 5)" :key="detail" class="tooltip-item">
-                {{ detail }}
-              </div>
-              <div v-if="counts.stockLogDetails.length > 5" class="tooltip-more">
-                +{{ counts.stockLogDetails.length - 5 }} รายการ
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Right: Sync Button -->
-      <button
-        @click="handleSync"
-        :disabled="isLoading || isSyncing || !isOnline"
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-        :class="isOnline
-          ? 'bg-primary-600 hover:bg-primary-500 text-white shadow-sm'
-          : 'bg-surface-700 text-surface-400'"
+  <div class="flex flex-col w-full sticky top-0 z-[45]">
+    <!-- ============================================== -->
+    <!-- 1. PUSH BAR (Local -> Cloud) -->
+    <!-- ============================================== -->
+    <Transition name="slide-down">
+      <div
+        v-if="totalPush > 0"
+        class="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between gap-4 backdrop-blur-md overflow-visible"
       >
-        <span :class="{ 'animate-spin': isLoading || isSyncing }">
-          {{ isLoading || isSyncing ? '⏳' : '🚀' }}
-        </span>
-        <span v-if="isLoading || isSyncing">กำลัง Sync...</span>
-        <template v-else>
-          <span>Sync ขึ้น Cloud</span>
-          <!-- Countdown -->
-          <span class="ml-1 px-1.5 py-0.5 rounded-md bg-black/15 text-[10px] font-mono tabular-nums" :class="countdownClass">
-            {{ countdownLabel }}
+        <!-- Left: Indicator + Badges -->
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="relative flex h-2 w-2 shrink-0">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+          </div>
+
+          <span class="text-[11px] font-bold text-amber-600 dark:text-amber-400 shrink-0 hidden sm:inline">ข้อความรอ Sync ขึ้น Cloud:</span>
+
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <div v-if="pushCounts.orders > 0" class="tooltip-wrapper">
+              <span class="badge badge-order">
+                📦 <span>ออร์เดอร์</span> <span class="font-black">{{ pushCounts.orders }}</span>
+              </span>
+              <div class="tooltip-popup">
+                <div class="tooltip-title">📦 ออร์เดอร์รอส่งขึ้น Cloud</div>
+                <div v-for="num in pushCounts.orderNumbers.slice(0, 5)" :key="num" class="tooltip-item">{{ num }}</div>
+              </div>
+            </div>
+            
+            <div v-if="pushCounts.stockLogs > 0" class="tooltip-wrapper">
+              <span class="badge badge-stock">
+                📊 <span>สต็อก</span> <span class="font-black">{{ pushCounts.stockLogs }}</span>
+              </span>
+              <div class="tooltip-popup">
+                <div class="tooltip-title">📊 ประวัติสต็อกรอส่งขึ้น Cloud</div>
+                <div v-for="detail in pushCounts.stockLogDetails.slice(0, 5)" :key="detail" class="tooltip-item">{{ detail }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Push Sync Button -->
+        <button
+          @click="handlePush"
+          :disabled="isLoadingPush || isSyncing || !isOnline"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+          :class="isOnline ? 'bg-primary-600 hover:bg-primary-500 text-white shadow-sm' : 'bg-surface-700 text-surface-400'"
+        >
+          <span :class="{ 'animate-spin': isLoadingPush || isSyncing }">
+            {{ isLoadingPush || isSyncing ? '⏳' : '🚀' }}
           </span>
-        </template>
-      </button>
-    </div>
-  </Transition>
+          <span v-if="isLoadingPush || isSyncing">กำลัง Sync...</span>
+          <template v-else>
+            <span>Sync ขึ้น Cloud</span>
+            <span class="ml-1 px-1.5 py-0.5 rounded-md bg-black/15 text-[10px] font-mono tabular-nums" :class="countdownClass">
+              {{ countdownLabel }}
+            </span>
+          </template>
+        </button>
+      </div>
+    </Transition>
+
+    <!-- ============================================== -->
+    <!-- 2. PULL BAR (Cloud -> Local) -->
+    <!-- ============================================== -->
+    <Transition name="slide-down">
+      <div
+        v-if="totalPull > 0"
+        class="bg-blue-500/10 border-b border-blue-500/20 px-4 py-2 flex items-center justify-between gap-4 backdrop-blur-md overflow-visible"
+      >
+        <!-- Left: Indicator + Badges -->
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="relative flex h-2 w-2 shrink-0">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+          </div>
+
+          <span class="text-[11px] font-bold text-blue-600 dark:text-blue-400 shrink-0 hidden sm:inline">อัปเดตข้อมูลจาก Cloud:</span>
+
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <div v-if="pullCounts.orders > 0" class="tooltip-wrapper">
+              <span class="badge badge-order">
+                📦 <span>ออร์เดอร์</span> <span class="font-black">{{ pullCounts.orders }}</span>
+              </span>
+              <div class="tooltip-popup">
+                <div class="tooltip-title">📦 ออร์เดอร์มีอัปเดต ({{ pullCounts.orders }})</div>
+                <div class="tooltip-item italic">ดึงประวัติการขายที่เกิดจากเครื่องอื่น</div>
+                <div v-for="num in pullCounts.orderNumbers.slice(0, 5)" :key="num" class="tooltip-item">- {{ num }}</div>
+                <div v-if="pullCounts.orderNumbers.length > 5" class="tooltip-item text-xs mt-1 opacity-70">และอื่นๆ...</div>
+              </div>
+            </div>
+
+            <div v-if="pullCounts.categories > 0" class="tooltip-wrapper">
+              <span class="badge badge-cat">
+                📂 <span>หมวดหมู่</span> <span class="font-black">{{ pullCounts.categories }}</span>
+              </span>
+              <div class="tooltip-popup">
+                <div class="tooltip-title">📂 หมวดหมู่มีอัปเดต ({{ pullCounts.categories }})</div>
+                <div v-for="name in pullCounts.categoryNames.slice(0, 5)" :key="name" class="tooltip-item">- {{ name }}</div>
+                <div v-if="pullCounts.categoryNames.length > 5" class="tooltip-item text-xs mt-1 opacity-70">และอื่นๆ...</div>
+              </div>
+            </div>
+
+            <div v-if="pullCounts.products > 0" class="tooltip-wrapper">
+              <span class="badge badge-prod">
+                🏷️ <span>สินค้า</span> <span class="font-black">{{ pullCounts.products }}</span>
+              </span>
+              <div class="tooltip-popup">
+                <div class="tooltip-title">🏷️ สินค้ามีอัปเดต ({{ pullCounts.products }})</div>
+                <div v-for="name in pullCounts.productNames.slice(0, 5)" :key="name" class="tooltip-item">- {{ name }}</div>
+                <div v-if="pullCounts.productNames.length > 5" class="tooltip-item text-xs mt-1 opacity-70">และอื่นๆ...</div>
+              </div>
+            </div>
+
+            <div v-if="pullCounts.users > 0" class="tooltip-wrapper">
+              <span class="badge" style="background: rgba(16, 185, 129, 0.1); color: rgb(16, 185, 129); border-color: rgba(16, 185, 129, 0.25);">
+                👥 <span>พนักงาน</span> <span class="font-black">{{ pullCounts.users }}</span>
+              </span>
+              <div class="tooltip-popup">
+                <div class="tooltip-title">👥 พนักงานมีอัปเดต ({{ pullCounts.users }})</div>
+                <div v-for="name in pullCounts.userNames.slice(0, 5)" :key="name" class="tooltip-item">- {{ name }}</div>
+                <div v-if="pullCounts.userNames.length > 5" class="tooltip-item text-xs mt-1 opacity-70">และอื่นๆ...</div>
+              </div>
+            </div>
+            
+            <div v-if="pullCounts.stockLogs > 0" class="tooltip-wrapper">
+              <span class="badge badge-stock">
+                📊 <span>ประวัติสต็อก</span> <span class="font-black">{{ pullCounts.stockLogs }}</span>
+              </span>
+              <div class="tooltip-popup">
+                <div class="tooltip-title">📊 สต็อกมีการอัปเดต ({{ pullCounts.stockLogs }})</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Pull Sync Button -->
+        <button
+          @click="handlePull"
+          :disabled="isLoadingPull || masterSync.isSyncingMaster.value || !isOnline"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+          :class="isOnline ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-sm' : 'bg-surface-700 text-surface-400'"
+        >
+          <span :class="{ 'animate-spin': isLoadingPull || masterSync.isSyncingMaster.value }">
+            {{ isLoadingPull || masterSync.isSyncingMaster.value ? '⏳' : '📥' }}
+          </span>
+          <span>{{ isLoadingPull || masterSync.isSyncingMaster.value ? 'กำลังดึงข้อมูล...' : 'Sync ลงมาจาก Cloud' }}</span>
+        </button>
+      </div>
+    </Transition>
+  </div>
 </template>
 
 <style scoped>

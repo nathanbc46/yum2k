@@ -8,7 +8,6 @@ import { db } from '~/db'
 import type { User, UserRole } from '~/types'
 import { hashSHA256, isAlreadyHashed } from '~/utils/crypto'
 import { useSync } from './useSync'
-import { useMasterDataSync } from './useMasterDataSync'
 
 export function useUsers() {
   /**
@@ -18,49 +17,63 @@ export function useUsers() {
     return await db.users.filter(u => u.isDeleted === false).toArray()
   }
 
+  // --- Helper: Sync ผู้ใช้ 1 คนขึ้น Cloud ทันที ---
+  async function _syncUserToCloud(user: User): Promise<void> {
+    const supabase = useSupabaseClient<any>()
+    const payload = {
+      uuid: user.uuid,
+      username: user.username,
+      display_name: user.displayName,
+      role: user.role,
+      pin: user.pin,
+      is_active: user.isActive,
+      is_deleted: user.isDeleted,
+      updated_at: user.updatedAt.toISOString(),
+    }
+    const { error } = await supabase.from('pos_users').upsert(payload, { onConflict: 'uuid' })
+    if (error) {
+      console.error('Master Data Sync Error:', error)
+      throw new Error(`อัปเดตข้อมูลขึ้น Cloud ไม่สำเร็จ: ${error.message}`)
+    }
+  }
+
   /**
    * สร้างผู้ใช้งานใหม่ (เข้ารหัส PIN โดยอัตโนมัติ)
    */
   async function createUser(data: Omit<User, 'id' | 'uuid' | 'createdAt' | 'updatedAt' | 'isDeleted' | 'passwordHash'>): Promise<number> {
-    // บังคับออนไลน์เฉพาะพนักงาน
     if (typeof window !== 'undefined' && !window.navigator.onLine) {
       throw new Error('ไม่สามารถเพิ่มพนักงานได้ขณะออฟไลน์ กรุณาเชื่อมต่ออินเทอร์เน็ต')
     }
 
-    // ตรวจสอบ Username ซ้ำ
-    const existing = await db.users.where('username').equals(data.username).first()
-    if (existing && !existing.isDeleted) {
-      throw new Error(`Username "${data.username}" ถูกใช้งานแล้ว`)
-    }
+    const supabase = useSupabaseClient<any>()
+    const { count } = await supabase.from('pos_users').select('*', { count: 'exact', head: true }).eq('username', data.username).eq('is_deleted', false)
+    if (count && count > 0) throw new Error(`Username "${data.username}" ถูกใช้งานแล้วในระบบ`)
 
-    // Hash PIN ก่อนเก็บ (ถ้าไม่ได้ Hash ล่วงหน้ามาแล้ว)
     const hashedPin = data.pin && !isAlreadyHashed(data.pin)
       ? await hashSHA256(data.pin)
       : data.pin
 
     const now = new Date()
-    const id = await db.users.add({
+    const newUser = {
       ...data,
       pin: hashedPin,
       uuid: uuidv4(),
-      passwordHash: '', // สำหรับ PIN-based system
+      passwordHash: '', 
       isDeleted: false,
       createdAt: now,
       updatedAt: now,
-    } as User)
-    
-    // Sync ทันที
-    const { pushUsers } = useMasterDataSync()
-    await pushUsers().catch(err => console.error('Instant Sync Fail:', err))
+    } as User
 
+    await _syncUserToCloud(newUser)
+    
+    const id = await db.users.add(newUser)
     return id as number
   }
 
   /**
-   * อัปเดตข้อมูลผู้ใช้งานที่มีอยู่ (เข้ารหัส PIN โดยอัตโนมัติถ้ามีการเปลี่ยนแปลง)
+   * อัปเดตข้อมูลผู้ใช้งานที่มีอยู่
    */
   async function updateUser(id: number, data: Partial<User>): Promise<void> {
-    // บังคับออนไลน์เฉพาะพนักงาน 
     if (typeof window !== 'undefined' && !window.navigator.onLine) {
       throw new Error('ไม่สามารถแก้ไขข้อมูลพนักงานได้ขณะออฟไลน์ กรุณาเชื่อมต่ออินเทอร์เน็ต')
     }
@@ -68,27 +81,24 @@ export function useUsers() {
     const user = await db.users.get(id)
     if (!user) throw new Error('ไม่พบข้อมูลผู้ใช้')
 
-    // ถ้ามีการแก้ username ต้องเช็คว่าทับกับคนอื่นไหม
     if (data.username && data.username !== user.username) {
-      const existing = await db.users.where('username').equals(data.username).first()
-      if (existing && !existing.isDeleted) {
-        throw new Error(`Username "${data.username}" ถูกใช้งานแล้ว`)
-      }
+      const supabase = useSupabaseClient<any>()
+      const { count } = await supabase.from('pos_users').select('*', { count: 'exact', head: true }).eq('username', data.username).eq('is_deleted', false).neq('uuid', user.uuid)
+      if (count && count > 0) throw new Error(`Username "${data.username}" ถูกใช้งานแล้วในระบบ`)
     }
 
-    // Hash PIN ใหม่ถ้ามีการเปลี่ยนแปลง (และยังไม่ได้ Hash)
     if (data.pin && !isAlreadyHashed(data.pin)) {
       data.pin = await hashSHA256(data.pin)
     }
 
-    await db.users.update(id, {
+    const updatedUser = {
+      ...user,
       ...data,
       updatedAt: new Date()
-    })
+    }
 
-    // Sync ทันที
-    const { pushUsers } = useMasterDataSync()
-    await pushUsers().catch(err => console.error('Instant Sync Fail:', err))
+    await _syncUserToCloud(updatedUser)
+    await db.users.update(id, updatedUser)
   }
 
   /**
@@ -99,14 +109,12 @@ export function useUsers() {
       throw new Error('ไม่สามารถเปลี่ยนสถานะพนักงานได้ขณะออฟไลน์')
     }
 
-    await db.users.update(id, {
-      isActive,
-      updatedAt: new Date()
-    })
+    const user = await db.users.get(id)
+    if (!user) return
 
-    // Sync ทันที
-    const { pushUsers } = useMasterDataSync()
-    await pushUsers().catch(err => console.error('Instant Sync Fail:', err))
+    const updatedUser = { ...user, isActive, updatedAt: new Date() }
+    await _syncUserToCloud(updatedUser)
+    await db.users.update(id, updatedUser)
   }
 
   /**
@@ -121,15 +129,11 @@ export function useUsers() {
     if (user?.username === 'admin') {
       throw new Error('ไม่สามารถลบบัญชีระบบ (admin) พื้นฐานได้')
     }
+    if (!user) return
 
-    await db.users.update(id, {
-      isDeleted: true,
-      updatedAt: new Date()
-    })
-
-    // Sync ทันที
-    const { pushUsers } = useMasterDataSync()
-    await pushUsers().catch(err => console.error('Instant Sync Fail:', err))
+    const updatedUser = { ...user, isDeleted: true, updatedAt: new Date() }
+    await _syncUserToCloud(updatedUser)
+    await db.users.update(id, updatedUser)
   }
 
   const { isOnline } = useSync()

@@ -107,16 +107,6 @@ onMounted(() => {
   startHeartbeatSync()
 })
 
-// แจ้งเตือนเมื่อมีการซิงค์ออร์เดอร์สำเร็จในพื้นหลัง
-watch(isSyncing, (val, oldVal) => {
-  if (oldVal === true && val === false) {
-    // ซิงค์เสร็จแล้ว
-    if (pendingCount.value === 0 && pendingStockAuditCount.value === 0) {
-      toast.success('☁️ ซิงค์ข้อมูลขึ้น Cloud เรียบร้อยแล้ว')
-    }
-  }
-})
-
 onUnmounted(() => {
   if (cleanupNetwork) cleanupNetwork()
   stopHeartbeatSync()
