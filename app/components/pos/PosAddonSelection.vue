@@ -112,16 +112,16 @@
                     v-for="opt in group.options"
                     :key="opt.id"
                     @click="toggleAddon(group.id, opt)"
-                    class="w-full flex items-center justify-between px-3 py-3.5 rounded-xl border font-bold transition-all relative overflow-hidden group/opt"
+                    class="w-full flex items-center justify-between px-3 py-4 rounded-xl border font-bold transition-all relative overflow-hidden group/opt"
                     :class="[
                       isSelected(group.id, opt.id)
                         ? 'bg-primary-500 border-primary-400 text-white shadow-md active:scale-95'
                         : 'bg-surface-800 border-surface-700 text-surface-50 hover:border-surface-600 hover:bg-surface-750 [.light-mode_&]:bg-surface-800 [.light-mode_&]:text-surface-50 active:scale-98'
                     ]"
                   >
-                    <span class="text-xs leading-tight text-left font-bold">{{ opt.name }}</span>
+                    <span class="text-sm md:text-base leading-tight text-left font-black">{{ opt.name }}</span>
                     <span 
-                      class="text-[9px] font-black shrink-0 ml-1"
+                      class="text-[11px] md:text-xs font-black shrink-0 ml-1"
                       :class="isSelected(group.id, opt.id) ? 'text-primary-100' : 'text-primary-500 [.light-mode_&]:text-primary-600'"
                     >
                       {{ opt.price > 0 ? `+฿${opt.price}` : 'ฟรี' }}
@@ -142,7 +142,12 @@
             ]"
           >
             <div class="w-full md:w-auto">
-              <div v-if="(selectedItem?.addonsTotal ?? 0) > 0" class="flex items-center justify-between md:flex-col md:items-start leading-tight">
+              <!-- Warning for Required Selections -->
+              <div v-if="!isSelectionValid" class="flex items-center gap-2 text-red-400 animate-pulse mb-1 md:mb-0">
+                <span class="text-lg">⚠️</span>
+                <span class="text-[11px] font-black uppercase tracking-tighter">กรุณาเลือกรายการที่บังคับให้ครบถ้วน</span>
+              </div>
+              <div v-else-if="(selectedItem?.addonsTotal ?? 0) > 0" class="flex items-center justify-between md:flex-col md:items-start leading-tight">
                 <span class="text-[9px] md:text-[10px] text-surface-500 font-black uppercase tracking-widest">ยอดรวมท็อปปิ้งเพิ่มเติม</span>
                 <div class="flex items-baseline gap-1">
                   <span class="text-xl md:text-2xl font-black text-primary-400 tracking-tighter [.light-mode_&]:text-primary-600">+฿{{ selectedItem?.addonsTotal }}</span>
@@ -171,13 +176,17 @@
                 🗑️ เคลียร์
               </button>
               <button 
-                @click="posStore.setSelectedCartItemIndex(null)"
+                @click="isSelectionValid ? posStore.setSelectedCartItemIndex(null) : null"
+                :disabled="!isSelectionValid"
                 :class="[
-                  'bg-primary-600 hover:bg-primary-500 text-white font-black shadow-xl shadow-primary-900/40 hover:shadow-primary-900/60 transition-all active:scale-95 flex items-center justify-center gap-2.5 ring-4 ring-primary-500/10 hover:ring-primary-500/20',
+                  'font-black shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2.5',
+                  isSelectionValid 
+                    ? 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-900/40 hover:shadow-primary-900/60 ring-4 ring-primary-500/10 hover:ring-primary-500/20'
+                    : 'bg-surface-800 text-surface-600 cursor-not-allowed opacity-50 grayscale',
                   isInline ? 'px-8 py-3 rounded-2xl text-lg' : 'flex-[2] md:flex-none px-10 md:px-14 py-4 md:py-4 rounded-2xl md:rounded-3xl text-lg md:text-xl'
                 ]"
               >
-                <span class="text-xl">✅</span>
+                <span class="text-xl">{{ isSelectionValid ? '✅' : '🔒' }}</span>
                 <span>ยืนยันตัวเลือก</span>
               </button>
             </div>
@@ -258,6 +267,22 @@ onUnmounted(() => {
   window.removeEventListener('click', handleGlobalClick)
 })
 
+// ตรวจสอบว่าเลือกตัวเลือกที่บังคับครบถ้วนหรือไม่
+const isSelectionValid = computed(() => {
+  if (!selectedItem.value) return true
+  const addonGroups = selectedItem.value.product.addonGroups || []
+  
+  // กรองหากลุ่มที่บังคับเลือก
+  const requiredGroups = addonGroups.filter(g => g.isRequired)
+  
+  // ตรวจสอบว่าในแต่ละกลุ่มที่บังคับ มีการเลือกอย่างน้อย 1 อย่างหรือไม่
+  return requiredGroups.every(group => {
+    return selectedItem.value?.addons.some(selected => 
+      group.options.some(opt => opt.id === selected.id)
+    )
+  })
+})
+
 function isSelected(groupId: string, optId: string): boolean {
   if (!selectedItem.value) return false
   return selectedItem.value.addons.some(a => a.id === optId)
@@ -277,15 +302,40 @@ async function toggleAddon(groupId: string, opt: AddonOption) {
   
   const currentAddons = [...selectedItem.value.addons]
   const idx = currentAddons.findIndex(a => a.id === opt.id)
+  const product = selectedItem.value.product
+  const group = product.addonGroups?.find(g => g.id === groupId)
   
   if (idx !== -1) {
+    // กรณีจะเอาออก
+    if (group?.isRequired) {
+      // ตรวจสอบว่าในกลุ่มนี้ มีตัวเลือกอื่นที่ถูกเลือกอยู่อีกไหม (นอกจากตัวที่จะเอาออก)
+      const currentGroupOptionsIds = group.options.map(o => o.id)
+      const otherSelectedInGroup = currentAddons.filter(a => a.id !== opt.id && currentGroupOptionsIds.includes(a.id))
+      
+      if (otherSelectedInGroup.length === 0) {
+        // ถ้าเอาตัวนี้ออกแล้วจะไม่เหลือตัวเลือกเลยในกลุ่มที่บังคับ -> ห้ามเอาออกเด็ดขาด
+        return
+      }
+    }
     currentAddons.splice(idx, 1)
   } else {
-    const product = selectedItem.value.product
-    const group = product.addonGroups?.find(g => g.id === groupId)
+    // กรณีจะเพิ่มเข้า
     if (group?.maxSelect) {
-      const currentGroupCount = currentAddons.filter(a => group.options.some(o => o.id === a.id)).length
-      if (currentGroupCount >= group.maxSelect) {
+      const currentGroupOptionsIds = group.options.map(o => o.id)
+      const currentGroupCount = currentAddons.filter(a => currentGroupOptionsIds.includes(a.id)).length
+      const maxSelect = Number(group.maxSelect)
+      
+      if (maxSelect === 1) {
+        // 📻 โหมด Radio: ลบตัวเก่า "ทั้งหมด" ในกลุ่มนี้ออกก่อน
+        // (ใช้ filter เพื่อความแน่นอนว่าไม่หลงเหลือแม้จะมี Bug ข้อมูลซ้ำ)
+        for (let i = currentAddons.length - 1; i >= 0; i--) {
+          const addon = currentAddons[i]
+          if (addon && currentGroupOptionsIds.includes(addon.id)) {
+            currentAddons.splice(i, 1)
+          }
+        }
+      } else if (currentGroupCount >= maxSelect) {
+        // ถ้าเต็มโควตาแล้ว ห้ามเลือกเพิ่ม
         return
       }
     }
@@ -293,7 +343,6 @@ async function toggleAddon(groupId: string, opt: AddonOption) {
   }
   
   const newAddonsTotal = currentAddons.reduce((sum, a) => sum + (a.price || 0), 0)
-  const product = selectedItem.value.product
   const oldKey = getAddonKey(selectedItem.value)
   
   await updateItemAddons(product.id!, oldKey, currentAddons, newAddonsTotal)

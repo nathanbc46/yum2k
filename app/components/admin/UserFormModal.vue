@@ -142,6 +142,9 @@
 
 <script setup lang="ts">
 import type { User, UserRole } from '~/types'
+import { useUsers } from '~/composables/useUsers'
+
+const { isPinUnique } = useUsers()
 
 const props = defineProps<{
   isOpen: boolean
@@ -222,7 +225,19 @@ async function handleSubmit() {
   }
 
   isSaving.value = true
+  errorMsg.value = ''
+
   try {
+    // 🔍 ตรวจสอบความซ้ำซ้อนของ PIN ก่อน (ถ้ามีการกรอกมาใหม่)
+    if (form.value.pin) {
+      const isUnique = await isPinUnique(form.value.pin, props.userToEdit?.uuid)
+      if (!isUnique) {
+        errorMsg.value = 'รหัส PIN นี้ถูกใช้งานแล้วโดยพนักงานท่านอื่น กรุณาใช้รหัสอื่นครับ'
+        isSaving.value = false
+        return
+      }
+    }
+
     const payload: Partial<User> = {
       username: form.value.username,
       displayName: form.value.displayName,

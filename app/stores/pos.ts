@@ -175,6 +175,12 @@ export const usePosStore = defineStore('pos', () => {
     }
   }
 
+  /** กลับไปที่หมวดหมู่ระดับนอกสุดทันที */
+  function resetNavigation() {
+    activeCategoryId.value = null
+    currentParentId.value = null
+  }
+
   function setLastOrder(order: Order | null) {
     lastOrder.value = order
   }
@@ -217,6 +223,7 @@ export const usePosStore = defineStore('pos', () => {
     loadData,
     setActiveCategory,
     goBack,
+    resetNavigation,
     setLastOrder,
     setSelectedCartItemIndex,
     refreshPendingOrdersCount

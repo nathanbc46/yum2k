@@ -345,14 +345,27 @@
                     :placeholder="`ชื่อกลุ่ม เช่น ความเผ็ด, ท็อปปิ้ง...`"
                     class="flex-1 bg-transparent text-sm font-semibold text-surface-100 placeholder-surface-600 outline-none"
                   />
-                  <label class="flex items-center gap-1.5 text-xs text-surface-400 cursor-pointer select-none shrink-0">
+                  <label class="flex items-center gap-1.5 text-xs text-surface-400 cursor-pointer select-none shrink-0 border-l border-surface-700 pl-3 ml-1">
                     <input type="checkbox" v-model="group.isRequired" class="accent-primary-500" />
                     บังคับเลือก
                   </label>
+                  
+                  <div class="flex items-center gap-2 text-[10px] text-surface-400 font-bold uppercase tracking-tighter shrink-0 border-l border-surface-700 pl-3 ml-1">
+                    เลือกได้สูงสุด
+                    <input 
+                      v-model.number="group.maxSelect" 
+                      type="number" 
+                      min="0" 
+                      placeholder="∞"
+                      class="w-12 bg-surface-950 border border-surface-700 rounded-lg text-center py-1 text-xs text-primary-400 outline-none focus:border-primary-500 transition-colors"
+                      title="ใส่ 1 เพื่อเป็นโหมดวิทยุ (เลือกได้อย่างเดียว), ใส่ 0 หรือว่างเพื่อเลือกได้ไม่จำกัด"
+                    />
+                  </div>
+
                   <button
                     type="button"
                     @click="removeAddonGroup(gIdx)"
-                    class="text-surface-500 hover:text-danger transition-colors text-lg leading-none shrink-0"
+                    class="text-surface-500 hover:text-danger transition-colors text-lg leading-none shrink-0 ml-1"
                   >&times;</button>
                 </div>
 

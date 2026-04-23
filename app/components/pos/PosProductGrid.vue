@@ -21,8 +21,20 @@
         </h2>
       </div>
 
-      <div class="text-surface-400 text-sm font-medium">
-        {{ store.filteredProducts.length }} รายการ
+      <div class="flex items-center gap-4">
+        <div class="text-surface-400 text-sm font-black uppercase tracking-tighter bg-surface-900/50 px-4 py-2 rounded-2xl border border-surface-800/50 shadow-inner">
+          {{ store.filteredProducts.length }} รายการ
+        </div>
+
+        <!-- ปุ่ม Reset กลับสู่หน้าหลัก (Root) -->
+        <button 
+          v-if="store.currentParentId || store.activeCategoryId"
+          @click="store.resetNavigation()"
+          class="w-12 h-12 flex items-center justify-center bg-surface-900 border border-surface-800 hover:border-primary-500/50 hover:bg-primary-500/10 text-surface-400 hover:text-primary-400 rounded-2xl transition-all active:scale-95 shadow-lg group/home"
+          title="กลับไปหน้าหลัก"
+        >
+          <span class="text-2xl transition-transform group-hover/home:scale-110">🏠</span>
+        </button>
       </div>
     </header>
 

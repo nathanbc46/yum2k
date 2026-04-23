@@ -12,6 +12,7 @@
 
 import { db, getSetting, setSetting } from '~/db'
 import type { Category, Product, User, UserRole, StockAuditLog } from '~/types'
+import { hashSHA256, isAlreadyHashed } from '~/utils/crypto'
 
 // --- Global State ---
 const isSyncingMaster = ref(false)
@@ -129,6 +130,36 @@ export function useMasterDataSync() {
 
     console.log(`✅ Push Stock Logs สำเร็จ: ${localLogs.length} รายการ`)
     return localLogs.length
+  }
+
+  /**
+   * Push ข้อมูลพนักงาน (Users) ทั้งหมดขึ้น Supabase
+   * ใช้สำหรับกรณีเริ่มต้นระบบ (Seed) หรือกรณี Force Sync เพื่อให้ข้อมูลบน Cloud เป็นปัจจุบัน
+   */
+  async function pushUsers(): Promise<number> {
+    const supabase = useSupabaseClient<any>()
+    const allUsers = await db.users.toArray()
+    if (allUsers.length === 0) return 0
+
+    const payload = allUsers.map(u => ({
+      uuid:         u.uuid,
+      username:     u.username,
+      display_name: u.displayName,
+      role:         u.role,
+      pin:          u.pin,
+      is_active:    u.isActive,
+      is_deleted:   u.isDeleted,
+      updated_at:   u.updatedAt.toISOString(),
+    }))
+
+    const { error } = await supabase.from('pos_users').upsert(payload, { onConflict: 'uuid' })
+    if (error) {
+      console.error('❌ Push Users ล้มเหลว:', error)
+      throw new Error(`ไม่สามารถส่งข้อมูลพนักงานขึ้น Cloud ได้: ${error.message}`)
+    }
+
+    console.log(`✅ Push Users สำเร็จ: ${allUsers.length} รายการ`)
+    return allUsers.length
   }
 
   // -----------------------------------------------------------------------
@@ -372,12 +403,17 @@ export function useMasterDataSync() {
         continue
       }
 
+      const remotePin = remote.pin ?? undefined
+      const hashedPin = (remotePin && !isAlreadyHashed(remotePin)) 
+        ? await hashSHA256(remotePin) 
+        : remotePin
+
       const localUser: Omit<User, 'id'> = {
         uuid:         remote.uuid,
         username:     remote.username,
         displayName:  remote.display_name,
         role:         remote.role as UserRole,
-        pin:          remote.pin ?? undefined,
+        pin:          hashedPin,
         passwordHash: '', 
         isActive:     remote.is_active,
         isDeleted:    remote.is_deleted,
@@ -390,7 +426,7 @@ export function useMasterDataSync() {
         
         // --- SECURITY CHECK: ตรวจสอบว่าพนักงานที่กำลัง Login อยู่ ถูกเปลี่ยนรหัสจากเครื่องอื่นหรือไม่ ---
         if (authStore.currentUser?.uuid === remote.uuid) {
-          if (authStore.currentUser?.pin !== remote.pin) {
+          if (authStore.currentUser?.pin !== hashedPin) {
             console.warn('⚠️ ตรวจพบการเปลี่ยนรหัสผ่านจากอุปกรณ์อื่น สำหรับผู้ใช้ปัจจุบัน')
             // ส่งสัญญาณให้หน้าจอแจ้งเตือนและ Logout (ผ่าน Global Hook หรือ Store)
             authStore.handleSecurityInvalidation()
@@ -672,6 +708,7 @@ export function useMasterDataSync() {
     masterSyncError,
     lastPullTimestamp,
     pushStockAuditLogs,
+    pushUsers,
     pushAll,
     getPendingCounts,
     getPendingPullCounts,

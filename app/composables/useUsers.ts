@@ -53,6 +53,17 @@ export function useUsers() {
       ? await hashSHA256(data.pin)
       : data.pin
 
+    // ตรวจสอบ PIN ซ้ำ (ตรวจสอบบน Cloud)
+    const { count: pinCount } = await supabase
+      .from('pos_users')
+      .select('*', { count: 'exact', head: true })
+      .eq('pin', hashedPin)
+      .eq('is_deleted', false)
+    
+    if (pinCount && pinCount > 0) {
+      throw new Error('รหัส PIN นี้ถูกใช้งานแล้วโดยพนักงานท่านอื่น กรุณาใช้รหัสอื่นครับ')
+    }
+
     const now = new Date()
     const newUser = {
       ...data,
@@ -88,7 +99,22 @@ export function useUsers() {
     }
 
     if (data.pin && !isAlreadyHashed(data.pin)) {
-      data.pin = await hashSHA256(data.pin)
+      const hashedPin = await hashSHA256(data.pin)
+      
+      // ตรวจสอบ PIN ซ้ำ (ตรวจสอบบน Cloud โดยยกเว้นตัวเอง)
+      const supabase = useSupabaseClient<any>()
+      const { count: pinCount } = await supabase
+        .from('pos_users')
+        .select('*', { count: 'exact', head: true })
+        .eq('pin', hashedPin)
+        .eq('is_deleted', false)
+        .neq('uuid', user.uuid)
+      
+      if (pinCount && pinCount > 0) {
+        throw new Error('รหัส PIN นี้ถูกใช้งานแล้วโดยพนักงานท่านอื่น กรุณาใช้รหัสอื่นครับ')
+      }
+
+      data.pin = hashedPin
     }
 
     const updatedUser = {
@@ -138,12 +164,29 @@ export function useUsers() {
 
   const { isOnline } = useSync()
 
+  /**
+   * ตรวจสอบว่า PIN ถูกใช้งานไปแล้วหรือไม่
+   */
+  async function isPinUnique(pin: string, excludeUuid?: string): Promise<boolean> {
+    const hashed = await hashSHA256(pin)
+    const supabase = useSupabaseClient<any>()
+    const { count } = await supabase
+      .from('pos_users')
+      .select('*', { count: 'exact', head: true })
+      .eq('pin', hashed)
+      .eq('is_deleted', false)
+      .filter('uuid', excludeUuid ? 'neq' : 'not.is', excludeUuid || null)
+
+    return (count || 0) === 0
+  }
+
   return {
     isOnline,
     loadUsers,
     createUser,
     updateUser,
     toggleUserActive,
-    deleteUser
+    deleteUser,
+    isPinUnique
   }
 }

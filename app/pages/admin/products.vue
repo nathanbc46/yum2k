@@ -134,9 +134,10 @@
                 <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-surface-500">สินค้า</th>
                 <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-surface-500">หมวดหมู่</th>
                 <th class="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-widest text-surface-500">ประเภท</th>
-                <th class="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-surface-500">ความสัมพันธ์ (Add-ons/สต็อก)</th>
+                <th class="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-surface-500 w-[150px]">สิทธิ/สต็อก</th>
                 <th class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-surface-500">ราคาขาย</th>
                 <th class="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-widest text-surface-500">สต็อก</th>
+                <th class="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-widest text-surface-500">ขายแล้ว</th>
                 <th class="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-widest text-surface-500">สถานะ</th>
                 <th class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-surface-500">คำสั่ง</th>
               </tr>
@@ -206,7 +207,7 @@
 
                   <!-- รายละเอียดส่วนเสริม/สต็อก (เหมือนหน้า Preview) -->
                   <td class="px-6 py-4">
-                    <div class="flex flex-col gap-2 min-w-[140px]">
+                    <div class="flex flex-col gap-1 max-w-[150px]">
                       <!-- Addons -->
                       <div v-if="product.addonGroups?.length" class="flex flex-col gap-1">
                         <div class="flex flex-wrap gap-1">
@@ -274,6 +275,12 @@
                       </div>
                     </template>
                     <span v-else class="text-[10px] text-surface-500">ไม่ Track</span>
+                  </td>
+
+                  <!-- จำนวนที่ขาย -->
+                  <td class="px-6 py-4 text-center">
+                    <div class="font-bold text-surface-100">{{ product.totalSold || 0 }}</div>
+                    <div class="text-[9px] text-surface-500">รายการ</div>
                   </td>
 
                   <!-- สถานะ -->

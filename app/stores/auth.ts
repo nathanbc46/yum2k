@@ -59,13 +59,27 @@ export const useAuthStore = defineStore('auth', () => {
    * 2. หากไม่มี -> เช็คเน็ต -> เช็ค Cloud -> Pull หรือ Seed
    */
   async function initUserSystem(): Promise<{ status: 'ready' | 'need_online' | 'error', message?: string }> {
-    const [userCount, catCount] = await Promise.all([
-      db.users.count(),
-      db.categories.count()
+    const [userCount] = await Promise.all([
+      db.users.count()
     ])
 
-    // หากมีทั้ง User และ Category แล้ว ถือว่าพร้อม (สินค้าอาจจะเป็น 0 ได้ถ้ายังไม่ได้สร้าง)
-    if (userCount > 0 && catCount > 0) return { status: 'ready' }
+    // หากมี User แล้ว ถือว่าพร้อม (หมวดหมู่และสินค้าอาจเป็น 0 ได้)
+    if (userCount > 0) {
+      // Self-healing: ตรวจสอบว่ามี PIN ที่ยังไม่ได้ Hash หรือไม่ (ป้องกันกรณี Seed Data หรือ Sync ผิดพลาด)
+      const allUsers = await db.users.toArray()
+      const unhashed = allUsers.filter(u => u.pin && !isAlreadyHashed(u.pin))
+      
+      if (unhashed.length > 0) {
+        console.log(`🔧 ตรวจพบ PIN ที่ยังไม่เข้ารหัส ${unhashed.length} รายการ กำลังดำเนินการแก้ไข...`)
+        for (const user of unhashed) {
+          const hashed = await hashSHA256(user.pin!)
+          await db.users.update(user.id!, { pin: hashed })
+        }
+        console.log('✅ แก้ไข PIN สำเร็จ')
+      }
+      
+      return { status: 'ready' }
+    }
 
     // กรณีไม่มี User ในเครื่องเลย (เครื่องใหม่)
     if (typeof window !== 'undefined' && !window.navigator.onLine) {
@@ -73,7 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     try {
-      const { checkRemoteUsersExist, pullAll } = useMasterDataSync()
+      const { checkRemoteUsersExist, pullAll, pushUsers } = useMasterDataSync()
       const hasCloudUsers = await checkRemoteUsersExist()
 
       if (hasCloudUsers) {
@@ -84,6 +98,15 @@ export const useAuthStore = defineStore('auth', () => {
         console.log('🌱 ไม่พบผู้ใช้ใน Cloud กำลังสร้างข้อมูลเริ่มต้น (Seed Data)...')
         const { seedDatabase } = await import('~/db/seedData')
         await seedDatabase()
+        
+        // --- ส่งข้อมูลที่ Seed เสร็จแล้วขึ้น Cloud ทันที เพื่อเป็น Master ---
+        try {
+          console.log('☁️ กำลังส่งข้อมูลผู้ใช้เริ่มต้นขึ้น Cloud...')
+          await pushUsers()
+        } catch (pushError) {
+          console.warn('⚠️ Seed สำเร็จแต่ไม่สามารถส่งขึ้น Cloud ได้ (อาจจะออฟไลน์):', pushError)
+        }
+        
         return { status: 'ready' }
       }
     } catch (error: any) {

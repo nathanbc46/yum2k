@@ -6,78 +6,49 @@
 import { v4 as uuidv4 } from 'uuid'
 import db from '~/db'
 import type { User, Category, Product } from '~/types'
+import { hashSHA256 } from '~/utils/crypto'
 
 /** Seed ข้อมูลเริ่มต้นสำหรับระบบ */
 export async function seedDatabase(): Promise<void> {
   console.log('🌱 กำลังตรวจสอบข้อมูลเริ่มต้น...')
 
-  const [userCount, catCount, prodCount] = await Promise.all([
-    db.users.count(),
-    db.categories.count(),
-    db.products.count()
+  const [userCount] = await Promise.all([
+    db.users.count()
   ])
 
-  // ถ้ามีข้อมูลครบแล้ว ไม่ต้องรัน Seed ซ้ำ
-  if (userCount > 0 && catCount > 0 && prodCount > 0) {
-    console.log('✅ ข้อมูลเริ่มต้นมีครบแล้ว ข้ามการ Seed')
+  // ถ้ามีข้อมูล User แล้ว ไม่ต้องรัน Seed ซ้ำ
+  if (userCount > 0) {
+    console.log('✅ ข้อมูลเริ่มต้น (Admin) มีแล้ว ข้ามการ Seed')
     return
   }
 
   console.log('🏗️ เริ่มสร้างข้อมูลเบื้องต้น...')
 
+  // เข้ารหัส PIN เริ่มต้น
+  const adminPin = await hashSHA256('1234')
+
   await db.transaction('rw', [db.users, db.categories, db.products], async () => {
     // --- Users ---
     if (userCount === 0) {
-      const adminId = await db.users.add({
+      await db.users.add({
         uuid: '00000000-0000-4000-a000-000000000001', // Static UUID for admin
         username: 'admin',
         passwordHash: 'HASHED_PASSWORD_HERE',
         displayName: 'ผู้ดูแลระบบ',
         role: 'admin',
-        pin: '1234',
+        pin: adminPin,
         isActive: true,
         isDeleted: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       } as User)
-
-      await db.users.add({
-        uuid: '00000000-0000-4000-a000-000000000002', // Static UUID for staff
-        username: 'staff',
-        passwordHash: 'HASHED_PASSWORD_HERE',
-        displayName: 'พนักงานขาย (Staff)',
-        role: 'staff',
-        pin: '0000',
-        isActive: true,
-        isDeleted: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as User)
-      console.log('✅ สร้าง Users สำเร็จ (Static UUID)')
+      console.log('✅ สร้าง Admin สำเร็จ (Static UUID)')
     }
 
     // --- Categories ---
-    if (catCount === 0) {
-      // 1. หมวดหมู่หลัก: ยำ
-      const yumUuid = '00000000-0000-4000-b000-000000000001'
-      await db.categories.add({
-        uuid: yumUuid,
-        name: 'ยำ',
-        description: 'ยำสูตรต่างๆ',
-        color: '#FF5733',
-        sortOrder: 1,
-        isActive: true,
-        isDeleted: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Category)
+    // ไม่มีการสร้างหมวดหมู่เริ่มต้นตามที่ USER ร้องขอ
 
-      console.log('✅ สร้าง Categories สำเร็จ (ตัวอย่างหมวดหมู่หลัก)')
-
-      console.log('✅ สร้าง Categories สำเร็จ (รองรับ Hierarchy)')
-    }
-
-    // --- Products (ลบออกตามที่ USER ร้องขอ) ---
+    // --- Products ---
     // ไม่มีการสร้างสินค้าเริ่มต้น
   })
 
