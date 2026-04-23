@@ -59,14 +59,27 @@ export const usePosStore = defineStore('pos', () => {
     return categories.value.find(c => c.id === currentParentId.value) ?? null
   })
 
+  /** ฟังก์ชันช่วยดึง ID หมวดหมู่ย่อยทั้งหมดรวมตัวเอง (Recursive) */
+  function getCategoryDescendants(parentId: number): number[] {
+    const ids = [parentId]
+    const children = categories.value.filter(c => c.parentId === parentId)
+    children.forEach(child => {
+      if (child.id) ids.push(...getCategoryDescendants(child.id))
+    })
+    return ids
+  }
+
   const filteredProducts = computed(() => {
     // 1. ถ้าไม่ได้เลือกหมวดหมู่ (แสดงทั้งหมด) -> เรียงตามสินค้าขายดี (totalSold DESC)
     if (!activeCategoryId.value) {
       return [...products.value].sort((a, b) => (b.totalSold || 0) - (a.totalSold || 0))
     }
-    // 2. ถ้าเลือกหมวดหมู่แล้ว -> กรองตามหมวดหมู่ และเรียงตามลำดับที่เราจัดไว้ (sortOrder ASC)
+
+    // 2. ถ้าเลือกหมวดหมู่แล้ว -> ดึงสินค้าจากหมวดหมู่นี้ และหมวดหมู่ย่อยทั้งหมด (Descendants)
+    const targetCategoryIds = getCategoryDescendants(activeCategoryId.value)
+
     return products.value
-      .filter(p => p.categoryId === activeCategoryId.value)
+      .filter(p => p.categoryId && targetCategoryIds.includes(p.categoryId))
       .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
   })
 
