@@ -103,6 +103,9 @@ export const useAuthStore = defineStore('auth', () => {
         try {
           console.log('☁️ กำลังส่งข้อมูลผู้ใช้เริ่มต้นขึ้น Cloud...')
           await pushUsers()
+          // อัปเดตเวลาการ Pull ล่าสุดด้วย เพื่อให้ระบบรู้ว่าตอนนี้ Local และ Cloud ตรงกันแล้ว
+          const { updateLastPullAt } = useMasterDataSync()
+          await updateLastPullAt(new Date())
         } catch (pushError) {
           console.warn('⚠️ Seed สำเร็จแต่ไม่สามารถส่งขึ้น Cloud ได้ (อาจจะออฟไลน์):', pushError)
         }

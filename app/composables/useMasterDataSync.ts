@@ -625,10 +625,8 @@ export function useMasterDataSync() {
       users: 0, userNames: [], stockLogs: 0, stockLogDetails: [], orders: 0, orderNumbers: [] 
     }
     
-    // หากไม่เคย Pull เลย ถือเป็นเครื่องใหม่หรือล้างเครื่อง จะมีบังคับ Pull หน้า Login อยู่แล้ว
-    if (!lastPullAt) return emptyResult
-
-    const timeLimit = lastPullAt.toISOString()
+    // หากไม่เคย Pull เลย ให้ใช้เวลาเริ่มต้น (1970) เพื่อให้เห็นว่ามีข้อมูลบน Cloud ที่ยังไม่มีในเครื่อง
+    const timeLimit = lastPullAt ? lastPullAt.toISOString() : new Date(0).toISOString()
 
     try {
       // 1. ตรวจสอบกลุ่มที่เป็น "Master Data" (แก้ไข/ลบ ได้จากหลายเครื่อง)

@@ -115,7 +115,7 @@ if (import.meta.client) {
     
     // Refresh Local (Push) ทุก 10 วินาที
     const localInterval = setInterval(loadLocalCounts, 10000)
-    // Refresh Remote (Pull) ทุก 5 นาที (300,000 ms) ป้องกัน Quota ล้น
+    // Refresh Remote (Pull) ทุก 5 นาที (300,000 ms) เพื่อประหยัด Quota และลดการทำงานของเครื่อง
     const remoteInterval = setInterval(loadRemoteCounts, 300000)
 
     onUnmounted(() => {

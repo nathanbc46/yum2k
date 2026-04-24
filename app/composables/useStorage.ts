@@ -84,8 +84,51 @@ export function useStorage() {
     return publicUrlData.publicUrl
   }
 
+  /**
+   * ลบรูปภาพสินค้าออกจาก Supabase Storage
+   * @param urlOrPath - URL เต็มของรูปภาพ หรือ path ของไฟล์
+   */
+  async function deleteProductImage(urlOrPath: string): Promise<void> {
+    if (!urlOrPath) return
+    
+    const bucket = 'products'
+    let path = urlOrPath
+
+    // ถ้าเป็น URL ให้ดึงเฉพาะ path ออกมา
+    if (urlOrPath.includes('/storage/v1/object/public/')) {
+      path = extractPathFromUrl(urlOrPath, bucket)
+    }
+
+    const { data, error } = await supabase.storage.from(bucket).remove([path])
+    
+    if (error) {
+      console.error('❌ Delete Storage Error:', error)
+      const toast = useToast()
+      toast.error(`ไม่สามารถลบไฟล์รูปเก่าบน Cloud ได้: ${error.message}`)
+    }
+  }
+
+  /**
+   * ฟังก์ชันช่วยดึง path ออกจาก Public URL ของ Supabase
+   */
+  function extractPathFromUrl(url: string, bucket: string): string {
+    try {
+      // ตัด query string ออกถ้ามี (เช่น ?t=123)
+      const pureUrl = url.split('?')[0] || ''
+      const part = `/storage/v1/object/public/${bucket}/`
+      const index = pureUrl.indexOf(part)
+      if (index !== -1) {
+        return decodeURIComponent(pureUrl.substring(index + part.length))
+      }
+      return pureUrl
+    } catch (e) {
+      return url
+    }
+  }
+
   return {
     resizeImage,
-    uploadProductImage
+    uploadProductImage,
+    deleteProductImage
   }
 }

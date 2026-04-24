@@ -3,3 +3,7 @@
 definePageMeta({ layout: 'admin' })
 navigateTo('/admin/closing-report', { replace: true })
 </script>
+
+<template>
+  <div></div>
+</template>

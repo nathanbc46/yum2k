@@ -19,7 +19,7 @@
               {{ isEditing ? '✏️ แก้ไขสินค้า' : '➕ เพิ่มสินค้าใหม่' }}
             </h2>
             <button
-              @click="$emit('close')"
+              @click="handleCancel"
               class="w-8 h-8 flex items-center justify-center rounded-lg text-surface-400 hover:text-white hover:bg-surface-800 transition-colors"
             >×</button>
           </div>
@@ -28,7 +28,16 @@
           <form @submit.prevent="handleSubmit" class="flex-1 overflow-y-auto p-6 space-y-5">
             
             <!-- === ส่วนรูปภาพสินค้า === -->
-            <section class="flex flex-col items-center justify-center p-6 bg-surface-950/50 rounded-2xl border-2 border-dashed border-surface-700 hover:border-primary-500/50 transition-all group relative overflow-hidden">
+            <section 
+              class="flex flex-col items-center justify-center p-6 bg-surface-950/50 rounded-2xl border-2 border-dashed transition-all group relative overflow-hidden"
+              :class="[
+                isDragging ? 'border-primary-500 bg-primary-500/5' : 'border-surface-700 hover:border-primary-500/50',
+                form.imageUrl ? 'py-4' : 'p-6'
+              ]"
+              @dragover.prevent="handleDragOver"
+              @dragleave.prevent="handleDragLeave"
+              @drop.prevent="handleDrop"
+            >
               <input 
                 ref="fileInput"
                 type="file" 
@@ -178,12 +187,12 @@
                   <button
                     type="button"
                     @click="form.trackInventory = !form.trackInventory"
-                    class="relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0"
-                    :class="form.trackInventory ? 'bg-primary-600' : 'bg-surface-700'"
+                    class="relative w-12 h-[26px] rounded-full transition-all duration-300 shrink-0 p-[3px] flex items-center"
+                    :class="form.trackInventory ? 'bg-primary-500' : 'bg-surface-700'"
                   >
-                    <span
-                      class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                      :class="form.trackInventory ? 'translate-x-5' : 'translate-x-0.5'"
+                    <div
+                      class="w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-300"
+                      :class="form.trackInventory ? 'translate-x-[22px]' : 'translate-x-0'"
                     />
                   </button>
                 </div>
@@ -426,12 +435,12 @@
                   <button
                     type="button"
                     @click="form.isActive = !form.isActive"
-                    class="relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0"
-                    :class="form.isActive ? 'bg-primary-600' : 'bg-surface-700'"
+                    class="relative w-12 h-[26px] rounded-full transition-all duration-300 shrink-0 p-[3px] flex items-center"
+                    :class="form.isActive ? 'bg-primary-500' : 'bg-surface-700'"
                   >
-                    <span
-                      class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                      :class="form.isActive ? 'translate-x-5' : 'translate-x-0.5'"
+                    <div
+                      class="w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-300"
+                      :class="form.isActive ? 'translate-x-[22px]' : 'translate-x-0'"
                     />
                   </button>
                 </div>
@@ -459,7 +468,7 @@
           <div class="flex gap-3 px-6 py-5 border-t border-surface-800 shrink-0">
             <button
               type="button"
-              @click="$emit('close')"
+              @click="handleCancel"
               class="flex-1 py-3 bg-surface-800 hover:bg-surface-700 rounded-xl text-sm font-semibold transition-colors"
             >
               ยกเลิก
@@ -498,7 +507,12 @@ const emit = defineEmits<{
 
 const { isOnline } = useSync()
 const { createProduct, updateProduct, getNextSku } = useProducts()
-const { resizeImage, uploadProductImage } = useStorage()
+const { resizeImage, uploadProductImage, deleteProductImage } = useStorage()
+
+// --- จัดการเรื่องรูปภาพและ Cleanup ---
+const isDragging = ref(false)
+const originalImageUrl = ref<string | undefined>() // รูปดั้งเดิมก่อนเริ่มแก้ไข
+const uploadedInSession = ref<string[]>([])       // รูปทั้งหมดที่อัปโหลดใหม่ใน Modal รอบนี้
 
 const isEditing = computed(() => !!props.editItem)
 const isSaving = ref(false)
@@ -513,7 +527,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 let backdropMousedownFlag = false
 function backdropMousedownHandler() { backdropMousedownFlag = true }
 function backdropMouseupHandler() {
-  if (backdropMousedownFlag) emit('close')
+  if (backdropMousedownFlag) handleCancel()
   backdropMousedownFlag = false
 }
 
@@ -620,11 +634,7 @@ function removeMappingRow(idx: number) {
 }
 
 // --- จัดการรูปภาพ ---
-async function handleFileChange(event: Event) {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (!file) return
-
+async function processAndUploadFile(file: File) {
   isUploading.value = true
   errorMsg.value = ''
 
@@ -636,20 +646,85 @@ async function handleFileChange(event: Event) {
     const fileName = `prod_${uuidv4()}.webp`
     const publicUrl = await uploadProductImage(resizedBlob, fileName)
     
-    // 3. เก็บ URL ลงฟอร์ม
+    // 3. เก็บ URL ลงฟอร์ม และบันทึกประวัติการอัปโหลดเพื่อ Cleanup ภายหลัง
     form.value.imageUrl = publicUrl
+    uploadedInSession.value.push(publicUrl)
   } catch (err: any) {
     console.error('Image Upload Error:', err)
     errorMsg.value = `อัปโหลดรูปภาพไม่สำเร็จ: ${err.message}`
   } finally {
     isUploading.value = false
-    // ล้างค่า input เพื่อให้เลือกไฟล์เดิมซ้ำได้
-    target.value = ''
+  }
+}
+
+async function handleFileChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (file) await processAndUploadFile(file)
+  // ล้างค่า input เพื่อให้เลือกไฟล์เดิมซ้ำได้
+  target.value = ''
+}
+
+function handleDragOver() {
+  isDragging.value = true
+}
+
+function handleDragLeave() {
+  isDragging.value = false
+}
+
+async function handleDrop(event: DragEvent) {
+  isDragging.value = false
+  const files = event.dataTransfer?.files
+  if (!files || files.length === 0) return
+
+  if (files.length > 1) {
+    const toast = useToast()
+    toast.warning('⚠️ สามารถอัปโหลดได้ทีละ 1 รูปเท่านั้น ระบบจะเลือกเฉพาะรูปแรก')
+  }
+
+  const file = files[0]
+  if (file && file.type.startsWith('image/')) {
+    await processAndUploadFile(file)
   }
 }
 
 function removeImage() {
   form.value.imageUrl = undefined
+}
+
+/**
+ * ฟังก์ชัน Cleanup รูปภาพที่ไม่ได้ใช้งาน
+ * @param mode 'save' | 'cancel'
+ */
+async function cleanupImages(mode: 'save' | 'cancel') {
+  const currentUrl = form.value.imageUrl
+  
+  if (mode === 'save') {
+    // 1. ถ้ามีการเปลี่ยนรูปใหม่ (หรือลบรูปออก) และ Save สำเร็จ -> ลบรูป "ดั้งเดิม" ทิ้ง
+    if (originalImageUrl.value && originalImageUrl.value !== currentUrl) {
+      await deleteProductImage(originalImageUrl.value)
+    }
+
+    // 2. ลบรูปอื่นๆ ที่อัปโหลดเล่นในเซสชันนี้ แต่ "ไม่ได้ใช้" ทิ้ง
+    const toDelete = uploadedInSession.value.filter(url => url !== currentUrl)
+    for (const url of toDelete) {
+      await deleteProductImage(url)
+    }
+  } else {
+    // กรณี Cancel -> ลบรูปทุกใบที่เพิ่งอัปโหลดใหม่ในรอบนี้ทิ้งให้หมด
+    for (const url of uploadedInSession.value) {
+      await deleteProductImage(url)
+    }
+  }
+
+  // ล้างสถานะ
+  uploadedInSession.value = []
+}
+
+async function handleCancel() {
+  await cleanupImages('cancel')
+  emit('close')
 }
 
 
@@ -720,8 +795,12 @@ watch(
         sortOrder: props.editItem.sortOrder,
         imageUrl: props.editItem.imageUrl,
       }
+      originalImageUrl.value = props.editItem.imageUrl
+      uploadedInSession.value = []
     } else {
       form.value = defaultForm()
+      originalImageUrl.value = undefined
+      uploadedInSession.value = []
       // รัน SKU อัตโนมัติ
       getNextSku().then((sku: string) => {
         form.value.sku = sku
@@ -756,6 +835,10 @@ async function handleSubmit() {
     } else {
       await createProduct(form.value)
     }
+    
+    // บันทึกสำเร็จแล้ว -> Clean up รูปภาพเก่า หรือรูปที่อัปโหลดค้างไว้
+    await cleanupImages('save')
+    
     emit('saved')
     emit('close')
   } catch (e: any) {
