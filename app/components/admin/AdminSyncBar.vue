@@ -11,6 +11,7 @@ const toast = useToast()
 const pushCounts = ref({
   orders: 0, orderNumbers: [] as string[],
   stockLogs: 0, stockLogDetails: [] as string[],
+  expenses: 0, expenseDetails: [] as string[],
 })
 
 // 📥 Pull Data (Cloud -> Local)
@@ -25,7 +26,7 @@ const pullCounts = ref({
 const isLoadingPush = ref(false)
 const isLoadingPull = ref(false)
 
-const totalPush = computed(() => pushCounts.value.orders + pushCounts.value.stockLogs)
+const totalPush = computed(() => pushCounts.value.orders + pushCounts.value.stockLogs + pushCounts.value.expenses)
 const totalPull = computed(() => pullCounts.value.categories + pullCounts.value.products + pullCounts.value.users + pullCounts.value.stockLogs + pullCounts.value.orders)
 
 // แสดงผล MM:SS จาก Countdown ที่ใช้ร่วมกับ Heartbeat (ใช้สำหรับแค่ Push)
@@ -46,7 +47,8 @@ async function loadLocalCounts() {
   const result = await masterSync.getPendingCounts()
   pushCounts.value = {
     orders: result.orders, orderNumbers: result.orderNumbers,
-    stockLogs: result.stockLogs, stockLogDetails: result.stockLogDetails
+    stockLogs: result.stockLogs, stockLogDetails: result.stockLogDetails,
+    expenses: result.expenses, expenseDetails: result.expenseDetails
   }
 }
 
@@ -163,6 +165,16 @@ if (import.meta.client) {
               <div class="tooltip-popup">
                 <div class="tooltip-title">📊 ประวัติสต็อกรอส่งขึ้น Cloud</div>
                 <div v-for="detail in pushCounts.stockLogDetails.slice(0, 5)" :key="detail" class="tooltip-item">{{ detail }}</div>
+              </div>
+            </div>
+
+            <div v-if="pushCounts.expenses > 0" class="tooltip-wrapper">
+              <span class="badge badge-expense">
+                💸 <span>รายจ่าย</span> <span class="font-black">{{ pushCounts.expenses }}</span>
+              </span>
+              <div class="tooltip-popup">
+                <div class="tooltip-title">💸 รายจ่ายรอส่งขึ้น Cloud</div>
+                <div v-for="detail in pushCounts.expenseDetails.slice(0, 5)" :key="detail" class="tooltip-item">{{ detail }}</div>
               </div>
             </div>
           </div>
@@ -332,6 +344,7 @@ if (import.meta.client) {
 .badge-cat   { background: rgb(245 158 11 / 0.1); color: rgb(180 110 0); border-color: rgb(245 158 11 / 0.25); }
 .badge-prod  { background: rgb(59 130 246 / 0.1); color: rgb(59 130 246); border-color: rgb(59 130 246 / 0.25); }
 .badge-stock { background: rgb(168 85 247 / 0.1); color: rgb(168 85 247); border-color: rgb(168 85 247 / 0.25); }
+.badge-expense { background: rgb(239 68 68 / 0.1); color: rgb(239 68 68); border-color: rgb(239 68 68 / 0.25); }
 
 /* dark mode overrides */
 :global(.dark) .badge-cat,

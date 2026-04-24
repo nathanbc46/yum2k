@@ -64,23 +64,23 @@
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="bg-surface-900 p-5 rounded-2xl border border-surface-800">
             <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">ยอดขายรวม</div>
-            <div class="text-2xl font-black text-primary-400">฿{{ summary.revenue.toLocaleString() }}</div>
-            <div class="text-[10px] text-surface-600 mt-2">จาก {{ summary.orderCount }} ออร์เดอร์</div>
+            <div class="text-2xl font-black text-surface-50">฿{{ summary.revenue.toLocaleString() }}</div>
+            <div class="text-[10px] text-surface-600 mt-2">ยอดรับเงินทั้งหมด</div>
           </div>
           <div class="bg-surface-900 p-5 rounded-2xl border border-surface-800">
-            <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">กำไรรวม</div>
-            <div class="text-2xl font-black text-success">฿{{ summary.profit.toLocaleString() }}</div>
-            <div class="text-[10px] text-surface-600 mt-2">Margin: {{ summary.revenue > 0 ? ((summary.profit / summary.revenue) * 100).toFixed(1) : 0 }}%</div>
+            <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">รายจ่ายรวมหน้างาน</div>
+            <div class="text-2xl font-black text-red-400">฿{{ summary.totalExpenses?.toLocaleString() || 0 }}</div>
+            <div class="text-[10px] text-surface-600 mt-2">หักเงินสดหน้างาน</div>
           </div>
           <div class="bg-surface-900 p-5 rounded-2xl border border-surface-800">
-            <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">เฉลี่ยต่อบิล</div>
-            <div class="text-2xl font-black">฿{{ summary.orderCount > 0 ? Math.round(summary.revenue / summary.orderCount).toLocaleString() : 0 }}</div>
-            <div class="text-[10px] text-surface-600 mt-2">Ticket Size</div>
+            <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">กำไรสินค้า (GP)</div>
+            <div class="text-2xl font-black text-primary-400">฿{{ summary.profit.toLocaleString() }}</div>
+            <div class="text-[10px] text-surface-600 mt-2">หักต้นทุนสินค้าประเมิน</div>
           </div>
-          <div class="bg-surface-900 p-5 rounded-2xl border border-surface-800">
-            <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">สินค้าขายดีอันดับ 1</div>
-            <div class="text-xl font-bold text-amber-400 truncate">{{ topProducts[0]?.productName || '—' }}</div>
-            <div class="text-[10px] text-surface-600 mt-1">{{ topProducts[0]?.quantitySold || 0 }} ชิ้น</div>
+          <div class="bg-surface-900 p-5 rounded-2xl border border-surface-800 border-cyan-500/30 bg-cyan-500/5">
+            <div class="text-[10px] uppercase tracking-widest text-cyan-500 mb-1">กำไรตามรายจ่าย (Cash Flow)</div>
+            <div class="text-2xl font-black text-cyan-400">฿{{ (summary.revenue - (summary.totalExpenses || 0)).toLocaleString() }}</div>
+            <div class="text-[10px] text-cyan-600 mt-2">ยอดขาย - รายจ่ายจริง</div>
           </div>
         </div>
         <!-- Charts -->
@@ -320,6 +320,7 @@ import {
   type DailySummary, type TopProductMetric,
   type ProductHeatmapRow, type WeeklyTrendData, type VelocityMetric
 } from '~/composables/useReports'
+import { useProfitability } from '~/composables/useProfitability'
 import type { Category, Product } from '~/types'
 import { db } from '~/db'
 
@@ -329,6 +330,8 @@ const {
   getSummary, getTopProducts, getDailyRevenueSnapshot, getCategorySalesDistribution,
   getProductDayHeatmap, getProductHourHeatmap, getWeeklyTrend, getProductVelocity
 } = useReports()
+
+const { getSummary: getExpenseSummary } = useProfitability()
 
 // --- Tabs ---
 const tabs = [
@@ -354,7 +357,7 @@ const filteredProductOptions = computed(() =>
 )
 
 // --- Report Data ---
-const summary = ref<DailySummary>({ revenue: 0, cost: 0, profit: 0, orderCount: 0 })
+const summary = ref<DailySummary & { totalExpenses?: number }>({ revenue: 0, cost: 0, profit: 0, orderCount: 0, totalExpenses: 0 })
 const topProducts = ref<TopProductMetric[]>([])
 const dailyHistory = ref<{ date: string; revenue: number; profit: number }[]>([])
 const categorySales = ref<{ categoryName: string; value: number }[]>([])
@@ -505,7 +508,19 @@ async function loadData() {
     // คำนวณ Summary จาก filtered orders
     let revenue = 0, cost = 0, profit = 0
     for (const o of filteredOrders) { revenue += o.totalAmount; cost += o.totalCost; profit += o.profitAmount }
-    summary.value = { revenue, cost, profit, orderCount: filteredOrders.length }
+    
+    // ดึงข้อมูลรายจ่ายรวมในช่วงเวลา
+    const startStr = start.toISOString().slice(0, 10)
+    const endStr = end.toISOString().slice(0, 10)
+    const expenseSummary = await getExpenseSummary(startStr, endStr)
+
+    summary.value = { 
+      revenue, 
+      cost, 
+      profit, 
+      orderCount: filteredOrders.length,
+      totalExpenses: expenseSummary.totalExpenses
+    }
 
     // คำนวณ Order Heatmap (Day × Hour)
     const matrix: Record<number, Record<number, number>> = {}

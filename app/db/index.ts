@@ -14,12 +14,13 @@ import type {
   SyncQueueItem,
   AppSetting,
   StockAuditLog,
+  Expense,
 } from '~/types'
 
 // ---------------------------------------------------------------------------
 // กำหนด Version ของ Database (เพิ่มทุกครั้งที่เปลี่ยน Schema)
 // ---------------------------------------------------------------------------
-const DB_VERSION = 5
+const DB_VERSION = 6
 const DB_NAME = 'Yum2K_POS_DB'
 
 // ---------------------------------------------------------------------------
@@ -34,6 +35,7 @@ class Yum2KDatabase extends Dexie {
   orders!: EntityTable<Order, 'id'>
   syncQueue!: EntityTable<SyncQueueItem, 'id'>
   stockAuditLogs!: EntityTable<StockAuditLog, 'id'>
+  expenses!: EntityTable<Expense, 'id'>
 
   // AppSettings ใช้ key เป็น Primary Key แทน id
   appSettings!: Dexie.Table<AppSetting, string>
@@ -122,6 +124,15 @@ class Yum2KDatabase extends Dexie {
        * - createdAt: เวลา
        */
       stockAuditLogs: '++id, &uuid, productId, staffId, syncStatus, createdAt, isDeleted',
+      /**
+       * expenses: รายจ่ายของร้าน
+       * - id: Auto-increment
+       * - uuid: UUID สำหรับ Sync
+       * - category: หมวดหมู่ (Index)
+       * - expenseDate: วันที่จ่าย (Index สำหรับ Report)
+       * - syncStatus: สถานะ Sync (Index)
+       */
+      expenses: '++id, &uuid, category, expenseDate, syncStatus, isDeleted',
     })
   }
 }
@@ -141,7 +152,7 @@ export const db = new Yum2KDatabase()
  * Hook: ตั้งค่า createdAt และ updatedAt อัตโนมัติเมื่อเพิ่มข้อมูลใหม่
  * รองรับ: users, categories, products, orders, syncQueue
  */
-const tablesWithTimestamps = ['users', 'categories', 'products', 'orders', 'syncQueue', 'stockAuditLogs']
+const tablesWithTimestamps = ['users', 'categories', 'products', 'orders', 'syncQueue', 'stockAuditLogs', 'expenses']
 
 tablesWithTimestamps.forEach((tableName) => {
   const table = db.table(tableName)
@@ -155,7 +166,7 @@ tablesWithTimestamps.forEach((tableName) => {
     if (tableName === 'orders') {
       obj.kitchenStatus = obj.kitchenStatus ?? 'pending'
     }
-    if (['orders', 'stockAuditLogs'].includes(tableName)) {
+    if (['orders', 'stockAuditLogs', 'expenses'].includes(tableName)) {
       obj.syncStatus = obj.syncStatus ?? 'pending'
       obj.syncRetryCount = obj.syncRetryCount ?? 0
     }

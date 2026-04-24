@@ -579,6 +579,7 @@ export function useMasterDataSync() {
     products: number; productNames: string[]
     orders: number; orderNumbers: string[]
     stockLogs: number; stockLogDetails: string[]
+    expenses: number; expenseDetails: string[]
   }> {
     const lastPushAt = await getLastPushAt()
     const MAX_RETRY = 5
@@ -595,6 +596,11 @@ export function useMasterDataSync() {
       .filter(l => (l.syncRetryCount || 0) < MAX_RETRY)
       .toArray()
 
+    // Expenses: pending/failed
+    const pendingExpenses = await db.expenses
+      .where('syncStatus').anyOf(['pending', 'failed'])
+      .toArray()
+
     return {
       categories: 0,
       categoryNames: [],
@@ -604,6 +610,8 @@ export function useMasterDataSync() {
       orderNumbers: pendingOrders.map(o => o.orderNumber),
       stockLogs: pendingStocks.length,
       stockLogDetails: pendingStocks.map(l => `${l.productName} (${l.changeQuantity > 0 ? '+' : ''}${l.changeQuantity})`),
+      expenses: pendingExpenses.length,
+      expenseDetails: pendingExpenses.map(e => `${e.description} (฿${e.amount})`),
     }
   }
 

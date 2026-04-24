@@ -8,6 +8,7 @@
 -- ==========================================
 -- 1. เตรียมความพร้อม (ลบตารางเก่าถ้ามี)
 -- ==========================================
+DROP TABLE IF EXISTS expenses CASCADE;
 DROP TABLE IF EXISTS stock_audit_logs CASCADE;
 DROP TABLE IF EXISTS stock_audit CASCADE;
 DROP TABLE IF EXISTS order_items CASCADE;
@@ -180,6 +181,27 @@ CREATE INDEX idx_stock_audit_uuid ON stock_audit_logs (uuid);
 CREATE INDEX idx_stock_audit_created_at ON stock_audit_logs (created_at);
 
 -- ==========================================
+-- 9. ตาราง Expenses (จัดการรายจ่าย)
+-- ==========================================
+CREATE TABLE expenses (
+  id                  BIGSERIAL PRIMARY KEY,
+  uuid                UUID UNIQUE NOT NULL,
+  category            TEXT NOT NULL,                -- ingredient, utility, wage, etc.
+  amount              DECIMAL(12, 2) NOT NULL,
+  description         TEXT,
+  expense_date        DATE NOT NULL,
+  recorded_by         TEXT,
+  staff_id            BIGINT,
+  staff_uuid          UUID,
+  is_deleted          BOOLEAN DEFAULT FALSE,
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_expenses_uuid ON expenses (uuid);
+CREATE INDEX idx_expenses_date ON expenses (expense_date);
+
+-- ==========================================
 -- 9. Row Level Security (RLS)
 -- ==========================================
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
@@ -189,6 +211,7 @@ ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 
 -- สร้าง Simple Policy (อนุญาตให้ทุกคนเข้าถึงเพื่อความสะดวกในการ Sync ระหว่างทดสอบ)
 -- ในระบบจริงควรจำกัดให้เฉพาะ Authenticated Users
@@ -199,3 +222,4 @@ CREATE POLICY "Public Access" ON profiles FOR ALL TO public USING (true);
 CREATE POLICY "Public Access" ON orders FOR ALL TO public USING (true);
 CREATE POLICY "Public Access" ON order_items FOR ALL TO public USING (true);
 CREATE POLICY "Public Access" ON stock_audit_logs FOR ALL TO public USING (true);
+CREATE POLICY "Public Access" ON expenses FOR ALL TO public USING (true);

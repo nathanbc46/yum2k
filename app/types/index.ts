@@ -45,6 +45,15 @@ export type InventoryMappingType =
   | 'promotion'  // โปรโมชัน (เช่น ซื้อ 10 แถม 1 → ตัด 11 ชิ้น)
   | 'variant'    // สินค้าที่มีตัวเลือก (เช่น ขนาด, รสชาติ)
 
+/** หมวดหมู่ของรายจ่าย */
+export type ExpenseCategory =
+  | 'ingredient'  // วัตถุดิบ (ปลา, ผัก, มะนาว)
+  | 'utility'     // ค่าน้ำ, ค่าไฟ, ค่าแก๊ส
+  | 'wage'        // ค่าจ้างพนักงาน
+  | 'rent'        // ค่าเช่าที่
+  | 'supplies'    // วัสดุสิ้นเปลือง (ถุง, กล่อง, ทิชชู่)
+  | 'other'       // อื่นๆ
+
 // ---------------------------------------------------------------------------
 // Base Interface: คุณสมบัติพื้นฐานที่ทุก Entity มี
 // ---------------------------------------------------------------------------
@@ -271,7 +280,7 @@ export interface Order extends BaseEntity {
 // ---------------------------------------------------------------------------
 
 /** ประเภทของ Entity ที่จะ Sync */
-export type SyncEntityType = 'order' | 'product' | 'category' | 'user'
+export type SyncEntityType = 'order' | 'product' | 'category' | 'user' | 'expense'
 
 /** รายการที่รอ Sync ขึ้น Server */
 export interface SyncQueueItem extends BaseEntity {
@@ -308,6 +317,25 @@ export interface StockAuditLog extends BaseEntity {
 }
 
 // ---------------------------------------------------------------------------
+// Expense: ข้อมูลรายจ่าย
+// ---------------------------------------------------------------------------
+
+/** บันทึกรายจ่ายของร้าน */
+export interface Expense extends BaseEntity {
+  amount: number             // ยอดเงินที่จ่าย
+  category: ExpenseCategory  // หมวดหมู่รายจ่าย
+  description: string        // คำอธิบาย (เช่น "ซื้อมะนาว 5 กิโล")
+  expenseDate: string        // วันที่จ่าย (YYYY-MM-DD)
+  recordedBy: string         // ชื่อหรือ UUID ของคนบันทึก
+  staffId: number            // FK -> User.id
+  staffUuid: string          // สำหรับ Sync กับ Supabase
+  
+  // --- Sync Status ---
+  syncStatus: SyncStatus     // สถานะการ Sync
+  syncedAt?: Date            // เวลาที่ Sync สำเร็จ
+}
+
+// ---------------------------------------------------------------------------
 // App Settings: การตั้งค่าระบบ
 // ---------------------------------------------------------------------------
 
@@ -339,7 +367,9 @@ export interface DailySummary {
   totalOrders: number        // จำนวนออร์เดอร์ทั้งหมด
   totalRevenue: number       // ยอดขายรวม
   totalCost: number          // ต้นทุนรวม
-  totalProfit: number        // กำไรรวม
+  totalProfit: number        // กำไรรวม (แบบที่ 1: ยอดขาย - ต้นทุนสินค้า)
+  totalExpenses: number      // ยอดรายจ่ายรวม (แบบที่ 2)
+  netProfit: number          // กำไรสุทธิ (ยอดขาย - ต้นทุนสินค้า - รายจ่ายอื่นๆ)
   totalItemsSold: number     // จำนวนสินค้าที่ขายได้
   paymentBreakdown: {        // แยกตามวิธีชำระเงิน
     cash: number

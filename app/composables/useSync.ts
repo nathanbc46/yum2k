@@ -20,6 +20,7 @@ const isSyncing = ref(false)
 const isOnline = ref(import.meta.client ? navigator.onLine : true)
 const pendingCount = ref(0)
 const pendingStockAuditCount = ref(0)
+const pendingExpenseCount = ref(0) // เพิ่มตัวนับรายจ่าย
 const lastSyncAt = ref<Date | null>(null)
 const syncIntervalId = ref<any>(null)
 
@@ -74,6 +75,11 @@ export function useSync() {
       .where('syncStatus')
       .anyOf(['pending', 'failed'])
       .count()
+
+    pendingExpenseCount.value = await db.expenses
+      .where('syncStatus')
+      .anyOf(['pending', 'failed'])
+      .count()
   }
 
 
@@ -113,6 +119,21 @@ export function useSync() {
     const pendingOrders = await query.toArray()
     summary.orders.total = pendingOrders.length
 
+    // 2.1 Sync Pending Expenses (รายจ่าย)
+    const pendingExpenses = await db.expenses
+      .where('syncStatus')
+      .anyOf(['pending', 'failed'])
+      .toArray()
+    
+    let expenseSuccessCount = 0
+    if (pendingExpenses.length > 0) {
+      isSyncing.value = true
+      for (const expense of pendingExpenses) {
+        const res = await syncSingleExpense(expense)
+        if (res.success) expenseSuccessCount++
+      }
+    }
+
     if (pendingOrders.length > 0) {
       isSyncing.value = true
       for (const order of pendingOrders) {
@@ -148,7 +169,8 @@ export function useSync() {
         summary.categories > 0 ? `• หมวดหมู่: ${summary.categories} รายการ` : '',
         summary.products > 0 ? `• สินค้า: ${summary.products} รายการ` : '',
         summary.orders.success > 0 ? `• ออร์เดอร์: ${summary.orders.success} รายการ` : '',
-        summary.auditLogs.success > 0 ? `• ประวัติสต็อก: ${summary.auditLogs.success} รายการ` : ''
+        summary.auditLogs.success > 0 ? `• ประวัติสต็อก: ${summary.auditLogs.success} รายการ` : '',
+        expenseSuccessCount > 0 ? `• รายจ่าย: ${expenseSuccessCount} รายการ` : ''
       ].filter(Boolean).join('\n')
       
       toast.success(msg, 4000)
@@ -233,6 +255,40 @@ export function useSync() {
         syncRetryCount: newRetryCount,
         syncError: error.message,
       })
+      return { success: false, error: error.message }
+    }
+  }
+
+  async function syncSingleExpense(expense: any): Promise<{ success: boolean, error?: string }> {
+    if (!supabase) return { success: false, error: 'Supabase Client not ready' }
+
+    try {
+      const { id, createdAt, updatedAt, syncedAt, ...baseInfo } = expense
+      const { error } = await supabase
+        .from('expenses')
+        .upsert({
+          uuid: baseInfo.uuid,
+          category: baseInfo.category,
+          amount: baseInfo.amount,
+          description: baseInfo.description,
+          expense_date: baseInfo.expenseDate,
+          recorded_by: baseInfo.recordedBy,
+          staff_id: baseInfo.staffId,
+          staff_uuid: baseInfo.staffUuid,
+          is_deleted: baseInfo.isDeleted ? 1 : 0,
+          created_at: new Date(createdAt).toISOString(),
+          updated_at: new Date(updatedAt).toISOString()
+        }, { onConflict: 'uuid' })
+
+      if (error) throw error
+
+      await db.expenses.update(expense.id!, {
+        syncStatus: 'synced',
+        syncedAt: new Date()
+      })
+      return { success: true }
+    } catch (error: any) {
+      console.error('Sync expense error:', error)
       return { success: false, error: error.message }
     }
   }
@@ -364,6 +420,7 @@ export function useSync() {
     isOnline,
     pendingCount,
     pendingStockAuditCount,
+    pendingExpenseCount, // ส่งตัวนับออกไปใช้งาน
     lastSyncAt,
     setupNetworkListener,
     syncPendingOrders,

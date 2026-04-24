@@ -289,6 +289,7 @@ async function handlePull() {
 
 const navLinks = [
   { to: '/admin/closing-report', icon: '🏪', label: 'สรุปยอดปิดร้าน' },
+  { to: '/admin/expenses',       icon: '💸', label: 'จัดการรายจ่าย' },
   { to: '/admin/reports',        icon: '📈', label: 'วิเคราะห์ยอดขาย' },
   { to: '/admin/products',       icon: '📦', label: 'จัดการสินค้า' },
   { to: '/admin/categories',     icon: '🗂️', label: 'จัดการหมวดหมู่' },
