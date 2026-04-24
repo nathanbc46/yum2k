@@ -1,49 +1,109 @@
 <template>
   <div class="flex flex-col h-full bg-surface-900 text-surface-50 relative">
     <!-- Header -->
-    <div class="px-4 py-4 border-b border-surface-800 flex items-center justify-between shrink-0 bg-surface-900/50">
-      <div class="flex items-center gap-3">
-        <!-- Back Button for Mobile -->
-        <button 
-          @click="$emit('close-mobile')"
-          class="md:hidden w-10 h-10 flex items-center justify-center bg-surface-800 rounded-xl text-surface-400 active:scale-95 transition-all"
-        >
-          ⬅️
-        </button>
-        <h2 class="text-xl font-bold flex items-center gap-2">
-          <span>ตะกร้าสินค้า</span>
-          <span class="bg-primary-500 text-white text-xs px-2 py-0.5 rounded-full">{{ totalItems }}</span>
-          
-          <!-- สถานะออนไลน์/ออฟไลน์ -->
-          <span 
-            class="ml-2 flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold border"
+    <div class="px-4 py-3 border-b border-surface-800 flex flex-col gap-2 shrink-0 bg-surface-900/50">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <!-- Back Button for Mobile -->
+          <button 
+            @click="$emit('close-mobile')"
+            class="md:hidden w-10 h-10 flex items-center justify-center bg-surface-800 rounded-xl text-surface-400 active:scale-95 transition-all hover:bg-surface-700"
+          >
+            <ArrowLeft :size="20" />
+          </button>
+          <h2 class="text-lg font-black flex items-center gap-2">
+            <span class="tracking-tight">ตะกร้าสินค้า</span>
+            <span class="bg-primary-500 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none">{{ totalItems }}</span>
+          </h2>
+        </div>
+        
+        <div class="flex items-center gap-1.5">
+          <button 
+            @click="router.push('/orders')"
+            class="w-9 h-9 flex items-center justify-center bg-surface-800 rounded-lg text-surface-400 hover:text-white hover:bg-surface-700 transition-all active:scale-95 border border-surface-700/50"
+            title="ประวัติการขาย"
+          >
+            <History :size="18" />
+          </button>
+          <button 
+            v-if="cartItems.length > 0"
+            @click="handleClearCart()"
+            class="w-9 h-9 flex items-center justify-center bg-surface-800 rounded-lg text-red-400 hover:text-red-300 hover:bg-surface-700 transition-all active:scale-95 border border-surface-700/50"
+            title="ล้างตะกร้า"
+          >
+            <Trash2 :size="18" />
+          </button>
+        </div>
+      </div>
+
+      <!-- แถบสถานะและทางลัด (Status & Shortcuts) -->
+      <div class="flex flex-col gap-2.5">
+        <!-- สถานะออนไลน์ (ขนาดกะทัดรัด) -->
+        <div class="flex items-center justify-between">
+          <div 
+            class="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-black border transition-colors"
             :class="isOnline ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'"
           >
             <span class="w-1.5 h-1.5 rounded-full" :class="isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'"></span>
             {{ isOnline ? 'ONLINE' : 'OFFLINE' }}
-          </span>
+          </div>
+          <div class="text-[10px] text-surface-500 font-bold uppercase tracking-widest">ทางลัดด่วน</div>
+        </div>
 
-          <!-- คิวที่ค้างชำระ (Pending) -->
+        <!-- ปุ่มทางลัดขนาดใหญ่ (Touch-friendly) - จะแสดงเฉพาะเมื่อมีรายการค้าง -->
+        <div 
+          v-if="posStore.pendingOrdersCount > 0 || cookingCount > 0 || readyCount > 0"
+          class="flex flex-col gap-2"
+        >
+          <!-- แถวที่ 1: ค้างจ่าย -->
           <button
             v-if="posStore.pendingOrdersCount > 0"
             @click="router.push({ path: '/orders', query: { status: 'pending' } })"
-            class="ml-2 flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-black bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500/20 transition-all active:scale-95 animate-pulse"
-            title="มีออร์เดอร์ค้างชำระ"
+            class="h-12 w-full flex items-center justify-center gap-2 px-3 rounded-xl text-xs font-black transition-all active:scale-95 border shadow-sm bg-yellow-500/10 text-yellow-500 border-yellow-500/30 animate-pulse"
           >
-            <span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-            คิวค้าง: {{ posStore.pendingOrdersCount }}
+            <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+            <span>ค้างจ่าย: {{ posStore.pendingOrdersCount }} รายการ</span>
           </button>
-        </h2>
-      </div>
-      <div class="flex items-center gap-2">
-        <button 
-          v-if="cartItems.length > 0"
-          @click="handleClearCart()"
-          class="w-10 h-10 flex items-center justify-center bg-surface-800 rounded-lg text-red-400 hover:text-red-300 transition-colors"
-          title="ล้างตะกร้า"
-        >
-          🗑️
-        </button>
+
+          <!-- แถวที่ 2: ครัว (แบ่ง 2 ปุ่ม) -->
+          <div 
+            v-if="cookingCount > 0 || readyCount > 0"
+            class="grid gap-2"
+            :class="[cookingCount > 0 && readyCount > 0 ? 'grid-cols-2' : 'grid-cols-1']"
+          >
+            <!-- รอทำ (Cooking) -->
+            <button
+              v-if="cookingCount > 0"
+              @click="posStore.setViewMode('kds'); posStore.setKitchenFilter('all')"
+              class="h-14 flex items-center justify-center gap-2 px-3 rounded-xl text-xs font-black transition-all active:scale-95 border shadow-lg shadow-amber-900/20 bg-amber-500 text-surface-950 border-amber-600 relative overflow-hidden group"
+            >
+              <div class="absolute top-0 right-0 p-1">
+                <span class="flex h-2 w-2 relative">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              </div>
+              <ChefHat :size="18" />
+              <span>รอทำ: {{ cookingCount }}</span>
+            </button>
+
+            <!-- รอเสิร์ฟ (Ready) -->
+            <button
+              v-if="readyCount > 0"
+              @click="posStore.setViewMode('kds'); posStore.setKitchenFilter('ready')"
+              class="h-14 flex items-center justify-center gap-2 px-3 rounded-xl text-xs font-black transition-all active:scale-95 border shadow-lg shadow-green-900/20 bg-green-500 text-surface-950 border-green-600 relative overflow-hidden group"
+            >
+              <div class="absolute top-0 right-0 p-1">
+                <span class="flex h-2 w-2 relative">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              </div>
+              <Bell :size="18" class="animate-bounce" />
+              <span>รอเสิร์ฟ: {{ readyCount }}</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -53,8 +113,10 @@
         v-if="cartItems.length === 0" 
         class="h-full flex flex-col items-center justify-center text-surface-500 gap-4"
       >
-        <div class="w-20 h-20 bg-surface-800 rounded-full flex items-center justify-center text-5xl opacity-50">🛒</div>
-        <p class="text-base">ยังไม่มีสินค้าในตะกร้า</p>
+        <div class="w-20 h-20 bg-surface-800 rounded-full flex items-center justify-center text-surface-600 opacity-50">
+          <ShoppingCart :size="40" />
+        </div>
+        <p class="text-base font-medium">ยังไม่มีสินค้าในตะกร้า</p>
       </div>
 
       <div 
@@ -94,10 +156,11 @@
                 <button 
                   v-if="item.product.addonGroups && item.product.addonGroups.length > 0"
                   @click.stop="editAddons(item)"
-                  class="text-[10px] bg-surface-900 text-surface-400 px-1.5 py-0.5 rounded-full border border-surface-700 transition-colors pointer-events-auto font-normal [.light-mode_&]:text-primary-600 [.light-mode_&]:bg-white [.light-mode_&]:border-primary-200"
+                  class="text-[10px] bg-surface-900 text-surface-400 px-2 py-1 rounded-full border border-surface-700 transition-colors pointer-events-auto font-normal flex items-center gap-1 hover:border-primary-500/50 [.light-mode_&]:text-primary-600 [.light-mode_&]:bg-white [.light-mode_&]:border-primary-200"
                   title="ตั้งค่าตัวเลือกเสริม"
                 >
-                  ✏️ ตั้งค่า
+                  <Pencil :size="10" />
+                  <span>ตั้งค่า</span>
                 </button>
               </div>
               <!-- ปุ่มกรณีที่ยังไม่ได้เลือก Addon -->
@@ -124,7 +187,7 @@
                 class="w-12 h-10 flex items-center justify-center bg-surface-800 rounded-lg text-surface-300 hover:text-white hover:bg-surface-700 active:scale-90 transition-all shadow-sm"
                 title="ลดจำนวน"
               >
-                <span class="text-xl font-bold font-mono">−</span>
+                <Minus :size="16" stroke-width="3" />
               </button>
               <span class="w-8 text-center font-bold text-lg text-primary-400 [.light-mode_&]:text-primary-600">{{ item.quantity }}</span>
               <button 
@@ -132,7 +195,7 @@
                 class="w-12 h-10 flex items-center justify-center bg-surface-800 rounded-lg text-surface-300 hover:text-white hover:bg-surface-700 active:scale-90 transition-all shadow-sm"
                 title="เพิ่มจำนวน"
               >
-                <span class="text-xl font-bold font-mono">+</span>
+                <Plus :size="16" stroke-width="3" />
               </button>
             </div>
           </div>
@@ -144,7 +207,7 @@
           class="absolute top-1 right-1 z-20 w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500/40 hover:text-red-500 rounded-xl transition-all active:scale-90 border border-transparent pointer-events-auto [.light-mode_&]:bg-red-50 [.light-mode_&]:text-red-400 [.light-mode_&]:border-red-100"
           title="ลบรายการ"
         >
-          <span class="text-2xl font-light leading-none">×</span>
+          <X :size="20" />
         </button>
       </div>
     </div>
@@ -209,10 +272,25 @@
 </template>
 
 <script setup lang="ts">
+import { 
+  History, 
+  Trash2, 
+  ArrowLeft, 
+  ShoppingCart, 
+  Settings, 
+  Plus, 
+  Minus, 
+  X,
+  Pencil,
+  ChefHat,
+  Bell
+} from 'lucide-vue-next'
+import { liveQuery } from 'dexie'
+import { db } from '~/db'
 import { useCart } from '~/composables/useCart'
 import { useAuthStore } from '~/stores/auth'
 import type { CartItem } from '~/composables/useCart'
-import type { Product, AddonOption } from '~/types'
+import type { Product, AddonOption, Order } from '~/types'
 import { usePosStore } from '~/stores/pos'
 import PosOrderSummaryModal from './PosOrderSummaryModal.vue'
 import PosAddonModal from './PosAddonModal.vue'
@@ -221,6 +299,28 @@ import type { PaymentMethod } from '~/types'
 const router = useRouter()
 const authUser = useAuthStore()
 const posStore = usePosStore()
+
+// คำนวณจำนวนคิวในห้องเครื่องแบบ Real-time แยกสถานะ
+const cookingCount = ref(0)
+const readyCount = ref(0)
+let kitchenSub: any = null
+
+onMounted(() => {
+  kitchenSub = liveQuery(() => 
+    db.orders
+      .where('kitchenStatus')
+      .anyOf(['pending', 'preparing', 'ready'])
+      .and(o => !o.isDeleted)
+      .toArray()
+  ).subscribe((orders: Order[]) => {
+    cookingCount.value = orders.filter(o => ['pending', 'preparing'].includes(o.kitchenStatus)).length
+    readyCount.value = orders.filter(o => o.kitchenStatus === 'ready').length
+  })
+})
+
+onUnmounted(() => {
+  if (kitchenSub) kitchenSub.unsubscribe()
+})
 
 const { 
   cartItems, 

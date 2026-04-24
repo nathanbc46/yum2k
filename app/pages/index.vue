@@ -1,6 +1,6 @@
 <template>
   <div class="flex-1 min-h-0 overflow-hidden bg-surface-950 relative print:hidden">
-    <PosLayout>
+    <PosLayout v-if="posStore.viewMode === 'pos'">
       <!-- ซ้าย: ตะกร้า -->
       <template #cart>
         <PosCart />
@@ -16,6 +16,8 @@
         <PosCategories />
       </template>
     </PosLayout>
+
+    <PosKitchen v-else />
   </div>
 
   <!-- ใบเสร็จสำหรับพิมพ์ (จะถูกซ่อนไว้ในหน้าจอปกติ และแสดงเฉพาะตอนสั่งพิมพ์) -->
@@ -33,6 +35,7 @@ import PosCategories from '~/components/pos/PosCategories.vue'
 import PosCart from '~/components/pos/PosCart.vue'
 import PosReceipt from '~/components/pos/PosReceipt.vue'
 import PosAddonSelection from '~/components/pos/PosAddonSelection.vue'
+import PosKitchen from '~/components/pos/PosKitchen.vue'
 import { usePosStore } from '~/stores/pos'
 
 const posStore = usePosStore()

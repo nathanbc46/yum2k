@@ -8,7 +8,7 @@
         class="flex items-center justify-center gap-2 py-4 text-sm font-bold transition-all relative"
         :class="activeTab === 'grid' ? 'text-primary-400' : 'text-surface-500'"
       >
-        <span class="text-xl">🍽️</span>
+        <UtensilsCrossed :size="20" />
         <span>เมนูสินค้า</span>
         <div v-if="activeTab === 'grid'" class="absolute bottom-0 left-0 right-0 h-1 bg-primary-500 rounded-t-full" />
       </button>
@@ -18,7 +18,7 @@
         :class="activeTab === 'cart' ? 'text-primary-400' : 'text-surface-500'"
       >
         <div class="relative">
-          <span class="text-xl">🛒</span>
+          <ShoppingCart :size="20" />
           <span v-if="cartCount > 0" class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center border-2 border-surface-900 font-bold">
             {{ cartCount }}
           </span>
@@ -59,6 +59,7 @@
 </template>
 
 <script setup lang="ts">
+import { UtensilsCrossed, ShoppingCart } from 'lucide-vue-next'
 import { useCart } from '~/composables/useCart'
 const { totalItems: cartCount } = useCart()
 

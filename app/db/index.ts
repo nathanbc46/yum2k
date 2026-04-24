@@ -94,7 +94,7 @@ class Yum2KDatabase extends Dexie {
        *
        * หมายเหตุ: items (OrderItem[]) เก็บเป็น JSON Array ทั้งก้อน
        */
-      orders: '++id, &uuid, &orderNumber, staffId, status, syncStatus, createdAt, paymentMethod, isDeleted',
+      orders: '++id, &uuid, &orderNumber, staffId, status, kitchenStatus, syncStatus, createdAt, paymentMethod, isDeleted',
 
       /**
        * syncQueue: คิวรอ Sync ขึ้น Server
@@ -152,6 +152,9 @@ tablesWithTimestamps.forEach((tableName) => {
     obj.createdAt = obj.createdAt ?? now
     obj.updatedAt = now
     obj.isDeleted = obj.isDeleted ?? false
+    if (tableName === 'orders') {
+      obj.kitchenStatus = obj.kitchenStatus ?? 'pending'
+    }
     if (['orders', 'stockAuditLogs'].includes(tableName)) {
       obj.syncStatus = obj.syncStatus ?? 'pending'
       obj.syncRetryCount = obj.syncRetryCount ?? 0

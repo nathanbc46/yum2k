@@ -667,10 +667,10 @@ export function useMasterDataSync() {
           .select('*', { count: 'exact', head: true })
         
         const localTotal = await (db as any)[dbTableKey].count()
-        const localPendingNum = await (db as any)[dbTableKey].where('syncStatus').anyOf(['pending', 'failed']).count()
-        const syncedLocalCount = localTotal - localPendingNum
         
-        const diff = (remoteTotal || 0) - syncedLocalCount
+        // เปรียบเทียบจำนวนทั้งหมด (ไม่สนใจ syncStatus) เพื่อป้องกันแจ้งเตือนซ้ำซ้อน
+        // ในกรณีที่เครื่องเรากำลังจะส่ง (Pending) แต่ระบบดันมองว่าขาดหายไปจากยอดที่ซิงค์แล้ว
+        const diff = (remoteTotal || 0) - localTotal
         if (diff > 0) {
           // ดึงรายการล่าสุดตามจำนวนที่ต่างกันเพื่อเอาชื่อมาโชว์ใน Tooltip
           const { data } = await supabase.from(tableName).select(nameField).order('created_at', { ascending: false }).limit(diff)
@@ -717,5 +717,9 @@ export function useMasterDataSync() {
     pullStockAuditLogs,
     pullAll,
     syncAll,
+    getLastPushAt,
+    getLastPullAt,
+    updateLastPushAt,
+    updateLastPullAt,
   }
 }

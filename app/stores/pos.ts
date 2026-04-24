@@ -13,6 +13,8 @@ export const usePosStore = defineStore('pos', () => {
   const lastOrder = ref<Order | null>(null)
   const selectedCartItemIndex = ref<number | null>(null)
   const pendingOrdersCount = ref<number>(0)
+  const viewMode = ref<'pos' | 'kds'>('pos')
+  const kitchenFilter = ref<'all' | 'ready'>('all')
 
   // Computed
   const activeCategory = computed(() => 
@@ -209,7 +211,7 @@ export const usePosStore = defineStore('pos', () => {
         .equals('pending')
         .count()
     } catch (error) {
-      console.error('ไม่สามารถโหลดจำนวนคิวค้างจ่ายได้:', error)
+      console.error('ไม่สามารถโหลดจำนวนรายการค้างจ่ายได้:', error)
     }
   }
 
@@ -223,6 +225,8 @@ export const usePosStore = defineStore('pos', () => {
     lastOrder,
     selectedCartItemIndex,
     pendingOrdersCount,
+    viewMode,
+    kitchenFilter,
     
     // computed
     activeCategory,
@@ -239,6 +243,8 @@ export const usePosStore = defineStore('pos', () => {
     resetNavigation,
     setLastOrder,
     setSelectedCartItemIndex,
-    refreshPendingOrdersCount
+    refreshPendingOrdersCount,
+    setViewMode: (mode: 'pos' | 'kds') => viewMode.value = mode,
+    setKitchenFilter: (filter: 'all' | 'ready') => kitchenFilter.value = filter
   }
 })

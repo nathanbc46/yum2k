@@ -134,7 +134,7 @@ if (import.meta.client) {
     <Transition name="slide-down">
       <div
         v-if="totalPush > 0"
-        class="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between gap-4 backdrop-blur-md overflow-visible"
+        class="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between gap-4 backdrop-blur-md overflow-visible relative z-10"
       >
         <!-- Left: Indicator + Badges -->
         <div class="flex items-center gap-3 min-w-0">

@@ -122,7 +122,8 @@ CREATE TABLE orders (
   payment_method      TEXT NOT NULL,                -- cash, promptpay, etc.
   amount_received     DECIMAL(10, 2) NOT NULL,
   change_amount       DECIMAL(10, 2) NOT NULL,
-  status              TEXT NOT NULL,                -- completed, cancelled
+  status              TEXT NOT NULL,                -- completed, cancelled, pending
+  kitchen_status      TEXT DEFAULT 'pending',       -- pending, preparing, ready, served
   note                TEXT,
   delivery_ref        TEXT,
   cash_denominations  JSONB,                        -- รายละเอียดธนบัตร/เหรียญ (เช่น {"20": 2, "10": 1})

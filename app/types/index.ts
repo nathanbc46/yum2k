@@ -17,6 +17,13 @@ export type OrderStatus =
   | 'cancelled'  // ยกเลิกแล้ว
   | 'refunded'   // คืนเงินแล้ว
 
+/** สถานะการจัดเตรียมในครัว (KDS) */
+export type KitchenStatus =
+  | 'pending'    // รอทำ
+  | 'preparing'  // กำลังทำ
+  | 'ready'      // เสร็จแล้ว/รอเสิร์ฟ
+  | 'served'     // เสิร์ฟแล้ว
+
 /** สถานะการ Sync กับ Server */
 export type SyncStatus =
   | 'pending'   // รอ Sync
@@ -248,6 +255,7 @@ export interface Order extends BaseEntity {
 
   // --- สถานะ ---
   status: OrderStatus         // สถานะออร์เดอร์
+  kitchenStatus: KitchenStatus // สถานะการจัดเตรียมในครัว
   note?: string               // หมายเหตุ
   deliveryRef?: string        // เลขอ้างอิงของ Delivery (Grab, LineMan ฯลฯ)
 

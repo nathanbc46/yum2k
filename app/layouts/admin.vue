@@ -151,6 +151,54 @@
       <AdminSyncBar />
       <slot />
     </main>
+
+    <!-- Modal ยืนยันการออกจากระบบ (สวยๆ) -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="showLogoutConfirm" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm">
+          <Transition
+            enter-active-class="transition duration-300 ease-out"
+            enter-from-class="opacity-0 scale-95 translate-y-4"
+            enter-to-class="opacity-100 scale-100 translate-y-0"
+            leave-active-class="transition duration-200 ease-in"
+            leave-from-class="opacity-100 scale-100 translate-y-0"
+            leave-to-class="opacity-0 scale-95 translate-y-4"
+          >
+            <div v-if="showLogoutConfirm" class="bg-surface-900 border border-surface-800 rounded-[2rem] shadow-2xl w-full max-w-sm overflow-hidden p-8 flex flex-col items-center text-center">
+              <!-- Icon Header -->
+              <div class="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6 text-red-500 animate-pulse">
+                <LogOut :size="40" />
+              </div>
+              
+              <h3 class="text-2xl font-black text-surface-50 mb-2">ยืนยันออกจากระบบ?</h3>
+              <p class="text-surface-600 mb-8 leading-relaxed font-medium">คุณต้องการสลับผู้ใช้ หรือออกจากระบบจากแผงจัดการใช่หรือไม่?</p>
+              
+              <div class="flex flex-col w-full gap-3">
+                <button 
+                  @click="confirmLogout"
+                  class="w-full h-14 bg-red-500 hover:bg-red-400 text-white font-black rounded-2xl transition-all active:scale-95 shadow-lg shadow-red-500/20"
+                >
+                  ใช่, ออกจากระบบ
+                </button>
+                <button 
+                  @click="showLogoutConfirm = false"
+                  class="w-full h-14 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-2xl transition-all active:scale-95"
+                >
+                  ยกเลิก
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -168,6 +216,7 @@ const { theme, toggleTheme } = useTheme()
 const toast = useToast()
 
 const isSidebarOpen = ref(false)
+const showLogoutConfirm = ref(false)
 
 const { isOnline, syncPendingOrders, fetchRemoteOrders } = useSync()
 const {
@@ -249,10 +298,13 @@ const navLinks = [
 ]
 
 function handleLogout() {
-  if (confirm('ต้องการสลับผู้ใช้/ออกจากระบบหรือไม่?')) {
-    authUser.logout()
-    router.push('/login')
-  }
+  showLogoutConfirm.value = true
+}
+
+function confirmLogout() {
+  authUser.logout()
+  router.push('/login')
+  showLogoutConfirm.value = false
 }
 
 </script>
