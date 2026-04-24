@@ -4,7 +4,7 @@ import { useSync } from '~/composables/useSync'
 
 const masterSync = useMasterDataSync()
 // nextSyncCountdown คือ Countdown เดียวกับ Background Heartbeat ใน useSync.ts
-const { syncPendingOrders, fetchRemoteOrders, isOnline, isSyncing, lastSyncAt, nextSyncCountdown } = useSync()
+const { syncPendingOrders, fetchRemoteOrders, fetchRemoteExpenses, isOnline, isSyncing, lastSyncAt, nextSyncCountdown } = useSync()
 const toast = useToast()
 
 // 🚀 Push Data (Local -> Cloud)
@@ -20,14 +20,15 @@ const pullCounts = ref({
   products: 0, productNames: [] as string[],
   users: 0, userNames: [] as string[],
   stockLogs: 0, stockLogDetails: [] as string[],
-  orders: 0, orderNumbers: [] as string[]
+  orders: 0, orderNumbers: [] as string[],
+  expenses: 0, expenseDetails: [] as string[]
 })
 
 const isLoadingPush = ref(false)
 const isLoadingPull = ref(false)
 
 const totalPush = computed(() => pushCounts.value.orders + pushCounts.value.stockLogs + pushCounts.value.expenses)
-const totalPull = computed(() => pullCounts.value.categories + pullCounts.value.products + pullCounts.value.users + pullCounts.value.stockLogs + pullCounts.value.orders)
+const totalPull = computed(() => pullCounts.value.categories + pullCounts.value.products + pullCounts.value.users + pullCounts.value.stockLogs + pullCounts.value.orders + pullCounts.value.expenses)
 
 // แสดงผล MM:SS จาก Countdown ที่ใช้ร่วมกับ Heartbeat (ใช้สำหรับแค่ Push)
 const countdownLabel = computed(() => {
@@ -70,6 +71,7 @@ async function handlePush() {
       '📤 ซิงค์ข้อมูลขึ้น Cloud สำเร็จ!',
       res.orders.success > 0 ? `• ออร์เดอร์: ${res.orders.success} รายการ` : '',
       res.auditLogs.success > 0 ? `• ประวัติสต็อก: ${res.auditLogs.success} รายการ` : '',
+      res.expenses > 0 ? `• รายจ่าย: ${res.expenses} รายการ` : '',
     ].filter(Boolean).join('\n')
     toast.success(msg, 5000)
   } finally {
@@ -84,13 +86,15 @@ async function handlePull() {
   try {
     const resMaster = await masterSync.pullAll(true)
     const orderCount = await fetchRemoteOrders(200, false)
+    const expenseCount = await fetchRemoteExpenses(200)
     const msg = [
       '📥 ดึงข้อมูลประวัติจาก Cloud สำเร็จ!',
       orderCount > 0 ? `• ออร์เดอร์: ${orderCount} รายการ` : '',
       resMaster.categories > 0 ? `• หมวดหมู่สินค้า: ${resMaster.categories} รายการ` : '',
       resMaster.products > 0 ? `• รายการสินค้า: ${resMaster.products} รายการ` : '',
       resMaster.users > 0 ? `• พนักงาน: ${resMaster.users} รายการ` : '',
-      resMaster.stockLogs > 0 ? `• ประวัติสต็อก: ${resMaster.stockLogs} รายการ` : ''
+      resMaster.stockLogs > 0 ? `• ประวัติสต็อก: ${resMaster.stockLogs} รายการ` : '',
+      expenseCount > 0 ? `• รายจ่าย: ${expenseCount} รายการ` : ''
     ].filter(Boolean).join('\n')
     toast.success(msg, 7000)
     await loadRemoteCounts()
@@ -270,6 +274,16 @@ if (import.meta.client) {
               </span>
               <div class="tooltip-popup">
                 <div class="tooltip-title">📊 สต็อกมีการอัปเดต ({{ pullCounts.stockLogs }})</div>
+              </div>
+            </div>
+
+            <div v-if="pullCounts.expenses > 0" class="tooltip-wrapper">
+              <span class="badge badge-expense">
+                💸 <span>รายจ่าย</span> <span class="font-black">{{ pullCounts.expenses }}</span>
+              </span>
+              <div class="tooltip-popup">
+                <div class="tooltip-title">💸 รายจ่ายมีอัปเดต ({{ pullCounts.expenses }})</div>
+                <div v-for="detail in pullCounts.expenseDetails.slice(0, 5)" :key="detail" class="tooltip-item">- {{ detail }}</div>
               </div>
             </div>
           </div>

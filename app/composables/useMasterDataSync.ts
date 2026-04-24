@@ -624,13 +624,15 @@ export function useMasterDataSync() {
     products: number, productNames: string[],
     users: number, userNames: string[],
     stockLogs: number, stockLogDetails: string[],
-    orders: number, orderNumbers: string[]
+    orders: number, orderNumbers: string[],
+    expenses: number, expenseDetails: string[]
   }> {
     const supabase = useSupabaseClient<any>()
     const lastPullAt = await getLastPullAt()
     const emptyResult = { 
       categories: 0, categoryNames: [], products: 0, productNames: [], 
-      users: 0, userNames: [], stockLogs: 0, stockLogDetails: [], orders: 0, orderNumbers: [] 
+      users: 0, userNames: [], stockLogs: 0, stockLogDetails: [], orders: 0, orderNumbers: [],
+      expenses: 0, expenseDetails: []
     }
     
     // หากไม่เคย Pull เลย ให้ใช้เวลาเริ่มต้น (1970) เพื่อให้เห็นว่ามีข้อมูลบน Cloud ที่ยังไม่มีในเครื่อง
@@ -669,7 +671,7 @@ export function useMasterDataSync() {
       }
 
       // 2. ตรวจสอบกลุ่มที่เป็น "Log / Transaction" 
-      const checkAppendOnlyUpdates = async (tableName: string, dbTableKey: 'orders' | 'stockAuditLogs', nameField = 'order_number') => {
+      const checkAppendOnlyUpdates = async (tableName: string, dbTableKey: 'orders' | 'stockAuditLogs' | 'expenses', nameField = 'order_number') => {
         const { count: remoteTotal } = await supabase
           .from(tableName)
           .select('*', { count: 'exact', head: true })
@@ -687,12 +689,13 @@ export function useMasterDataSync() {
         return { count: 0, names: [] }
       }
 
-      const [catRes, prodRes, userRes, stockRes, orderRes] = await Promise.all([
+      const [catRes, prodRes, userRes, stockRes, orderRes, expenseRes] = await Promise.all([
         checkMasterUpdates('categories', 'categories'),
         checkMasterUpdates('products', 'products'),
         checkMasterUpdates('pos_users', 'users', 'display_name'),
         checkAppendOnlyUpdates('stock_audit_logs', 'stockAuditLogs', 'product_name'),
-        checkAppendOnlyUpdates('orders', 'orders', 'order_number')
+        checkAppendOnlyUpdates('orders', 'orders', 'order_number'),
+        checkAppendOnlyUpdates('expenses', 'expenses', 'description')
       ])
       
       return { 
@@ -700,7 +703,8 @@ export function useMasterDataSync() {
         products: prodRes.count, productNames: prodRes.names,
         users: userRes.count, userNames: userRes.names,
         stockLogs: stockRes.count, stockLogDetails: stockRes.names,
-        orders: orderRes.count, orderNumbers: orderRes.names
+        orders: orderRes.count, orderNumbers: orderRes.names,
+        expenses: expenseRes.count, expenseDetails: expenseRes.names
       }
     } catch(err) {
       console.warn('⚠️ getPendingPullCounts Error:', err)

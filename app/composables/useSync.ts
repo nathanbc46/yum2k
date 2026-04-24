@@ -90,13 +90,15 @@ export function useSync() {
     orders: { total: number, success: number, failed: number, errors: string[] },
     auditLogs: { total: number, success: number, failed: number, errors: string[] },
     categories: number,
-    products: number
+    products: number,
+    expenses: number
   }> {
     const summary = {
       orders: { total: 0, success: 0, failed: 0, errors: [] as string[] },
       auditLogs: { total: 0, success: 0, failed: 0, errors: [] as string[] },
       categories: 0,
-      products: 0
+      products: 0,
+      expenses: 0
     }
 
     // ตรวจสอบ navigator.onLine โดยตรง (real-time) แทน cached isOnline ref
@@ -125,12 +127,13 @@ export function useSync() {
       .anyOf(['pending', 'failed'])
       .toArray()
     
-    let expenseSuccessCount = 0
     if (pendingExpenses.length > 0) {
       isSyncing.value = true
       for (const expense of pendingExpenses) {
         const res = await syncSingleExpense(expense)
-        if (res.success) expenseSuccessCount++
+        if (res.success) {
+          summary.expenses++
+        }
       }
     }
 
@@ -170,7 +173,7 @@ export function useSync() {
         summary.products > 0 ? `• สินค้า: ${summary.products} รายการ` : '',
         summary.orders.success > 0 ? `• ออร์เดอร์: ${summary.orders.success} รายการ` : '',
         summary.auditLogs.success > 0 ? `• ประวัติสต็อก: ${summary.auditLogs.success} รายการ` : '',
-        expenseSuccessCount > 0 ? `• รายจ่าย: ${expenseSuccessCount} รายการ` : ''
+        summary.expenses > 0 ? `• รายจ่าย: ${summary.expenses} รายการ` : ''
       ].filter(Boolean).join('\n')
       
       toast.success(msg, 4000)
@@ -397,6 +400,78 @@ export function useSync() {
     return count
   }
 
+  /**
+   * ดึงข้อมูลรายจ่ายจาก Cloud ลงมาที่เครื่อง
+   */
+  async function fetchRemoteExpenses(limit = 100): Promise<number> {
+    if (!supabase) return 0
+
+    const { data: remoteExpenses, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (error) throw error
+    if (!remoteExpenses?.length) return 0
+
+    // ตรวจสอบรายการที่มีอยู่แล้วเพื่อป้องกันการซ้ำ
+    const remoteUuids = remoteExpenses.map(e => e.uuid)
+    const existingExpenses = await db.expenses.where('uuid').anyOf(remoteUuids).toArray()
+    const existingUuids = new Set(existingExpenses.map(e => e.uuid))
+
+    let count = 0
+    for (const remote of remoteExpenses) {
+      if (existingUuids.has(remote.uuid)) {
+        // อัปเดตข้อมูลเดิมที่มีอยู่ (ถ้ามี)
+        const localExp = existingExpenses.find(e => e.uuid === remote.uuid)
+        if (localExp) {
+          // เปรียบเทียบ updatedAt เพื่อดูว่าควรทับไหม
+          const remoteDate = new Date(remote.updated_at)
+          const localDate = new Date(localExp.updatedAt)
+          
+          if (remoteDate > localDate) {
+            await db.expenses.update(localExp.id!, {
+              category: remote.category,
+              amount: Number(remote.amount),
+              description: remote.description,
+              expenseDate: remote.expense_date,
+              recordedBy: remote.recorded_by,
+              staffId: remote.staff_id,
+              staffUuid: remote.staff_uuid,
+              isDeleted: !!remote.is_deleted,
+              syncStatus: 'synced',
+              syncedAt: new Date(remote.updated_at),
+              updatedAt: new Date(remote.updated_at)
+            })
+            count++
+          }
+        }
+      } else {
+        // เพิ่มรายการใหม่
+        await db.expenses.add({
+          uuid: remote.uuid,
+          category: remote.category,
+          amount: Number(remote.amount),
+          description: remote.description,
+          expenseDate: remote.expense_date,
+          recordedBy: remote.recorded_by,
+          staffId: remote.staff_id,
+          staffUuid: remote.staff_uuid,
+          isDeleted: !!remote.is_deleted,
+          syncStatus: 'synced',
+          syncedAt: new Date(remote.updated_at),
+          createdAt: new Date(remote.created_at),
+          updatedAt: new Date(remote.updated_at)
+        })
+        count++
+      }
+    }
+
+    await refreshPendingCount()
+    return count
+  }
+
   async function getLastRemoteOrderSequence(deviceCode: string): Promise<number> {
     if (!supabase || !deviceCode) return 0
     const { data, error } = await supabase
@@ -426,6 +501,7 @@ export function useSync() {
     syncPendingOrders,
     refreshPendingCount,
     fetchRemoteOrders,
+    fetchRemoteExpenses, // เพิ่มให้เรียกใช้งานได้
     getLastRemoteOrderSequence,
     nextSyncCountdown,
     startHeartbeatSync: () => {

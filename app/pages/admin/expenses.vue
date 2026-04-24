@@ -297,6 +297,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Banknote, Plus, Calendar, Filter, Trash2, X, Save, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { useProfitability } from '~/composables/useProfitability'
+import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
 import { db } from '~/db'
@@ -309,6 +310,7 @@ definePageMeta({
 const { addExpense, updateExpense } = useProfitability()
 const authStore = useAuthStore()
 const toast = useToast()
+const { lastPullTimestamp } = useMasterDataSync()
 
 // --- State ---
 const showAddModal = ref(false)
@@ -474,6 +476,11 @@ async function handleDelete(expense: Expense) {
     toast.error('ลบไม่สำเร็จ')
   }
 }
+
+// โหลดข้อมูลเมื่อมีการ Pull จาก Cloud
+watch(lastPullTimestamp, () => {
+  loadExpenses()
+})
 
 onMounted(() => {
   loadExpenses()

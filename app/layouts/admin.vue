@@ -218,7 +218,7 @@ const toast = useToast()
 const isSidebarOpen = ref(false)
 const showLogoutConfirm = ref(false)
 
-const { isOnline, syncPendingOrders, fetchRemoteOrders } = useSync()
+const { isOnline, syncPendingOrders, fetchRemoteOrders, fetchRemoteExpenses } = useSync()
 const {
   isSyncingMaster,
   lastMasterSyncAt,
@@ -243,8 +243,9 @@ async function handlePush() {
     const msg = [
       '📤 ส่งข้อมูลขึ้น Cloud สำเร็จ!',
       `• ข้อมูลออร์เดอร์: ${res.orders.success} รายการ`,
-      `• ประวัติสต็อก: ${res.auditLogs.success} รายการ`
-    ].join('\n')
+      `• ประวัติสต็อก: ${res.auditLogs.success} รายการ`,
+      res.expenses > 0 ? `• รายจ่าย: ${res.expenses} รายการ` : ''
+    ].filter(Boolean).join('\n')
 
     // ถ้ามี Error ให้แจ้งเตือนเพิ่มเติม
     const allErrors = [...res.orders.errors, ...res.auditLogs.errors]
@@ -270,12 +271,16 @@ async function handlePull() {
     // 2. ดึงข้อมูลออร์เดอร์ย้อนหลัง (เช่น 200 รายการ)
     const orderCount = await fetchRemoteOrders(200, false)
     
+    // 3. ดึงข้อมูลรายจ่าย (เช่น 200 รายการ)
+    const expenseCount = await fetchRemoteExpenses(200)
+    
     const msg = [
       '📥 ดึงข้อมูลประวัติจาก Cloud สำเร็จ!',
       `• ข้อมูลออร์เดอร์: ${orderCount} รายการ`,
       resMaster.categories > 0 ? `• หมวดหมู่สินค้า: ${resMaster.categories} รายการ` : '',
       resMaster.products > 0 ? `• รายการสินค้า: ${resMaster.products} รายการ` : '',
-      resMaster.stockLogs > 0 ? `• ประวัติสต็อก: ${resMaster.stockLogs} รายการ` : ''
+      resMaster.stockLogs > 0 ? `• ประวัติสต็อก: ${resMaster.stockLogs} รายการ` : '',
+      expenseCount > 0 ? `• รายจ่าย: ${expenseCount} รายการ` : ''
     ].filter(Boolean).join('\n')
     
     toast.success(msg, 7000)
