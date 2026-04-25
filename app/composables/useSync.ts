@@ -318,20 +318,16 @@ export function useSync() {
     const existingOrders = await db.orders.where('uuid').anyOf(remoteUuids).toArray()
     const existingUuids = new Set(existingOrders.map(o => o.uuid))
 
-    // รวบรวม UUID ของสินค้าและหมวดหมู่ที่ต้องการทั้งหมดจากออร์เดอร์ใหม่
-    const newOrders = remoteOrders.filter(o => !existingUuids.has(o.uuid))
-    if (newOrders.length === 0) return 0
-
+    // --- เตรียมข้อมูลสินค้าและหมวดหมู่ ---
     const productUuidsNeeded = new Set<string>()
     const categoryUuidsNeeded = new Set<string>()
-    for (const remote of newOrders) {
+    for (const remote of remoteOrders) {
       for (const item of remote.order_items) {
         if (item.product_uuid) productUuidsNeeded.add(item.product_uuid)
         if (item.category_uuid) categoryUuidsNeeded.add(item.category_uuid)
       }
     }
 
-    // ดึงสินค้าและหมวดหมู่ที่ต้องการทั้งหมดในครั้งเดียว
     const [matchedProducts, matchedCategories] = await Promise.all([
       db.products.where('uuid').anyOf([...productUuidsNeeded]).toArray(),
       db.categories.where('uuid').anyOf([...categoryUuidsNeeded]).toArray(),
@@ -339,9 +335,11 @@ export function useSync() {
     const prodUuidToLocalId = new Map(matchedProducts.map(p => [p.uuid, { id: p.id!, categoryId: p.categoryId }]))
     const catUuidToLocalId = new Map(matchedCategories.map(c => [c.uuid, c.id!]))
 
-    // --- ประมวลผลออร์เดอร์ใหม่ทุกรายการ ---
+    // --- ประมวลผลออร์เดอร์ ---
     let count = 0
-    for (const remote of newOrders) {
+    for (const remote of remoteOrders) {
+      const existing = existingOrders.find(o => o.uuid === remote.uuid)
+      
       const processedItems: OrderItem[] = remote.order_items.map((item: any) => {
         const prodInfo = prodUuidToLocalId.get(item.product_uuid)
         const categoryId = prodInfo?.categoryId ?? catUuidToLocalId.get(item.category_uuid) ?? 0
@@ -364,7 +362,7 @@ export function useSync() {
         }
       })
 
-      await db.orders.add({
+      const orderData = {
         uuid: remote.uuid,
         orderNumber: remote.order_number,
         staffId: 1,
@@ -386,14 +384,28 @@ export function useSync() {
         deliveryRef: remote.delivery_ref,
         cashDenominations: remote.cash_denominations,
         isDeleted: remote.is_deleted,
-        syncStatus: 'synced',
+        syncStatus: 'synced' as SyncStatus,
         syncRetryCount: 0,
         syncedAt: new Date(remote.updated_at),
         createdAt: new Date(remote.created_at),
         updatedAt: new Date(remote.updated_at),
         items: processedItems
-      })
-      count++
+      }
+
+      if (existing) {
+        // ถ้ามีอยู่แล้ว ตรวจสอบว่าข้อมูลบน Cloud ใหม่กว่าหรือไม่
+        const remoteDate = new Date(remote.updated_at)
+        const localDate = new Date(existing.updatedAt)
+        
+        if (remoteDate > localDate) {
+          await db.orders.update(existing.id!, orderData)
+          count++
+        }
+      } else {
+        // ถ้ายังไม่มี ให้เพิ่มใหม่
+        await db.orders.add(orderData)
+        count++
+      }
     }
 
     await refreshPendingCount()
