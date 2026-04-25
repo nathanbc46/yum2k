@@ -1,6 +1,6 @@
 <template>
   <!-- Admin Layout: Sidebar + Main Content -->
-  <div class="flex h-screen bg-surface-950 text-surface-50 overflow-hidden relative">
+  <div class="flex h-screen bg-surface-950 text-surface-50 overflow-hidden relative admin-layout-container">
 
     <!-- Mobile Header (Hamburger) -->
     <div class="lg:hidden absolute top-4 left-4 z-[60]">
@@ -314,3 +314,30 @@ function confirmLogout() {
 }
 
 </script>
+
+<style>
+/* Custom Scrollbar for Admin Area */
+.admin-layout-container ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.admin-layout-container ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-layout-container ::-webkit-scrollbar-thumb {
+  background: var(--surface-700);
+  border-radius: 20px;
+}
+
+.admin-layout-container ::-webkit-scrollbar-thumb:hover {
+  background: var(--surface-600);
+}
+
+/* Firefox Support */
+.admin-layout-container {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-700) transparent;
+}
+</style>
