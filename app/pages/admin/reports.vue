@@ -320,12 +320,12 @@
 
     </main>
 
-    <!-- AI Analysis Modal -->
     <AdminAiAnalysisModal
       v-if="isAiModalOpen"
       :data="aiData"
       :initial-tab="aiModalInitialTab"
       analysis-mode="monthly"
+      source-title="วิเคราะห์ยอดขาย"
       @close="isAiModalOpen = false"
     />
   </div>
@@ -365,6 +365,8 @@ const selectedDays = ref(30)
 const isLoading = ref(false)
 const filterCategoryId = ref<number>(0)
 const filterProductUuid = ref('')
+const startDate = ref(new Date())
+const endDate = ref(new Date())
 const categories = ref<Category[]>([])
 const allProducts = ref<Product[]>([])
 const isAiModalOpen = ref(false)
@@ -382,7 +384,12 @@ const aiData = computed(() => ({
   orderCount: summary.value.orderCount,
   topProducts: topProducts.value,
   hourlyStats: [], 
+  categoryStats: categorySales.value,
   expenses: summary.value.totalExpenses,
+  dateRange: { 
+    start: startDate.value.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }), 
+    end: endDate.value.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) 
+  },
   // ข้อมูลเชิงลึกเพิ่มเติม
   salesByDayHour: orderHeatmap.value,
   productByDay: productDayRows.value.map(r => ({ name: r.productName, days: r.data })),
@@ -516,11 +523,14 @@ const weeklyTrendOptions = computed(() => ({
 // --- Data Loading ---
 async function loadData() {
   isLoading.value = true
-  const end = new Date()
-  end.setHours(23, 59, 59, 999)
-  const start = new Date()
-  start.setDate(end.getDate() - selectedDays.value)
-  start.setHours(0, 0, 0, 0)
+  endDate.value = new Date()
+  endDate.value.setHours(23, 59, 59, 999)
+  startDate.value = new Date()
+  startDate.value.setDate(endDate.value.getDate() - selectedDays.value)
+  startDate.value.setHours(0, 0, 0, 0)
+  
+  const start = startDate.value
+  const end = endDate.value
 
   try {
     // โหลด Master Data

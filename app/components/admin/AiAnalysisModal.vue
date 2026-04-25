@@ -48,7 +48,9 @@
                       {{ currentProvider }}
                     </span>
                   </h2>
-                  <p class="text-xs" :style="{ color: isDark ? '#94a3b8' : '#64748b' }">ข้อมูลอ้างอิงตามฟิลเตอร์ที่คุณเลือกไว้</p>
+                  <p class="text-xs" :style="{ color: isDark ? '#94a3b8' : '#64748b' }">
+                    วิเคราะห์จาก: <span class="font-bold text-primary-500">{{ sourceTitle || 'ข้อมูลภาพรวม' }}</span>
+                  </p>
                 </div>
                 <div v-else class="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
                   <span class="text-xs font-black uppercase tracking-widest text-primary-400">AI Analysis</span>
@@ -421,7 +423,9 @@ const props = withDefaults(defineProps<{
     orderCount: number
     topProducts: any[]
     hourlyStats: any[]
+    categoryStats?: any[] // ยอดขายแยกตามหมวดหมู่
     expenses?: number
+    dateRange?: { start: string; end: string } // ช่วงเวลาของข้อมูล
     // ข้อมูลเชิงลึกเพิ่มเติมสำหรับ AI
     salesByDayHour?: any // ยอดขายตามวันxชั่วโมง (จำนวนบิล)
     productByDay?: any   // สินค้า วันxสัปดาห์ (จำนวนชิ้น)
@@ -431,9 +435,13 @@ const props = withDefaults(defineProps<{
   }
   initialTab?: 'insight' | 'chat'
   analysisMode?: 'daily' | 'monthly'
+  sourceTitle?: string
+  includeWeather?: boolean
 }>(), {
   initialTab: 'insight',
-  analysisMode: 'daily'
+  analysisMode: 'daily',
+  sourceTitle: '',
+  includeWeather: false
 })
 
 const emit = defineEmits(['close'])
@@ -608,7 +616,7 @@ const providerBadgeStyle = computed(() => {
 const quickQuestions = [
   'เมนูไหนขายดีที่สุด?',
   'พรุ่งนี้ฝนตกไหม?',
-  'สรุปภาพรวมกำไรให้หน่อย',
+  'วิเคราะห์ภาพรวมให้หน่อย ?',
   'ควรเตรียมของตอนกี่โมงดี?'
 ]
 
@@ -665,7 +673,7 @@ async function runAnalysis() {
   
   await Promise.all([
     loadReceiptSettings(),
-    fetchWeather()
+    props.includeWeather ? fetchWeather() : Promise.resolve()
   ])
   const geminiKey = receiptSettings.value.geminiApiKey
   const groqKey = receiptSettings.value.groqApiKey
@@ -779,10 +787,10 @@ async function getAvailableModelsList(apiKey: string): Promise<string[]> {
 function generatePrompt() {
   const { revenue, cost, profit, topProducts, hourlyStats, expenses = 0 } = props.data
   
-  // ปรับการคำนวณกำไรตาม Mode
+  // คำนวณกำไร 2 รูปแบบตามตรรกะเจ้าของร้าน
+  const productMarginProfit = revenue - cost // กำไรตามสูตรสินค้า
+  const cashFlowProfit = revenue - expenses // กำไรตามเงินเข้า-ออกจริง
   const isMonthly = props.analysisMode === 'monthly'
-  const calculatedProfit = isMonthly ? (revenue - expenses) : (revenue - cost)
-  const profitLabel = isMonthly ? 'Net Profit (Revenue - Total Expenses)' : 'Gross Profit from Sales (Revenue - Product Cost)'
   
   return `
     คุณคือที่ปรึกษาและเพื่อนคู่คิดอัจฉริยะของร้านยำ Yum2K ที่รอบรู้ อารมณ์ดี และเป็นกันเองสุดๆ
@@ -790,10 +798,18 @@ function generatePrompt() {
     ${isMonthly ? 'โดยเน้นการวิเคราะห์ภาพรวมรายเดือนและความคุ้มค่าเมื่อหักค่าใช้จ่ายทั้งหมด' : 'โดยเน้นการวิเคราะห์กำไรจากการขายสินค้าในแต่ละวัน'}
     
     Business Data:
+    - Analyzing Page: ${props.sourceTitle || 'General Overview'}
+    - Analysis Period: ${props.data.dateRange ? `${props.data.dateRange.start} ถึง ${props.data.dateRange.end}` : 'Not specified'}
     - Total Revenue: ฿${revenue.toLocaleString()}
-    - Total Product Cost (COGS): ฿${cost.toLocaleString()}
-    - Other Expenses: ฿${expenses.toLocaleString()}
-    - ${profitLabel}: ฿${calculatedProfit.toLocaleString()}
+    - Total Product Cost (COGS): ฿${cost.toLocaleString()} (ต้นทุนตามสูตร/ราคาขาย)
+    - Other Expenses: ฿${expenses.toLocaleString()} (ยอดจ่ายจริงรวมซื้อวัตถุดิบหน้างาน)
+    - Net Profit (Cash Flow): ฿${cashFlowProfit.toLocaleString()} (Revenue - Other Expenses)
+    - Gross Profit (Product Margin): ฿${productMarginProfit.toLocaleString()} (Revenue - COGS)
+    
+    Note for AI:
+    1. ให้ใช้ "Net Profit (Cash Flow)" ในการวิเคราะห์สุขภาพการเงินและกระแสเงินสด
+    2. ให้ใช้ "Gross Profit (Product Margin)" ในการวิเคราะห์ความคุ้มค่าของเมนูอาหาร
+    3. "Other Expenses" คือเงินที่จ่ายออกจริง ซึ่งอาจรวมค่าวัตถุดิบที่ซื้อเติมแล้ว ดังนั้นไม่ต้องหัก COGS ซ้ำจาก Net Profit อีก เพื่อป้องกันการคำนวณซ้ำซ้อน (Double Counting)
     - Order Count: ${props.data.orderCount}
     - All Products Performance Data: ${topProducts.map(p => {
         const rev = p.totalRevenue || (p.quantitySold * (p.price || 0))
@@ -802,6 +818,9 @@ function generatePrompt() {
         return `${p.productName}: ขายได้ ${p.quantitySold} ชิ้น, ยอดขายรวม ฿${rev.toLocaleString()}, กำไรประมาณ ฿${prof.toLocaleString()}`
       }).join(' | ')}
     
+    Category Performance:
+    ${props.data.categoryStats ? props.data.categoryStats.map((c: any) => `${c.categoryName}: ฿${c.value.toLocaleString()}`).join(' | ') : 'Not available'}
+    
     Deep Insights (If available):
     - Sales Density (Day x Hour): ${props.data.salesByDayHour ? JSON.stringify(props.data.salesByDayHour) : 'Not available'}
     - Product Popularity by Day of Week: ${props.data.productByDay ? JSON.stringify(props.data.productByDay) : 'Not available'}
@@ -809,8 +828,7 @@ function generatePrompt() {
     - Weekly Sales Trend: ${props.data.weeklyTrend ? JSON.stringify(props.data.weeklyTrend) : 'Not available'}
     - Sales Velocity (Frequency): ${props.data.velocity ? JSON.stringify(props.data.velocity) : 'Not available'}
     
-    Weather Data (Next 7 days in Bangkok):
-    ${weatherData.value ? JSON.stringify(weatherData.value.daily) : 'Not available'}
+    ${(props.includeWeather && weatherData.value) ? `Weather Data (Next 7 days in Bangkok):\n${JSON.stringify(weatherData.value.daily)}` : 'Weather context: Not requested/Not available'}
 
     Rules:
     1. Focus on Revenue, total Expenses, and patterns in Day/Hour/Products.
@@ -1054,11 +1072,13 @@ async function sendMessage() {
   chatThinkingMessage.value = 'AI กำลังคิดคำตอบ...'
   await nextTick()
   scrollToBottom()
-
   try {
+    // ตรวจสอบว่าคำถามเกี่ยวกับสภาพอากาศหรือไม่
+    const isWeatherQuestion = /ฝน|ร้อน|อากาศ|พยากรณ์|ตกไหม|แดด|เย็น|องศา|สภาพอากาศ/.test(text)
+
     await Promise.all([
       loadReceiptSettings(),
-      fetchWeather() // ตรวจสอบข้อมูลอากาศอีกครั้งก่อนส่ง
+      (props.includeWeather || isWeatherQuestion) ? fetchWeather() : Promise.resolve()
     ])
     const apiKey = receiptSettings.value.geminiApiKey
     if (!apiKey) throw new Error('ไม่พบ API Key')
@@ -1066,17 +1086,20 @@ async function sendMessage() {
     const modelNameFull = modelName.startsWith('models/') ? modelName : `models/${modelName}`
     const url = `https://generativelanguage.googleapis.com/v1beta/${modelNameFull}:generateContent?key=${apiKey}`
     // สร้าง Context สำหรับแชท (เพิ่มข้อมูลสินค้าขายดี และแนวโน้มเชิงลึก)
-    const isMonthly = props.analysisMode === 'monthly'
-    const profitVal = isMonthly ? (props.data.revenue - (props.data.expenses || 0)) : (props.data.revenue - props.data.cost)
-    const profitName = isMonthly ? 'กำไรสุทธิ (หลังหักค่าใช้จ่ายทั้งหมด)' : 'กำไรสินค้า (ยังไม่หักค่าใช้จ่ายอื่นๆ)'
+    // คำนวณกำไร 2 รูปแบบสำหรับระบบแชท
+    const productMarginProfit = props.data.revenue - props.data.cost
+    const cashFlowProfit = props.data.revenue - (props.data.expenses || 0)
 
     const context = `
       คุณคือที่ปรึกษาธุรกิจร้านยำ (Yum2K) ข้อมูลเชิงลึกของร้านคือ:
+      - ช่วงเวลาที่วิเคราะห์: ${props.data.dateRange ? `${props.data.dateRange.start} ถึง ${props.data.dateRange.end}` : 'ไม่ได้ระบุ'}
       - รายได้รวม: ฿${props.data.revenue.toLocaleString()}
-      - ต้นทุนสินค้า: ฿${props.data.cost.toLocaleString()}
-      - ค่าใช้จ่ายอื่นๆ: ฿${(props.data.expenses || 0).toLocaleString()}
-      - ${profitName}: ฿${profitVal.toLocaleString()}
-      - สินค้าขายดี 5 อันดับแรก: ${props.data.topProducts.slice(0, 5).map(p => `${p.productName} (ขายได้ ${p.quantitySold} ชุด)`).join(', ')}
+      - ต้นทุนสินค้า (COGS): ฿${props.data.cost.toLocaleString()} (ต้นทุนตามสูตร)
+      - รายจ่ายรวม (Expenses): ฿${(props.data.expenses || 0).toLocaleString()} (เงินจ่ายออกจริง)
+      - กำไรสุทธิจากกระแสเงินสด (Net Profit): ฿${cashFlowProfit.toLocaleString()}
+      - กำไรจากส่วนต่างสินค้า (Gross Profit): ฿${productMarginProfit.toLocaleString()}
+      - ยอดขายแยกตามหมวดหมู่: ${props.data.categoryStats ? props.data.categoryStats.map((c: any) => `${c.categoryName} (฿${c.value.toLocaleString()})`).join(', ') : 'ไม่มีข้อมูล'}
+      - ข้อมูลสินค้าทั้งหมดที่มีการขาย: ${props.data.topProducts.map(p => `${p.productName} (ขายได้ ${p.quantitySold} ชุด)`).join(', ')}
       
       กฎการตอบ:
       1. ตอบแบบมีความรู้ อธิบายเข้าใจง่าย เป็นกันเอง อารมณ์ดี และให้กำลังใจเจ้าของร้านเสมอ 
@@ -1089,7 +1112,7 @@ async function sendMessage() {
       ประวัติการคุย:
       ${chatHistory.value.slice(-5).map(m => `${m.role}: ${m.content}`).join('\n')}
       คำถามล่าสุดจากเจ้าของร้าน: ${text}
-      สภาพอากาศปัจจุบัน: ${weatherData.value ? JSON.stringify(weatherData.value.daily) : 'ไม่มีข้อมูล'}
+      ${props.includeWeather ? `สภาพอากาศปัจจุบัน: ${weatherData.value ? JSON.stringify(weatherData.value.daily) : 'ไม่มีข้อมูล'}` : ''}
     `
     const response = await fetch(url, {
       method: 'POST',
@@ -1377,7 +1400,9 @@ function toggleSpeak(text: string) {
 }
 
 onMounted(() => {
-  fetchWeather() // เริ่มดึงข้อมูลอากาศทันที
+  if (props.includeWeather) {
+    fetchWeather() // เริ่มดึงข้อมูลอากาศเฉพาะเมื่อต้องการ
+  }
   runAnalysis()
   // โหลดเสียงเผื่อไว้
   window.speechSynthesis.getVoices()

@@ -375,12 +375,12 @@
       </Transition>
     </Teleport>
 
-    <!-- AI Analysis Modal -->
     <AdminAiAnalysisModal
       v-if="isAiModalOpen"
       :data="aiData"
       :initial-tab="aiModalInitialTab"
       analysis-mode="daily"
+      source-title="สรุปยอดปิดร้าน"
       @close="isAiModalOpen = false"
     />
   </div>
@@ -468,6 +468,18 @@ const aiData = computed(() => {
     orderCount: filteredOrders.value.length,
     topProducts: computedTopProducts.value,
     hourlyStats: hourlyStats.value.map(h => ({ hour: h.hour, count: h.count, revenue: h.revenue })),
+    dateRange: {
+      start: new Date(selectedDate.value).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }),
+      end: new Date(selectedDate.value).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+    },
+    categoryStats: activeCategorySegments.value.map(seg => {
+      // คำนวณยอดรวมของแต่ละหมวดหมู่จาก hourlyStats
+      const total = hourlyStats.value.reduce((sum, h) => {
+        const s = h.segments.find(s => s.categoryName === seg.categoryName)
+        return sum + (s ? s.revenue : 0)
+      }, 0)
+      return { categoryName: seg.categoryName, value: total }
+    }),
     // ข้อมูลเชิงลึกใหม่ตามที่ขอ
     salesByDayHour: sByH,
     productByDay: Object.entries(pByD).map(([name, days]) => ({ name, days })),
@@ -667,7 +679,7 @@ async function loadData() {
         .reverse().toArray(),
       db.categories.filter(c => !c.isDeleted).toArray(),
       db.products.filter(p => !p.isDeleted).toArray(),
-      getTopProducts(start, end, 10)
+      getTopProducts(start, end, 50)
     ])
 
     todayOrders.value = orders
