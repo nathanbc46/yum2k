@@ -221,6 +221,7 @@
 <script setup lang="ts">
 import { useSettings, type ReceiptSettings } from '~/composables/useSettings'
 import { useToast } from '~/composables/useToast'
+import { useConfirm } from '~/composables/useConfirm'
 import { usePrinter } from '~/composables/usePrinter'
 
 definePageMeta({ layout: 'admin' })
@@ -229,6 +230,7 @@ const { receiptSettings, isSaving, loadReceiptSettings, saveReceiptSettings } = 
 const masterSync = useMasterDataSync()
 const { fetchRemoteOrders, syncPendingOrders, isOnline } = useSync()
 const { checkRawBTStatus } = usePrinter()
+const { confirm } = useConfirm()
 const toast = useToast()
 
 const isRawBTConnected = ref(true)
@@ -275,11 +277,12 @@ async function handleSave() {
 const isForcePushing = ref(false)
 
 async function handleForcePush() {
-  const confirmed = window.confirm(
-    'แจ้งเตือน: นี่คือการส่งข้อมูลทั้งหมดในเครื่องขึ้น Cloud\n' +
-    'ข้อมูลบน Cloud จะถูกอัปเดตตามข้อมูลในเครื่องนี้\n' +
-    'ต้องการดำเนินการต่อหรือไม่?'
-  )
+  const confirmed = await confirm({
+    title: 'ยืนยันการส่งข้อมูลทั้งหมดขึ้น Cloud',
+    message: '⚠️ แจ้งเตือน: นี่คือการส่งข้อมูลทั้งหมดในเครื่องขึ้น Cloud\nข้อมูลบน Cloud จะถูกอัปเดตตามข้อมูลในเครื่องนี้\nต้องการดำเนินการต่อหรือไม่?',
+    confirmText: 'ยืนยันดำเนินการ',
+    type: 'warning'
+  })
   if (!confirmed) return
 
   isForcePushing.value = true

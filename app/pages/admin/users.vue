@@ -155,6 +155,7 @@
 import { useUsers } from '~/composables/useUsers'
 import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import { useToast } from '~/composables/useToast'
+import { useConfirm } from '~/composables/useConfirm'
 import type { User } from '~/types'
 import UserFormModal from '~/components/admin/UserFormModal.vue'
 
@@ -163,6 +164,7 @@ definePageMeta({ layout: 'admin' })
 const { isOnline, loadUsers, createUser, updateUser, deleteUser } = useUsers()
 const { lastPullTimestamp } = useMasterDataSync()
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const users = ref<User[]>([])
 const isLoading = ref(true)
@@ -232,7 +234,14 @@ async function handleDelete(user: User) {
     return
   }
   
-  if (confirm(`คุณแน่ใจหรือไม่ที่จะลบพนักงาน "${user.displayName}"?\n(บัญชีนี้จะถูกระงับและไม่สามารถล็อกอินได้อีก)`)) {
+  const confirmed = await confirm({
+    title: 'ยืนยันการระงับการใช้งาน',
+    message: `คุณแน่ใจหรือไม่ที่จะลบพนักงาน "${user.displayName}"?\n(บัญชีนี้จะถูกระงับและไม่สามารถล็อกอินได้อีก)`,
+    confirmText: 'ระงับการใช้งาน',
+    type: 'danger'
+  })
+
+  if (confirmed) {
     try {
       await deleteUser(user.id!)
       await fetchUsers()

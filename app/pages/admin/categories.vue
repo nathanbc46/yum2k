@@ -154,6 +154,7 @@ import { useCategories } from '~/composables/useCategories'
 import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import { useToast } from '~/composables/useToast'
 import { useSync } from '~/composables/useSync'
+import { useConfirm } from '~/composables/useConfirm'
 import type { Category } from '~/types'
 
 definePageMeta({ layout: 'admin' })
@@ -162,6 +163,7 @@ const { fetchAll, toggleCategoryActive, deleteCategory, reorderCategories } = us
 const { lastPullTimestamp } = useMasterDataSync()
 const { isOnline } = useSync()
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const categories = ref<Category[]>([])
 const isLoading = ref(true)
@@ -215,9 +217,12 @@ async function handleToggle(cat: Category) {
 
 async function handleDelete(cat: Category) {
   try {
-    const confirmed = window.confirm(
-      `ลบหมวดหมู่ "${cat.name}" ?\n(สินค้าในหมวดหมู่นี้จะยังคงอยู่ แต่หมวดหมู่จะถูกซ่อน)`
-    )
+    const confirmed = await confirm({
+      title: 'ยืนยันการลบหมวดหมู่',
+      message: `คุณแน่ใจหรือไม่ว่าต้องการลบหมวดหมู่ "${cat.name}"?\n(สินค้าในหมวดหมู่นี้จะยังคงอยู่ แต่หมวดหมู่จะถูกซ่อนออกจากระบบ)`,
+      confirmText: 'ลบหมวดหมู่',
+      type: 'danger'
+    })
     if (!confirmed) return
 
     if (!cat.id) {

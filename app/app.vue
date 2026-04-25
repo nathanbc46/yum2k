@@ -66,6 +66,9 @@
 
     <!-- Toast Layer -->
     <ToastProvider />
+    
+    <!-- Confirm Modal Layer -->
+    <ConfirmModal />
   </div>
 </template>
 
@@ -77,6 +80,7 @@ import { useToast } from '~/composables/useToast'
 import PosReceipt from '~/components/pos/PosReceipt.vue'
 import PwaInstallPrompt from '~/components/admin/PwaInstallPrompt.vue'
 import ToastProvider from '~/components/ui/ToastProvider.vue'
+import ConfirmModal from '~/components/ui/ConfirmModal.vue'
 
 const { 
   isOnline, isSyncing, pendingCount, pendingStockAuditCount,

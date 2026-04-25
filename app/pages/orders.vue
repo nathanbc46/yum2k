@@ -437,11 +437,13 @@ import { useInventory } from '~/composables/useInventory'
 import { useSync } from '~/composables/useSync'
 import { useToast } from '~/composables/useToast'
 import { usePrinter } from '~/composables/usePrinter'
+import { useConfirm } from '~/composables/useConfirm'
 
 const orders = ref<Order[]>([])
 const isLoading = ref(true)
 const { isOnline, isSyncing, syncPendingOrders, fetchRemoteOrders, pendingCount, pendingStockAuditCount, refreshPendingCount } = useSync()
 const toast = useToast()
+const { confirm } = useConfirm()
 const isFetchingRemote = ref(false)
 const isLoadingMore = ref(false)
 const hasMore = ref(true)
@@ -739,7 +741,12 @@ const handleFetchCloud = async () => {
 }
 
 const confirmCancelOrder = async (order: Order) => {
-  const confirmed = window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการยกเลิกคำสั่งซื้อ ${order.orderNumber}?\n(ระบบจะทำการคืนสต็อกสินค้าโดยอัตโนมัติ)`)
+  const confirmed = await confirm({
+    title: 'ยืนยันการยกเลิกออเดอร์',
+    message: `คุณแน่ใจหรือไม่ว่าต้องการยกเลิกคำสั่งซื้อ "${order.orderNumber}"?\n(ระบบจะทำการคืนสต็อกสินค้าให้โดยอัตโนมัติ)`,
+    confirmText: 'ยืนยันการยกเลิก',
+    type: 'danger'
+  })
   if (!confirmed) return
 
   try {

@@ -300,6 +300,7 @@ import { useProfitability } from '~/composables/useProfitability'
 import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
+import { useConfirm } from '~/composables/useConfirm'
 import { db } from '~/db'
 import type { Expense, ExpenseCategory } from '~/types'
 
@@ -310,6 +311,7 @@ definePageMeta({
 const { addExpense, updateExpense } = useProfitability()
 const authStore = useAuthStore()
 const toast = useToast()
+const { confirm } = useConfirm()
 const { lastPullTimestamp } = useMasterDataSync()
 
 // --- State ---
@@ -463,7 +465,13 @@ watch(showAddModal, (val) => {
 })
 
 async function handleDelete(expense: Expense) {
-  if (!confirm(`คุณต้องการลบรายการ "${expense.description}" ใช่หรือไม่?`)) return
+  const confirmed = await confirm({
+    title: 'ยืนยันการลบรายจ่าย',
+    message: `คุณแน่ใจหรือไม่ว่าต้องการลบรายการ "${expense.description}"?\n(ยอดเงิน ฿${expense.amount.toLocaleString()})`,
+    confirmText: 'ลบรายการ',
+    type: 'danger'
+  })
+  if (!confirmed) return
 
   try {
     await db.expenses.update(expense.id!, { 

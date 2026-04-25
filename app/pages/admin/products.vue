@@ -383,6 +383,7 @@ import { useCategories } from '~/composables/useCategories'
 import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import { useToast } from '~/composables/useToast'
 import { useProductExcel, type ImportPreviewItem } from '~/composables/useProductExcel'
+import { useConfirm } from '~/composables/useConfirm'
 import type { Product, Category, InventoryMappingType } from '~/types'
 
 definePageMeta({ layout: 'admin' })
@@ -393,6 +394,7 @@ const { lastPullTimestamp } = useMasterDataSync()
 const toast = useToast()
 const { isOnline } = useSync()
 const { exportProducts, prepareImportData, executeImport, downloadTemplate } = useProductExcel()
+const { confirm } = useConfirm()
 
 // --- State ---
 const products = ref<Product[]>([])
@@ -543,7 +545,12 @@ async function handleToggle(product: Product) {
 
 async function handleDelete(product: Product) {
   try {
-    const confirmed = window.confirm(`ลบสินค้า "${product.name}" ?\n(สินค้าจะถูกซ่อนออกจากระบบทั้งหมด)`)
+    const confirmed = await confirm({
+      title: 'ยืนยันการลบสินค้า',
+      message: `คุณแน่ใจหรือไม่ว่าต้องการลบ "${product.name}"?\n(สินค้าจะถูกย้ายไปอยู่ในถังขยะและซ่อนออกจากระบบ)`,
+      confirmText: 'ลบสินค้า',
+      type: 'danger'
+    })
     if (!confirmed) return
     
     if (!product.id) {
