@@ -292,6 +292,7 @@ import { useAuthStore } from '~/stores/auth'
 import type { CartItem } from '~/composables/useCart'
 import type { Product, AddonOption, Order } from '~/types'
 import { usePosStore } from '~/stores/pos'
+import { usePrinter } from '~/composables/usePrinter'
 import PosOrderSummaryModal from './PosOrderSummaryModal.vue'
 import PosAddonModal from './PosAddonModal.vue'
 import type { PaymentMethod } from '~/types'
@@ -299,6 +300,7 @@ import type { PaymentMethod } from '~/types'
 const router = useRouter()
 const authUser = useAuthStore()
 const posStore = usePosStore()
+const { printRawBT, printStandard } = usePrinter()
 
 // คำนวณจำนวนคิวในห้องเครื่องแบบ Real-time แยกสถานะ
 const cookingCount = ref(0)
@@ -415,9 +417,16 @@ async function handleConfirmOrder(paymentMethod: PaymentMethod, amountReceived: 
       isSummaryModalOpen.value = false
       posStore.setLastOrder(order)
       
-      setTimeout(() => {
-        window.print()
-      }, 300)
+      // พยายามพิมพ์ผ่าน RawBT (Silent Print)
+      // ถ้าสำเร็จจะไม่มีหน้าต่างเด้งขึ้นมา
+      const success = await printRawBT(order)
+      
+      // ถ้าพิมพ์ผ่าน RawBT ไม่สำเร็จ (เช่น ไม่ได้เปิดแอป) ให้ใช้ระบบพิมพ์มาตรฐานของ Browser
+      if (!success) {
+        setTimeout(() => {
+          printStandard()
+        }, 300)
+      }
     }
     
   } catch (error: any) {

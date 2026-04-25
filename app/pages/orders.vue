@@ -285,10 +285,12 @@
       </div>
     </main>
 
-    <!-- Payment Selection Modal -->
     <Transition name="fade">
       <div v-if="isPayModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm">
-        <div class="w-full max-w-md bg-surface-900 rounded-[2.5rem] border border-surface-800 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 duration-300">
+        <div 
+          class="bg-surface-900 rounded-[2.5rem] border border-surface-800 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 duration-300 transition-all"
+          :class="paymentMethodToUpdate === 'cash' ? 'w-full max-w-4xl' : 'w-full max-w-md'"
+        >
           
           <!-- Modal Header -->
           <div class="p-6 text-center border-b border-surface-800 bg-surface-950/30">
@@ -300,34 +302,105 @@
           </div>
 
           <!-- Modal Body -->
-          <div class="p-8 space-y-8">
-            <!-- Amount Display -->
-            <div class="text-center">
-              <div class="text-[10px] uppercase tracking-widest text-surface-600 font-bold mb-1">ยอดรวมที่ต้องชำระ</div>
-              <div class="text-4xl font-black text-primary-600">฿{{ selectedOrderToPay?.totalAmount.toLocaleString() }}</div>
-            </div>
+          <div class="p-8">
+            <div :class="paymentMethodToUpdate === 'cash' ? 'grid grid-cols-1 md:grid-cols-12 gap-8' : 'space-y-8'">
+              
+              <!-- Left Column: Amount & Selection -->
+              <div :class="paymentMethodToUpdate === 'cash' ? 'md:col-span-5 space-y-6' : 'space-y-8'">
+                <!-- Amount Display -->
+                <div class="text-center">
+                  <div class="text-[10px] uppercase tracking-widest text-surface-600 font-bold mb-1">ยอดรวมที่ต้องชำระ</div>
+                  <div class="text-4xl font-black text-primary-600">฿{{ selectedOrderToPay?.totalAmount.toLocaleString() }}</div>
+                </div>
 
-            <!-- Payment Methods Grid -->
-            <div class="space-y-4">
-              <label class="text-[10px] uppercase tracking-widest text-surface-600 font-bold ml-1">เลือกวิธีชำระเงิน</label>
-              <div class="grid grid-cols-2 gap-4">
-                <button 
-                  @click="paymentMethodToUpdate = 'cash'"
-                  class="flex flex-col items-center gap-3 p-5 rounded-3xl border-2 transition-all active:scale-95 group relative overflow-hidden"
-                  :class="paymentMethodToUpdate === 'cash' ? 'bg-primary-600/10 border-primary-500 shadow-md' : 'bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 opacity-60'"
-                >
-                  <span class="text-3xl transition-transform group-hover:scale-110">💵</span>
-                  <span class="font-bold whitespace-nowrap" :class="paymentMethodToUpdate === 'cash' ? 'text-primary-600' : 'text-surface-600'">เงินสด</span>
-                </button>
+                <!-- Payment Methods Grid -->
+                <div class="space-y-4">
+                  <label class="text-[10px] uppercase tracking-widest text-surface-600 font-bold ml-1">เลือกวิธีชำระเงิน</label>
+                  <div class="grid grid-cols-2 gap-4">
+                    <button 
+                      @click="paymentMethodToUpdate = 'cash'"
+                      class="flex flex-col items-center gap-3 p-5 rounded-3xl border-2 transition-all active:scale-95 group relative overflow-hidden"
+                      :class="paymentMethodToUpdate === 'cash' ? 'bg-primary-600/10 border-primary-500 shadow-md' : 'bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 opacity-60'"
+                    >
+                      <span class="text-3xl transition-transform group-hover:scale-110">💵</span>
+                      <span class="font-bold whitespace-nowrap" :class="paymentMethodToUpdate === 'cash' ? 'text-primary-600' : 'text-surface-600'">เงินสด</span>
+                    </button>
 
-                <button 
-                  @click="paymentMethodToUpdate = 'promptpay'"
-                  class="flex flex-col items-center gap-3 p-5 rounded-3xl border-2 transition-all active:scale-95 group relative overflow-hidden"
-                  :class="paymentMethodToUpdate === 'promptpay' ? 'bg-secondary-500/10 border-secondary-500 shadow-md' : 'bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 opacity-60'"
-                >
-                  <span class="text-3xl transition-transform group-hover:scale-110">📱</span>
-                  <span class="font-bold whitespace-nowrap" :class="paymentMethodToUpdate === 'promptpay' ? 'text-secondary-600' : 'text-surface-600'">พร้อมเพย์</span>
-                </button>
+                    <button 
+                      @click="paymentMethodToUpdate = 'promptpay'"
+                      class="flex flex-col items-center gap-3 p-5 rounded-3xl border-2 transition-all active:scale-95 group relative overflow-hidden"
+                      :class="paymentMethodToUpdate === 'promptpay' ? 'bg-secondary-500/10 border-secondary-500 shadow-md' : 'bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 opacity-60'"
+                    >
+                      <span class="text-3xl transition-transform group-hover:scale-110">📱</span>
+                      <span class="font-bold whitespace-nowrap" :class="paymentMethodToUpdate === 'promptpay' ? 'text-secondary-600' : 'text-surface-600'">พร้อมเพย์</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Column: Cash Calculator (Only for Cash) -->
+              <div v-if="paymentMethodToUpdate === 'cash'" class="md:col-span-7 space-y-6">
+                <div class="flex justify-between items-end">
+                  <h4 class="text-[10px] uppercase tracking-widest text-surface-600 font-bold ml-1">คำนวณเงินสด</h4>
+                  <div class="flex gap-2">
+                    <button @click="clearCash" class="px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl hover:bg-red-500/20 transition-colors text-[10px] font-bold">ล้าง</button>
+                    <button @click="undoCash" class="px-3 py-1 bg-surface-800 text-surface-400 border border-surface-700 rounded-xl hover:bg-surface-700 transition-colors text-[10px] font-bold">ย้อนกลับ</button>
+                  </div>
+                </div>
+
+                <!-- Input & Change Display -->
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="space-y-2">
+                    <span class="text-[10px] text-surface-500 font-bold uppercase tracking-widest">รับเงิน</span>
+                    <div class="relative">
+                      <span class="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500 font-bold text-xl pointer-events-none">฿</span>
+                      <input 
+                        v-model.number="amountReceived"
+                        type="number"
+                        class="w-full bg-surface-950 border-2 border-surface-800 rounded-2xl py-4 pl-10 pr-4 text-3xl font-black text-success focus:border-success outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="space-y-2">
+                    <span class="text-[10px] text-surface-500 font-bold uppercase tracking-widest">เงินทอน</span>
+                    <div class="bg-surface-950 border-2 border-dashed border-surface-800 rounded-2xl py-4 px-5 flex items-center justify-between">
+                      <span class="text-surface-500 font-bold text-xl">฿</span>
+                      <span class="text-3xl font-black" :class="changeAmount > 0 ? 'text-blue-400' : 'text-surface-700'">
+                        {{ changeAmount.toLocaleString() }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Denominations Grid -->
+                <div class="grid grid-cols-5 gap-3">
+                  <button 
+                    v-for="val in [1, 2, 5, 10, 20, 50, 100, 500, 1000]" 
+                    :key="val"
+                    @click="addCash(val)"
+                    class="py-3 rounded-2xl bg-surface-800 border border-surface-700 text-surface-200 font-bold hover:bg-surface-700 active:scale-95 transition-all flex flex-col items-center justify-center relative overflow-hidden"
+                  >
+                    <span class="text-[9px] text-surface-500 uppercase tracking-tighter leading-none mb-1">{{ val < 20 ? 'เหรียญ' : 'ธนบัตร' }}</span>
+                    <span class="text-lg leading-none">{{ val.toLocaleString() }}</span>
+                    
+                    <!-- จำนวนที่กด (แสดงใต้ปุ่ม) -->
+                    <div v-if="cashDenominationsMap[val.toString()]" class="mt-1 px-1.5 py-0.5 bg-primary-600/20 text-primary-400 text-[10px] font-black rounded-lg border border-primary-500/20">
+                      × {{ cashDenominationsMap[val.toString()] }}
+                    </div>
+                  </button>
+                  <button 
+                    @click="setExactAmount"
+                    class="py-3 rounded-2xl bg-primary-600/20 border border-primary-500/30 text-primary-400 font-bold text-lg hover:bg-primary-600/30 active:scale-95 transition-all flex items-center justify-center"
+                  >
+                    จ่ายพอดี
+                  </button>
+                </div>
+
+                <!-- Warning if not enough -->
+                <div v-if="amountReceived > 0 && amountReceived < (selectedOrderToPay?.totalAmount || 0)" class="text-center py-2 bg-red-500/10 rounded-2xl border border-red-500/20">
+                  <span class="text-xs text-red-400 font-bold animate-pulse italic">⚠️ ยอดเงินไม่พอ ขาดอีก ฿{{ ((selectedOrderToPay?.totalAmount || 0) - amountReceived).toLocaleString() }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -342,8 +415,8 @@
             </button>
             <button 
               @click="confirmPaymentUpdate"
-              :disabled="isProcessingPayment"
-              class="flex-[2] py-4 rounded-2xl bg-primary-600 text-white font-bold text-lg shadow-xl shadow-primary-900/30 hover:bg-primary-500 transition-all active:scale-95 flex items-center justify-center gap-2"
+              :disabled="isProcessingPayment || !isAmountEnough"
+              class="flex-[2] py-4 rounded-2xl bg-primary-600 text-white font-bold text-lg shadow-xl shadow-primary-900/30 hover:bg-primary-500 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed"
             >
               <span v-if="isProcessingPayment" class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
               <span v-else>ยืนยันรับเงิน</span>
@@ -363,6 +436,7 @@ import { usePosStore } from '~/stores/pos'
 import { useInventory } from '~/composables/useInventory'
 import { useSync } from '~/composables/useSync'
 import { useToast } from '~/composables/useToast'
+import { usePrinter } from '~/composables/usePrinter'
 
 const orders = ref<Order[]>([])
 const isLoading = ref(true)
@@ -387,12 +461,58 @@ const statusCounts = ref({
 
 const posStore = usePosStore()
 const { restoreStock } = useInventory()
+const { printRawBT, printStandard } = usePrinter()
 
 // State สำหรับ Modal ชำระเงิน
 const isPayModalOpen = ref(false)
 const selectedOrderToPay = ref<Order | null>(null)
 const paymentMethodToUpdate = ref<'cash' | 'promptpay'>('cash')
 const isProcessingPayment = ref(false)
+
+// ระบบคำนวณเงินสด
+const amountReceived = ref<number>(0)
+const cashHistory = ref<number[]>([])
+
+const cashDenominationsMap = computed(() => {
+  const map: Record<string, number> = {}
+  cashHistory.value.forEach(val => {
+    const key = val.toString()
+    map[key] = (map[key] || 0) + 1
+  })
+  return map
+})
+
+const changeAmount = computed(() => {
+  if (!selectedOrderToPay.value) return 0
+  return Math.max(0, amountReceived.value - selectedOrderToPay.value.totalAmount)
+})
+
+const isAmountEnough = computed(() => {
+  if (paymentMethodToUpdate.value !== 'cash') return true
+  if (!selectedOrderToPay.value) return false
+  return amountReceived.value >= selectedOrderToPay.value.totalAmount
+})
+
+const addCash = (val: number) => {
+  amountReceived.value += val
+  cashHistory.value.push(val)
+}
+
+const undoCash = () => {
+  const last = cashHistory.value.pop()
+  if (last) amountReceived.value = Math.max(0, amountReceived.value - last)
+}
+
+const clearCash = () => {
+  amountReceived.value = 0
+  cashHistory.value = []
+}
+
+const setExactAmount = () => {
+  if (!selectedOrderToPay.value) return
+  amountReceived.value = selectedOrderToPay.value.totalAmount
+  cashHistory.value = []
+}
 
 const loadOrders = async (reset = true) => {
   if (reset) {
@@ -500,6 +620,8 @@ watch(() => route.query.status, (newStatus) => {
 const payOrder = (order: Order) => {
   selectedOrderToPay.value = order
   paymentMethodToUpdate.value = 'cash'
+  amountReceived.value = 0
+  cashHistory.value = []
   isPayModalOpen.value = true
 }
 
@@ -517,8 +639,8 @@ const confirmPaymentUpdate = async () => {
     await db.orders.update(orderId!, {
       status: 'completed',
       paymentMethod: finalPaymentMethod,
-      amountReceived: amount,
-      changeAmount: 0,
+      amountReceived: amountReceived.value || amount,
+      changeAmount: changeAmount.value,
       syncStatus: 'pending',
       syncRetryCount: 0,
       updatedAt: new Date()
@@ -668,11 +790,18 @@ const formatDate = (date: Date | string) => {
   return `${dStr} ${tStr}`
 }
 
-const reprint = (order: Order) => {
+const reprint = async (order: Order) => {
   posStore.setLastOrder(order)
-  setTimeout(() => {
-    window.print()
-  }, 200) // รอให้ Receipt Render ก่อน
+  
+  // พยายามพิมพ์ผ่าน RawBT (Silent Print)
+  const success = await printRawBT(order)
+  
+  // ถ้าพิมพ์ผ่าน RawBT ไม่สำเร็จ ให้ใช้ระบบพิมพ์มาตรฐานของ Browser
+  if (!success) {
+    setTimeout(() => {
+      printStandard()
+    }, 200)
+  }
 }
 
 onMounted(() => {

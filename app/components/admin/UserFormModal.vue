@@ -96,15 +96,18 @@
                 <div class="text-sm font-semibold text-surface-100">สถานะการใช้งาน</div>
                 <div class="text-xs text-surface-500 mt-0.5">ระงับการเข้าสู่ระบบหากพนักงานลาออก</div>
               </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  v-model="form.isActive" 
-                  class="sr-only peer"
-                  :disabled="form.username === 'admin'"
-                >
-                <div class="w-11 h-6 bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success peer-disabled:opacity-50"></div>
-              </label>
+              <button
+                type="button"
+                @click="form.isActive = !form.isActive"
+                :disabled="form.username === 'admin'"
+                class="relative w-12 h-[26px] rounded-full transition-all duration-300 shrink-0 p-[3px] flex items-center disabled:opacity-50"
+                :class="form.isActive ? 'bg-primary-500' : 'bg-surface-700'"
+              >
+                <div
+                  class="w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-300"
+                  :class="form.isActive ? 'translate-x-[22px]' : 'translate-x-0'"
+                />
+              </button>
             </div>
 
           </div>

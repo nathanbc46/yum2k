@@ -8,6 +8,31 @@
 <template>
   <div class="flex-1 overflow-y-auto p-6">
     <div class="max-w-3xl mx-auto space-y-6">
+      
+      <!-- RawBT Status Alert -->
+      <div 
+        v-if="!isRawBTConnected"
+        class="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-4 animate-in slide-in-from-top duration-500"
+      >
+        <div class="w-10 h-10 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center shrink-0 text-xl">
+          ⚠️
+        </div>
+        <div class="flex-1">
+          <h3 class="text-sm font-bold text-red-400">ตรวจไม่พบแอป RawBT</h3>
+          <p class="text-xs text-surface-400 mt-1 leading-relaxed">
+            ระบบพิมพ์แบบไร้เสียง (Silent Printing) จะไม่ทำงานหากไม่ได้เปิดแอป RawBT ทิ้งไว้ 
+            กรุณาติดตั้งแอปหรือเปิดแอปในเครื่องนี้เพื่อใช้งาน หากยังไม่มีสามารถดาวน์โหลดได้ที่ 
+            <a href="https://rawbt.ru/en/windows.html" target="_blank" class="text-primary-400 underline decoration-primary-400/30">Windows</a> หรือ 
+            <a href="https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter" target="_blank" class="text-primary-400 underline decoration-primary-400/30">Android (Play Store)</a>
+          </p>
+          <button 
+            @click="checkPrinterStatus"
+            class="mt-3 text-[10px] font-black uppercase tracking-widest bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/30 hover:bg-red-500/30 transition-all"
+          >
+            🔄 ตรวจสอบการเชื่อมต่ออีกครั้ง
+          </button>
+        </div>
+      </div>
 
       <!-- Page Header -->
       <div>
@@ -101,12 +126,12 @@
                   <button
                     type="button"
                     @click="(form as any)[toggle.key] = !(form as any)[toggle.key]"
-                    class="relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0"
-                    :class="(form as any)[toggle.key] ? 'bg-primary-600' : 'bg-surface-700'"
+                    class="relative w-12 h-[26px] rounded-full transition-all duration-300 shrink-0 p-[3px] flex items-center"
+                    :class="(form as any)[toggle.key] ? 'bg-primary-500' : 'bg-surface-700'"
                   >
-                    <span
-                      class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                      :class="(form as any)[toggle.key] ? 'translate-x-5' : 'translate-x-0.5'"
+                    <div
+                      class="w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-300"
+                      :class="(form as any)[toggle.key] ? 'translate-x-[22px]' : 'translate-x-0'"
                     />
                   </button>
                 </div>
@@ -196,13 +221,17 @@
 <script setup lang="ts">
 import { useSettings, type ReceiptSettings } from '~/composables/useSettings'
 import { useToast } from '~/composables/useToast'
+import { usePrinter } from '~/composables/usePrinter'
 
 definePageMeta({ layout: 'admin' })
 
 const { receiptSettings, isSaving, loadReceiptSettings, saveReceiptSettings } = useSettings()
 const masterSync = useMasterDataSync()
 const { fetchRemoteOrders, syncPendingOrders, isOnline } = useSync()
+const { checkRawBTStatus } = usePrinter()
 const toast = useToast()
+
+const isRawBTConnected = ref(true)
 
 // ใช้ reactive copy เพื่อแก้ไขก่อนบันทึก
 const form = reactive<ReceiptSettings>({
@@ -221,7 +250,12 @@ const form = reactive<ReceiptSettings>({
 onMounted(async () => {
   await loadReceiptSettings()
   Object.assign(form, receiptSettings.value)
+  await checkPrinterStatus()
 })
+
+async function checkPrinterStatus() {
+  isRawBTConnected.value = await checkRawBTStatus()
+}
 
 const toggleOptions = [
   { key: 'showOrderNumber', label: 'แสดงเลขที่บิล', desc: 'แสดงเลขที่บิลบนใบเสร็จ' },

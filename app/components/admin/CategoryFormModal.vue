@@ -111,12 +111,12 @@
               <button
                 type="button"
                 @click="form.isActive = !form.isActive"
-                class="relative w-11 h-6 rounded-full transition-colors duration-200"
-                :class="form.isActive ? 'bg-primary-600' : 'bg-surface-700'"
+                class="relative w-12 h-[26px] rounded-full transition-all duration-300 shrink-0 p-[3px] flex items-center"
+                :class="form.isActive ? 'bg-primary-500' : 'bg-surface-700'"
               >
-                <span
-                  class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                  :class="form.isActive ? 'translate-x-5' : 'translate-x-0.5'"
+                <div
+                  class="w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-300"
+                  :class="form.isActive ? 'translate-x-[22px]' : 'translate-x-0'"
                 />
               </button>
             </div>

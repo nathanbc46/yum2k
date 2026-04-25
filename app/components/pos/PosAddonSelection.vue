@@ -168,8 +168,12 @@
             >
               <button 
                 @click="handleClear"
+                :disabled="hasRequiredGroups"
                 :class="[
-                  'bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 font-bold transition-all active:scale-95',
+                  'transition-all active:scale-95 font-bold',
+                  hasRequiredGroups 
+                    ? 'bg-surface-800 text-surface-500 cursor-not-allowed border border-surface-700' 
+                    : 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20',
                   isInline ? 'px-5 py-3 rounded-2xl text-base' : 'flex-1 md:flex-none px-6 md:px-8 py-4 md:py-4 rounded-2xl md:rounded-3xl text-base md:text-lg'
                 ]"
               >
@@ -288,8 +292,14 @@ function isSelected(groupId: string, optId: string): boolean {
   return selectedItem.value.addons.some(a => a.id === optId)
 }
 
+// ตรวจสอบว่าสินค้ามีกลุ่มที่บังคับเลือกหรือไม่
+const hasRequiredGroups = computed(() => {
+  if (!selectedItem.value) return false
+  return selectedItem.value.product.addonGroups?.some(g => g.isRequired) ?? false
+})
+
 async function handleClear() {
-  if (posStore.selectedCartItemIndex === null || !selectedItem.value) return
+  if (posStore.selectedCartItemIndex === null || !selectedItem.value || hasRequiredGroups.value) return
   
   const product = selectedItem.value.product
   const oldKey = getAddonKey(selectedItem.value)
