@@ -21,8 +21,11 @@ export interface ReceiptSettings {
   showStaffName: boolean     // แสดงชื่อพนักงาน
   showTaxInfo: boolean       // แสดงข้อมูลภาษี (VAT)
   geminiApiKey?: string     // Google Gemini API Key สำหรับ AI Analysis
+  geminiModel?: string      // รุ่นโมเดล Gemini (Default: models/gemini-3.1-flash-lite-preview)
   groqApiKey?: string       // Groq API Key (Llama 3) สำหรับเป็นตัวสำรอง (Fallback)
+  groqModel?: string        // รุ่นโมเดล Groq (Default: llama-3.3-70b-versatile)
   openRouterApiKey?: string // OpenRouter API Key (ศูนย์รวม AI ฟรี) สำหรับความยั่งยืน
+  openRouterModels?: string // รุ่นโมเดล OpenRouter (คั่นด้วยคอมมา)
 }
 
 // ---------------------------------------------------------------------------
@@ -40,8 +43,11 @@ export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
   showStaffName: true,
   showTaxInfo: false,
   geminiApiKey: '',
+  geminiModel: 'models/gemini-3.1-flash-lite-preview',
   groqApiKey: '',
+  groqModel: 'llama-3.3-70b-versatile',
   openRouterApiKey: '',
+  openRouterModels: 'inclusionai/ling-2.6-1t:free,z-ai/glm-4.5-air:free,openai/gpt-oss-120b:free',
 }
 
 const RECEIPT_SETTINGS_KEY = 'receipt_settings'

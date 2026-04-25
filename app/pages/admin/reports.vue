@@ -80,15 +80,15 @@
             <div class="text-2xl font-black text-red-400">฿{{ summary.totalExpenses?.toLocaleString() || 0 }}</div>
             <div class="text-[10px] text-surface-600 mt-2">หักเงินสดหน้างาน</div>
           </div>
+          <div class="bg-surface-900 p-5 rounded-2xl border border-primary-500/30 bg-primary-500/5">
+            <div class="text-[10px] uppercase tracking-widest text-primary-400 mb-1">กำไรสุทธิ (รายเดือน)</div>
+            <div class="text-2xl font-black text-primary-400">฿{{ (summary.revenue - (summary.totalExpenses || 0)).toLocaleString() }}</div>
+            <div class="text-[10px] text-surface-600 mt-2">ยอดขาย - รายจ่ายรวม</div>
+          </div>
           <div class="bg-surface-900 p-5 rounded-2xl border border-surface-800">
             <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">กำไรสินค้า (GP)</div>
-            <div class="text-2xl font-black text-primary-400">฿{{ summary.profit.toLocaleString() }}</div>
-            <div class="text-[10px] text-surface-600 mt-2">หักต้นทุนสินค้าประเมิน</div>
-          </div>
-          <div class="bg-surface-900 p-5 rounded-2xl border border-surface-800 border-cyan-500/30 bg-cyan-500/5">
-            <div class="text-[10px] uppercase tracking-widest text-cyan-500 mb-1">กำไรตามรายจ่าย (Cash Flow)</div>
-            <div class="text-2xl font-black text-cyan-400">฿{{ (summary.revenue - (summary.totalExpenses || 0)).toLocaleString() }}</div>
-            <div class="text-[10px] text-cyan-600 mt-2">ยอดขาย - รายจ่ายจริง</div>
+            <div class="text-2xl font-black text-surface-50">฿{{ summary.profit.toLocaleString() }}</div>
+            <div class="text-[10px] text-surface-600 mt-2">ยอดขาย - ต้นทุนสินค้า</div>
           </div>
         </div>
         <!-- Charts -->
@@ -325,6 +325,7 @@
       v-if="isAiModalOpen"
       :data="aiData"
       :initial-tab="aiModalInitialTab"
+      analysis-mode="monthly"
       @close="isAiModalOpen = false"
     />
   </div>

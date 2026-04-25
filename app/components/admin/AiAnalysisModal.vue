@@ -21,19 +21,25 @@
         >
           
           <!-- Animated AI Header -->
-          <div class="p-6 border-b relative overflow-hidden shrink-0"
+          <div class="border-b relative overflow-hidden shrink-0 transition-all duration-500"
+            :class="[isHeaderHidden ? 'py-2 px-6 bg-surface-950/50' : 'p-6']"
             :style="{ borderColor: isDark ? '#1f2937' : '#f1f5f9' }"
           >
-            <!-- Background Glow -->
-            <div class="absolute -top-24 -right-24 w-64 h-64 bg-primary-500/20 rounded-full blur-[100px]" />
-            <div class="absolute -bottom-24 -left-24 w-64 h-64 bg-cyan-500/20 rounded-full blur-[100px]" />
+            <!-- Background Glow (Only show when not hidden) -->
+            <div v-if="!isHeaderHidden" class="absolute -top-24 -right-24 w-64 h-64 bg-primary-500/20 rounded-full blur-[100px]" />
+            <div v-if="!isHeaderHidden" class="absolute -bottom-24 -left-24 w-64 h-64 bg-cyan-500/20 rounded-full blur-[100px]" />
 
             <div class="relative flex items-center justify-between">
-              <div class="flex items-center gap-4">
-                <div class="w-12 h-12 bg-gradient-to-br from-primary-500 to-cyan-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-primary-500/20">
-                  <span class="text-2xl">🤖</span>
+              <div class="flex items-center" :class="[isHeaderHidden ? 'gap-2' : 'gap-4']">
+                <div 
+                  :class="[
+                    'bg-gradient-to-br from-primary-500 to-cyan-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-primary-500/20 transition-all duration-500',
+                    isHeaderHidden ? 'w-8 h-8' : 'w-12 h-12'
+                  ]"
+                >
+                  <span :class="isHeaderHidden ? 'text-lg' : 'text-2xl'">🤖</span>
                 </div>
-                <div>
+                <div v-if="!isHeaderHidden" class="animate-in fade-in slide-in-from-left-4 duration-500">
                   <h2 class="text-xl font-black flex items-center gap-2" :style="{ color: isDark ? '#f8fafc' : '#0f172a' }">
                     AI Smart Insight
                     <span v-if="currentProvider" class="px-2 py-0.5 rounded text-[8px] font-black tracking-tighter uppercase border"
@@ -44,14 +50,31 @@
                   </h2>
                   <p class="text-xs" :style="{ color: isDark ? '#94a3b8' : '#64748b' }">ข้อมูลอ้างอิงตามฟิลเตอร์ที่คุณเลือกไว้</p>
                 </div>
+                <div v-else class="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                  <span class="text-xs font-black uppercase tracking-widest text-primary-400">AI Analysis</span>
+                  <span v-if="currentProvider" class="px-1.5 py-0.5 rounded text-[7px] font-black tracking-tighter uppercase border opacity-70"
+                    :style="providerBadgeStyle"
+                  >
+                    {{ currentProvider }}
+                  </span>
+                </div>
               </div>
               <div class="flex items-center gap-2">
                 <button 
                   @click="showRawPrompt = !showRawPrompt"
+                  v-show="!isHeaderHidden"
                   class="w-10 h-10 rounded-xl bg-surface-800 hover:bg-surface-700 text-surface-400 transition-colors flex items-center justify-center"
                   title="ดูข้อมูลที่ส่งให้ AI"
                 >
                   📄
+                </button>
+                <button 
+                  @click="isHeaderHidden = !isHeaderHidden"
+                  class="w-10 h-10 rounded-xl bg-surface-800 hover:bg-surface-700 text-surface-400 transition-colors flex items-center justify-center"
+                  :title="isHeaderHidden ? 'แสดงส่วนหัว' : 'ซ่อนส่วนหัวเพื่อเพิ่มพื้นที่'"
+                >
+                  <ChevronDown v-if="isHeaderHidden" class="w-4 h-4" />
+                  <ChevronUp v-else class="w-4 h-4" />
                 </button>
                 <button 
                   @click="isFullscreen = !isFullscreen"
@@ -131,36 +154,36 @@
                     บทสรุปอัจฉริยะ
                   </div>
                   <!-- Business Health Badge -->
-                  <div v-if="executiveSummary && !isThinking" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black border transition-all shadow-sm"
+                  <div v-if="executiveSummary && !isAnalyzing" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black border transition-all shadow-sm"
                     :style="healthBadgeStyle"
                   >
                     <span>{{ healthBadgeLabel }}</span>
                   </div>
                 </div>
                 <!-- บังคับสีพื้นหลังและตัวอักษรด้วยรหัสสีที่แน่นอน -->
-                <div v-if="executiveSummary || isThinking" class="p-6 rounded-3xl border shadow-inner transition-all duration-500"
+                <div v-if="executiveSummary || isAnalyzing" class="p-6 rounded-3xl border shadow-inner transition-all duration-500"
                   :style="{ 
                     backgroundColor: isDark ? '#1f2937' : '#f8fafc', 
                     borderColor: isDark ? '#374151' : '#f1f5f9' 
                   }"
                 >
                   <!-- Loading State Inside Box -->
-                  <div v-if="isThinking" class="flex flex-col items-center justify-center py-8 gap-4">
+                  <div v-if="isAnalyzing" class="flex flex-col items-center justify-center py-8 gap-4">
                     <div class="w-10 h-10 border-4 border-primary-500/20 border-t-primary-500 rounded-full animate-spin"></div>
                     <div class="text-center">
-                      <p class="text-sm font-bold text-primary-500 animate-pulse">{{ thinkingMessage }}</p>
-                      <p v-if="activeModelName" class="text-[8px] text-surface-500 mt-1 font-mono uppercase tracking-wider">
+                      <p class="text-sm font-bold text-primary-500 animate-pulse">{{ analysisMessage }}</p>
+                      <p v-if="activeModelName && !isChatting" class="text-[8px] text-surface-500 mt-1 font-mono uppercase tracking-wider">
                         Using: {{ activeModelName }}
                       </p>
                     </div>
                   </div>
 
-                  <p v-else-if="executiveSummary" class="leading-relaxed text-base font-medium" :style="{ color: isDark ? '#ffffff' : '#000000' }">
+                  <p v-if="executiveSummary" class="leading-relaxed text-base font-medium" :style="{ color: isDark ? '#ffffff' : '#000000' }">
                     {{ executiveSummary }}
                   </p>
 
                   <!-- TTS Button for Summary -->
-                  <div v-if="executiveSummary && !isThinking" class="mt-4 flex justify-end">
+                  <div v-if="executiveSummary && !isAnalyzing" class="mt-4 flex justify-end">
                     <button 
                       @click="toggleSpeak(executiveSummary)"
                       class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-500/10 hover:bg-primary-500/20 text-primary-500 transition-all text-[10px] font-black"
@@ -171,23 +194,55 @@
                   </div>
                 </div>
 
-                <!-- Empty State: Show Start Analysis Button -->
-                <div v-else class="flex-1 flex flex-col items-center justify-center py-20 px-6 text-center space-y-6 animate-in fade-in zoom-in duration-500">
-                  <div class="w-20 h-20 bg-primary-600/10 rounded-full flex items-center justify-center text-4xl">🤖</div>
-                  <div>
-                    <h3 class="text-lg font-black" :style="{ color: isDark ? '#ffffff' : '#0f172a' }">ยังไม่ได้เริ่มวิเคราะห์ข้อมูล</h3>
-                    <p class="text-sm text-surface-500 max-w-xs mx-auto">คลิกปุ่มด้านล่างเพื่อให้ AI รวบรวมข้อมูลและวิเคราะห์แนวโน้มธุรกิจให้คุณค่ะ</p>
+                <!-- Empty State (Show when no data and not loading) -->
+                <div v-if="!executiveSummary && !isAnalyzing" 
+                  class="flex-1 flex flex-col items-center justify-center py-16 px-6 text-center space-y-6 animate-in fade-in zoom-in duration-700"
+                >
+                  <div class="w-24 h-24 bg-primary-500/10 rounded-full flex items-center justify-center text-5xl animate-bounce duration-[3000ms]">🤖</div>
+                  <div class="space-y-2">
+                    <h3 class="text-xl font-black" :style="{ color: isDark ? '#ffffff' : '#0f172a' }">พร้อมวิเคราะห์ข้อมูลให้แล้วค่ะ!</h3>
+                    <p class="text-sm text-surface-500 max-w-xs mx-auto">คลิกปุ่มด้านล่างเพื่อให้ AI ช่วยสรุปภาพรวมร้านยำของคุณจากข้อมูลจริงนะคะ</p>
                   </div>
                   <button @click="runAnalysis"
-                    class="px-8 py-4 bg-gradient-to-r from-primary-600 to-cyan-600 text-white rounded-2xl font-black shadow-lg shadow-primary-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                    class="px-10 py-5 bg-gradient-to-r from-primary-600 to-cyan-600 text-white rounded-2xl font-black shadow-xl shadow-primary-500/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"
                   >
-                    <span>🚀 เริ่มการวิเคราะห์เดี๋ยวนี้</span>
+                    <span class="text-xl">🚀</span>
+                    <span>เริ่มสรุปภาพรวมอัจฉริยะ</span>
                   </button>
+                </div>
+
+
+
+                <!-- AI Chart Section (If provided by AI) -->
+                <div v-if="chartData && !isAnalyzing" class="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                  <div class="flex items-center gap-2 text-[10px] font-black text-cyan-500 uppercase tracking-widest">
+                    <span class="w-2 h-2 rounded-full bg-cyan-500" />
+                    การวิเคราะห์เชิงกราฟ
+                  </div>
+                  <div class="p-6 rounded-3xl border shadow-sm transition-all overflow-hidden"
+                    :style="{ 
+                      backgroundColor: isDark ? '#1f2937' : '#ffffff', 
+                      borderColor: isDark ? '#374151' : '#f1f5f9' 
+                    }"
+                  >
+                    <ClientOnly>
+                      <apexchart 
+                        v-if="chartData"
+                        :type="chartData.type || 'bar'" 
+                        :options="getChartOptions(chartData)" 
+                        :series="getChartSeries(chartData)" 
+                        height="300"
+                      />
+                    </ClientOnly>
+                    <div class="text-center mt-2">
+                      <p class="text-[10px] font-bold" :style="{ color: isDark ? '#94a3b8' : '#64748b' }">{{ chartData.title }}</p>
+                    </div>
+                  </div>
                 </div>
               </section>
 
               <!-- Highlights Grid -->
-              <section v-if="insights.length > 0 && !isThinking" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <section v-if="insights.length > 0 && !isAnalyzing" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div v-for="insight in insights" :key="insight.title" 
                   class="p-5 rounded-2xl border flex flex-col gap-3 transition-all shadow-sm"
                   :style="{ 
@@ -247,6 +302,24 @@
                     <div v-if="msg.role === 'assistant'" v-html="formatMarkdown(msg.content)"></div>
                     <div v-else>{{ msg.content }}</div>
 
+                    <!-- Chart inside Chat -->
+                    <div v-if="msg.chart" class="mt-4 p-4 rounded-xl border overflow-hidden"
+                      :style="{ 
+                        backgroundColor: isDark ? '#111827' : '#ffffff', 
+                        borderColor: isDark ? '#374151' : '#f1f5f9' 
+                      }"
+                    >
+                      <ClientOnly>
+                        <apexchart 
+                          :type="msg.chart.type || 'bar'" 
+                          :options="getChartOptions(msg.chart)" 
+                          :series="getChartSeries(msg.chart)" 
+                          height="250"
+                        />
+                      </ClientOnly>
+                      <p class="text-center text-[10px] font-bold mt-2" :style="{ color: isDark ? '#94a3b8' : '#64748b' }">{{ msg.chart.title }}</p>
+                    </div>
+
                     <!-- Speaker Icon for AI Response -->
                     <div v-if="msg.role === 'assistant'" class="mt-2 flex justify-end border-t border-surface-700/30 pt-1">
                       <button 
@@ -262,7 +335,7 @@
                 </div>
 
                 <!-- AI Thinking Bubble (Gemini Style) -->
-                <div v-if="isThinking" class="flex justify-start animate-in fade-in slide-in-from-left-2 duration-300">
+                <div v-if="isChatting" class="flex justify-start animate-in fade-in slide-in-from-left-2 duration-300">
                   <div class="p-4 rounded-2xl rounded-tl-none border shadow-sm flex items-center gap-2"
                     :style="{ 
                       backgroundColor: isDark ? '#1f2937' : '#f8fafc', 
@@ -290,7 +363,7 @@
                   v-for="q in quickQuestions" 
                   :key="q"
                   @click="askQuickQuestion(q)"
-                  :disabled="isThinking"
+                  :disabled="isChatting"
                   class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 border border-surface-700 rounded-full text-[10px] font-bold text-surface-300 transition-all hover:border-primary-500/50 disabled:opacity-50"
                 >
                   {{ q }}
@@ -306,14 +379,14 @@
                     type="text" 
                     placeholder="พิมพ์ข้อความถาม AI..." 
                     class="flex-1 bg-transparent border-none outline-none text-surface-50 px-3 text-sm"
-                    :disabled="isThinking"
+                    :disabled="isChatting"
                   />
                   <button 
                     @click="sendMessage"
-                    :disabled="isThinking || !userInput.trim()"
+                    :disabled="isChatting || !userInput.trim()"
                     class="w-10 h-10 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:hover:bg-primary-600 rounded-xl flex items-center justify-center text-white transition-all shadow-lg shadow-primary-900/20"
                   >
-                    <span v-if="isThinking">⏳</span>
+                    <span v-if="isChatting">⏳</span>
                     <span v-else>✈️</span>
                   </button>
                 </div>
@@ -335,7 +408,7 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, computed, onMounted } from 'vue'
-import { Maximize2, Minimize2 } from 'lucide-vue-next'
+import { Maximize2, Minimize2, ChevronUp, ChevronDown } from 'lucide-vue-next'
 import { useSettings } from '~/composables/useSettings'
 import { useToast } from '~/composables/useToast'
 import { useTheme } from '~/composables/useTheme'
@@ -357,8 +430,10 @@ const props = withDefaults(defineProps<{
     velocity?: any       // ความถี่การขาย (Velocity)
   }
   initialTab?: 'insight' | 'chat'
+  analysisMode?: 'daily' | 'monthly'
 }>(), {
-  initialTab: 'insight'
+  initialTab: 'insight',
+  analysisMode: 'daily'
 })
 
 const emit = defineEmits(['close'])
@@ -368,19 +443,23 @@ const toast = useToast()
 const { isDark } = useTheme()
 
 const activeTab = ref<'insight' | 'chat'>(props.initialTab || 'insight')
-const isThinking = ref(true)
+const isAnalyzing = ref(false)
+const isChatting = ref(false)
 const isFullscreen = ref(false)
 const currentProvider = ref<'Gemini' | 'OpenRouter' | 'Groq' | 'Offline' | ''>('')
 const activeModelName = ref('')
-const thinkingMessage = ref('กำลังรวบรวมข้อมูล...')
+const analysisMessage = ref('กำลังรวบรวมข้อมูล...')
+const chatThinkingMessage = ref('AI กำลังคิดคำตอบ...')
 const score = ref(0)
 const executiveSummary = ref('')
 const insights = ref<any[]>([])
 const isRealAi = ref(false)
 const speakingText = ref('')
 let speechUtterance: SpeechSynthesisUtterance | null = null
+const isHeaderHidden = ref(false)
 
-const chatHistory = ref<{ role: 'user' | 'assistant', content: string }[]>([])
+const chartData = ref<any>(null)
+const chatHistory = ref<{ role: 'user' | 'assistant', content: string, chart?: any }[]>([])
 const userInput = ref('')
 const chatContainer = ref<HTMLElement | null>(null)
 const showRawPrompt = ref(false)
@@ -394,8 +473,8 @@ async function fetchWeather() {
   if (weatherData.value) return 
 
   try {
-    let lat = 13.7563 // Default: Bangkok
-    let lon = 100.5018
+    let lat = 13.6737 // Default: แยกบางนา
+    let lon = 100.6062
 
     // ลองขอตำแหน่งจาก Browser
     if (navigator.geolocation) {
@@ -423,25 +502,72 @@ async function fetchWeather() {
   }
 }
 
+/** ฟังก์ชันสำหรับสร้าง Options ของกราฟ */
+function getChartOptions(data: any) {
+  const isDarkVal = isDark.value
+  return {
+    chart: {
+      toolbar: { show: false },
+      fontFamily: 'Inter, sans-serif',
+      foreColor: isDarkVal ? '#94a3b8' : '#64748b',
+      background: 'transparent'
+    },
+    title: {
+      show: false
+    },
+    labels: data.labels || [],
+    xaxis: {
+      categories: data.labels || [],
+    },
+    theme: {
+      mode: isDarkVal ? 'dark' : 'light',
+      palette: 'palette1'
+    },
+    colors: ['#8b5cf6', '#06b6d4', '#f97316', '#10b981', '#f43f5e', '#eab308'],
+    stroke: { width: 2, curve: 'smooth' },
+    dataLabels: { enabled: data.type === 'pie' },
+    legend: { position: 'bottom' },
+    tooltip: { theme: isDarkVal ? 'dark' : 'light' }
+  }
+}
+
+function getChartSeries(data: any) {
+  if (data.type === 'pie' || data.type === 'donut') {
+    return data.series || []
+  }
+  return [{
+    name: data.title || 'ข้อมูล',
+    data: data.series || []
+  }]
+}
+
 /** ฟังก์ชันล้างข้อมูล JSON ให้สะอาดก่อนใช้งาน */
 function safeJsonParse(content: string) {
   if (!content) return null
+  
+  // 1. ลอง Parse ตรงๆ ก่อน (เผื่อ AI ตอบมาเป็น JSON เพียวๆ)
   try {
-    // ลบ Markdown code blocks ออก
     const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim()
     return JSON.parse(cleaned)
   } catch (e) {
-    console.warn('[AI] JSON Parse failed, trying to extract JSON with regex...')
-    // ลองใช้ Regex ค้นหา { ... } กรณี AI มีข้อความอื่นปนมา
-    const match = content.match(/\{[\s\S]*\}/)
-    if (match) {
+    // 2. ถ้าล้มเหลว ให้ใช้ Regex ค้นหา { ... } (กรณี AI มีข้อความอื่นปนมา)
+    const jsonMatch = content.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) return null
+    
+    try {
+      // ลบอักขระควบคุม (Control Characters) ที่อาจทำให้ JSON พัง
+      const cleaned = jsonMatch[0].replace(/[\u0000-\u001F\u007F-\u009F]/g, "")
+      return JSON.parse(cleaned)
+    } catch (e2) {
+      console.warn('[AI] JSON Parse failed, trying aggressive cleaning...')
       try {
-        return JSON.parse(match[0])
-      } catch (e2) {
-        console.error('[AI] Regex JSON extract failed:', e2)
+        // แก้ไขข้อผิดพลาดพื้นฐาน เช่น comma เกิน หรือวงเล็บปิดไม่ครบ
+        let aggressive = jsonMatch[0].replace(/,\s*([\]}])/g, '$1')
+        return JSON.parse(aggressive)
+      } catch (e3) {
+        return null
       }
     }
-    return null
   }
 }
 
@@ -517,21 +643,23 @@ function copyCleanPrompt() {
 }
 
 async function askQuickQuestion(q: string) {
+  if (isChatting.value) return
   userInput.value = q
   await sendMessage()
 }
 
 async function runAnalysis() {
+  if (isAnalyzing.value) return
   // เตรียม Prompt ไว้เพื่อให้กดดูได้ทันที
   lastPrompt.value = generatePrompt()
 
   // หากเปิดมาหน้าแชทโดยตรง ไม่ต้องรัน Analysis (เว้นแต่จะกดปุ่มวิเคราะห์เองภายหลัง)
   if (activeTab.value === 'chat' && !executiveSummary.value) {
-    isThinking.value = false
+    isAnalyzing.value = false
     return
   }
 
-  isThinking.value = true
+  isAnalyzing.value = true
   isRealAi.value = false
   showRawPrompt.value = false
   
@@ -545,7 +673,7 @@ async function runAnalysis() {
 
   let step = 0
   const interval = setInterval(() => {
-    thinkingMessage.value = thinkingMessages[step % thinkingMessages.length] || 'กำลังประมวลผล...'
+    analysisMessage.value = thinkingMessages[step % thinkingMessages.length] || 'กำลังประมวลผล...'
     step++
   }, 800)
 
@@ -553,7 +681,7 @@ async function runAnalysis() {
     // 1. ลองใช้ Gemini ก่อน (ตัวหลัก)
     if (geminiKey?.startsWith('AI')) {
       try {
-        activeModelName.value = 'Gemini 1.5 Flash'
+        activeModelName.value = 'Gemini 3.1 Flash Lite'
         console.log('%c[AI] %cTrying Gemini...', 'color: #4285f4; font-weight: bold', 'color: #888')
         await analyzeWithGemini(geminiKey)
         isRealAi.value = true
@@ -566,7 +694,7 @@ async function runAnalysis() {
     // 2. ลองใช้ OpenRouter (ศูนย์รวม AI ฟรี)
     if (orKey) {
       try {
-        thinkingMessage.value = 'Gemini เต็ม... กำลังใช้ OpenRouter (Free AI Hub) ประมวลผลเชิงลึก...'
+        analysisMessage.value = 'Gemini เต็ม... กำลังใช้ OpenRouter (Free AI Hub) ประมวลผลเชิงลึก...'
         await analyzeWithOpenRouter(orKey)
         isRealAi.value = true
         return
@@ -579,7 +707,7 @@ async function runAnalysis() {
     if (groqKey?.startsWith('gsk_')) {
       try {
         activeModelName.value = 'Groq (Llama 3.3)'
-        thinkingMessage.value = 'กำลังใช้ Groq สำรองความเร็วสูง...'
+        analysisMessage.value = 'กำลังใช้ Groq สำรองความเร็วสูง...'
         console.log('%c[AI] %cSwitching to Groq fallback...', 'color: #10b981; font-weight: bold', 'color: #888')
         await analyzeWithGroq(groqKey)
         isRealAi.value = true
@@ -598,7 +726,7 @@ async function runAnalysis() {
     await analyzeWithHeuristics()
   } finally {
     clearInterval(interval)
-    isThinking.value = false
+    isAnalyzing.value = false
   }
 }
 
@@ -610,34 +738,69 @@ async function getAvailableModel(apiKey: string): Promise<string> {
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
     const res = await fetch(url)
-    if (!res.ok) return 'models/gemini-1.5-flash'
+    if (!res.ok) {
+      console.warn('[AI] Failed to fetch models list, defaulting to gemini-3.1-flash-lite-preview')
+      return 'models/gemini-3.1-flash-lite-preview'
+    }
     const data = await res.json()
     const models = data.models || []
-    const flashModel = models.find((m: any) => m.name.toLowerCase().includes('flash'))
-    const proModel = models.find((m: any) => m.name.toLowerCase().includes('pro'))
-    const found = flashModel ? flashModel.name : (proModel ? proModel.name : 'models/gemini-1.5-flash')
+    console.log('[AI] Available Gemini Models:', models.map((m: any) => m.name))
+    
+    // ลำดับความสำคัญ: 3.1 Flash > 3.0 Flash > 2.5 Flash > 2.0 Flash Lite > 1.5 Flash
+    const flash31 = models.find((m: any) => m.name.includes('gemini-3.1-flash-lite-preview')) || models.find((m: any) => m.name.includes('gemini-3.1-flash'))
+    const flash30 = models.find((m: any) => m.name.includes('gemini-3-flash'))
+    const flash25 = models.find((m: any) => m.name.includes('gemini-2.5-flash'))
+    const flash20Lite = models.find((m: any) => m.name.includes('gemini-2.0-flash-lite'))
+    const flash15 = models.find((m: any) => m.name.includes('gemini-1.5-flash'))
+    
+    const found = flash31?.name || flash30?.name || flash25?.name || flash20Lite?.name || flash15?.name || 'models/gemini-3.1-flash-lite-preview'
     cachedModel.value = found
+    console.log(`[AI] Selected Gemini Model: ${found}`)
     return found
   } catch {
-    return 'models/gemini-1.5-flash'
+    return 'models/gemini-3.1-flash-lite-preview'
+  }
+}
+
+/** ดึงรายชื่อโมเดลทั้งหมดที่ใช้งานได้ (เป็น Array) */
+async function getAvailableModelsList(apiKey: string): Promise<string[]> {
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
+    const res = await fetch(url)
+    if (!res.ok) return ['models/gemini-3.1-flash-lite-preview']
+    const data = await res.json()
+    return (data.models || []).map((m: any) => m.name)
+  } catch {
+    return ['models/gemini-3.1-flash-lite-preview']
   }
 }
 
 /** สร้าง Prompt กลางสำหรับทุกโมเดล */
 function generatePrompt() {
-  const { revenue, topProducts, hourlyStats, expenses = 0 } = props.data
-  const realNetProfit = revenue - expenses
+  const { revenue, cost, profit, topProducts, hourlyStats, expenses = 0 } = props.data
+  
+  // ปรับการคำนวณกำไรตาม Mode
+  const isMonthly = props.analysisMode === 'monthly'
+  const calculatedProfit = isMonthly ? (revenue - expenses) : (revenue - cost)
+  const profitLabel = isMonthly ? 'Net Profit (Revenue - Total Expenses)' : 'Gross Profit from Sales (Revenue - Product Cost)'
   
   return `
     คุณคือที่ปรึกษาและเพื่อนคู่คิดอัจฉริยะของร้านยำ Yum2K ที่รอบรู้ อารมณ์ดี และเป็นกันเองสุดๆ
-    ช่วยวิเคราะห์ข้อมูลยอดขายเหล่านี้ และให้คำแนะนำที่เข้าใจง่าย มีพลังบวก และให้กำลังใจเจ้าของร้านด้วยภาษาไทยนะคะ (ใช้คำลงท้ายว่า "ค่ะ/นะคะ")
+    ช่วยวิเคราะห์ข้อมูลยอดขายเหล่านี้ และให้คำแนะนำที่เข้าใจง่าย มีพลังบวก และให้กำลังใจเจ้าของร้านด้วยภาษาไทยนะคะ
+    ${isMonthly ? 'โดยเน้นการวิเคราะห์ภาพรวมรายเดือนและความคุ้มค่าเมื่อหักค่าใช้จ่ายทั้งหมด' : 'โดยเน้นการวิเคราะห์กำไรจากการขายสินค้าในแต่ละวัน'}
     
     Business Data:
     - Total Revenue: ฿${revenue.toLocaleString()}
-    - Total Operating Expenses: ฿${expenses.toLocaleString()}
-    - Calculated Net Profit: ฿${realNetProfit.toLocaleString()}
+    - Total Product Cost (COGS): ฿${cost.toLocaleString()}
+    - Other Expenses: ฿${expenses.toLocaleString()}
+    - ${profitLabel}: ฿${calculatedProfit.toLocaleString()}
     - Order Count: ${props.data.orderCount}
-    - Top 5 Products: ${topProducts.slice(0, 5).map(p => `${p.productName} (${p.quantitySold} units)`).join(', ')}
+    - All Products Performance Data: ${topProducts.map(p => {
+        const rev = p.totalRevenue || (p.quantitySold * (p.price || 0))
+        const cost = p.totalCost || (rev * 0.6) // Fallback cost 60%
+        const prof = rev - cost
+        return `${p.productName}: ขายได้ ${p.quantitySold} ชิ้น, ยอดขายรวม ฿${rev.toLocaleString()}, กำไรประมาณ ฿${prof.toLocaleString()}`
+      }).join(' | ')}
     
     Deep Insights (If available):
     - Sales Density (Day x Hour): ${props.data.salesByDayHour ? JSON.stringify(props.data.salesByDayHour) : 'Not available'}
@@ -658,34 +821,67 @@ function generatePrompt() {
     5. The "action" field should be a short, actionable tip.
 
     Return ONLY raw JSON:
-    {
       "executiveSummary": "overview in Thai",
       "score": number,
       "insights": [
         { "icon": "emoji", "title": "Thai title", "description": "Thai analysis", "action": "Thai tip" }
-      ]
+      ],
+      "chart": { "type": "pie"|"bar"|"line", "title": "...", "labels": ["..."], "series": [10] } (Optional)
     }
   `
 }
 
 /** วิเคราะห์ด้วย Gemini API จริงๆ */
 async function analyzeWithGemini(apiKey: string) {
-  const modelName = await getAvailableModel(apiKey)
   const prompt = generatePrompt()
   lastPrompt.value = prompt
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`
-  const response = await fetch(url, {
+  // ลองเรียกใช้ Gemini
+  let modelToUse = receiptSettings.value.geminiModel || await getAvailableModel(apiKey)
+  let modelNameFull = modelToUse.startsWith('models/') ? modelToUse : `models/${modelToUse}`
+  let url = `https://generativelanguage.googleapis.com/v1beta/${modelNameFull}:generateContent?key=${apiKey}`
+  
+  const systemInstruction = `คุณคือที่ปรึกษาและเพื่อนคู่คิดอัจฉริยะของร้านยำ Yum2K ที่รอบรู้ คุยสนุก และใจดีมาก 
+                อธิบายข้อมูลเชิงลึกให้เข้าใจง่ายที่สุด เหมือนพี่สอนน้อง หรือเพื่อนคุยกัน 
+                ใช้ภาษาที่เป็นกันเอง อารมณ์ดี และต้องให้กำลังใจเจ้าของร้านเสมอ 
+                พูดจาไพเราะแบบผู้หญิง ใช้คำลงท้ายว่า "ค่ะ/นะคะ" เสมอ
+                
+                กฎเหล็ก:
+                1. ต้องตอบกลับในรูปแบบ JSON ตามโครงสร้างที่กำหนดเท่านั้น
+                2. ห้ามวาดแผนภูมิด้วยตัวอักษร (ASCII Chart) ใน executiveSummary เด็ดขาด
+                3. หากต้องการแสดงแผนภูมิ ให้ใส่ข้อมูลในฟิลด์ "chart" ของ JSON เท่านั้น`
+
+  let response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: `คุณคือที่ปรึกษาและเพื่อนคู่คิดอัจฉริยะของร้านยำ Yum2K ที่รอบรู้ คุยสนุก และใจดีมาก 
-                อธิบายข้อมูลเชิงลึกให้เข้าใจง่ายที่สุด เหมือนพี่สอนน้อง หรือเพื่อนคุยกัน 
-                ใช้ภาษาที่เป็นกันเอง อารมณ์ดี มีมุกตลกร้ายนิดๆ ได้ และต้องให้กำลังใจเจ้าของร้านเสมอ 
-                พูดจาไพเราะแบบผู้หญิง ใช้คำลงท้ายว่า "ค่ะ/นะคะ" เสมอ ข้อมูลร้านคือ: ${prompt}` }] }],
+      contents: [{ parts: [{ text: `${systemInstruction} ข้อมูลร้านคือ: ${prompt}` }] }],
       generationConfig: { responseMimeType: "application/json" }
     })
   })
+
+  // ถ้าติด 404 (ไม่พบโมเดล) หรือ 429 (โควตาเต็ม) ให้ลองหาโมเดลสำรองตัวอื่น
+  if (response.status === 404 || response.status === 429) {
+    if (response.status === 429) {
+      console.warn('[AI] Rate limit hit, waiting 2s before retry with stable model...')
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    }
+    
+    console.warn(`[AI] Gemini ${modelNameFull} hit error ${response.status}, trying stable fallback...`)
+    const fallbackModel = 'models/gemini-3.1-flash-lite-preview' // ใช้ตัวที่กำหนดเป็นค่าเริ่มต้นล่าสุด
+    
+    modelNameFull = fallbackModel
+    url = `https://generativelanguage.googleapis.com/v1beta/${modelNameFull}:generateContent?key=${apiKey}`
+    
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `${systemInstruction} ข้อมูลร้านคือ: ${prompt}` }] }],
+        generationConfig: { responseMimeType: "application/json" }
+      })
+    })
+  }
 
   if (response.status === 429) {
     // พยายามดึงข้อมูล Quota จาก Header (ถ้า Browser อนุญาต)
@@ -718,10 +914,13 @@ async function analyzeWithGemini(apiKey: string) {
   executiveSummary.value = parsed.executiveSummary
   score.value = parsed.score
   insights.value = parsed.insights
+  chartData.value = parsed.chart || null
 }
 
 /** วิเคราะห์ด้วย Groq API (Fallback) */
 async function analyzeWithGroq(apiKey: string) {
+  await loadReceiptSettings()
+  const modelName = receiptSettings.value.groqModel || "llama-3.3-70b-versatile"
   const prompt = generatePrompt()
   lastPrompt.value = prompt
 
@@ -733,7 +932,7 @@ async function analyzeWithGroq(apiKey: string) {
       'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: modelName,
       messages: [
         { role: "system", content: "คุณคือที่ปรึกษาและเพื่อนคู่คิดอัจฉริยะของร้านยำ Yum2K ที่อารมณ์ดี เป็นกันเอง รอบรู้ และอธิบายเรื่องยากให้เข้าใจง่าย ให้กำลังใจเจ้าของร้านเสมอ พูดจาไพเราะแบบผู้หญิง (ค่ะ/นะคะ)" },
         { role: "user", content: prompt }
@@ -758,6 +957,7 @@ async function analyzeWithGroq(apiKey: string) {
   executiveSummary.value = parsed.executiveSummary
   score.value = parsed.score
   insights.value = parsed.insights
+  chartData.value = parsed.chart || null
 }
 
 /** วิเคราะห์ด้วย OpenRouter API (พร้อมระบบลองหลายโมเดล) */
@@ -766,20 +966,23 @@ async function analyzeWithOpenRouter(apiKey: string) {
   lastPrompt.value = prompt
 
   const url = 'https://openrouter.ai/api/v1/chat/completions'
-  // รายชื่อโมเดลฟรีที่ฉลาดและเร็วที่สุด (อัปเดต เม.ย. 2026)
-  const freeModels = [
-    "inclusionai/ling-2.6-1t:free",     // ฉลาดระดับ 1T และเร็วมาก (Fast Thinking)
-    "z-ai/glm-4.5-air:free",           // ฉลาดและเสถียร
-    "minimax/minimax-m2.5:free",       // ตอบไวและแม่นยำ
-    "openai/gpt-oss-120b:free"         // ตัวสำรองมาตรฐาน
-  ]
+  
+  await loadReceiptSettings()
+  // รายชื่อโมเดลฟรีที่ฉลาดและเร็วที่สุด (หรือใช้ตามที่ผู้ใช้กำหนด)
+  const freeModels = receiptSettings.value.openRouterModels 
+    ? receiptSettings.value.openRouterModels.split(',').map(m => m.trim()).filter(m => m)
+    : [
+        "inclusionai/ling-2.6-1t:free",
+        "z-ai/glm-4.5-air:free",
+        "openai/gpt-oss-120b:free"
+      ]
 
   let lastError = null
   
   for (const modelId of freeModels) {
     try {
       activeModelName.value = `OpenRouter (${modelId.split('/').pop()})`
-      thinkingMessage.value = `Gemini เต็ม... กำลังลอง ${modelId.split('/').pop()}...`
+      analysisMessage.value = `Gemini เต็ม... กำลังลอง ${modelId.split('/').pop()}...`
       console.log(`%c[OpenRouter] %cTrying model: %c${modelId}`, 'color: #fbbf24; font-weight: bold', 'color: #888', 'color: #fbbf24; font-weight: bold')
       
       const response = await fetch(url, {
@@ -793,13 +996,11 @@ async function analyzeWithOpenRouter(apiKey: string) {
           model: modelId,
           messages: [
             { 
-          role: "system", 
-          content: `คุณคือเพื่อนคู่คิดและที่ปรึกษาอัจฉริยะของร้านยำ Yum2K ที่มีความเป็นกันเองสูง คุยสนุก อารมณ์ดี และรอบรู้ทุกเรื่อง 
-                    อธิบายเรื่องยากให้เป็นเรื่องง่าย ให้กำลังใจเจ้าของร้านในทุกคำแนะนำ 
-                    ตอบด้วยภาษาไทยที่เป็นธรรมชาติและนุ่มนวล (Strictly Thai ONLY). 
-                    สวมบทบาทเป็นผู้หญิง ใช้คำลงท้าย "ค่ะ/นะคะ" และห้ามตอบเป็นแพทเทิร์นหุ่นยนต์เด็ดขาด
-                    คุณมีข้อมูลสภาพอากาศ (ถ้ามี) ให้ใช้ข้อมูลนั้นในการแนะนำเรื่องการเตรียมของหรือการตลาดได้เลยค่ะ` 
-        },
+              role: "system", 
+              content: `คุณคือที่ปรึกษาธุรกิจร้านยำ Yum2K ที่เก่งและอารมณ์ดี (ตอบเป็นภาษาไทย "ค่ะ/นะคะ" เท่านั้น)
+                        หากเจ้าของร้านขอให้สรุปข้อมูลเป็นกราฟ คุณต้องตอบกลับเป็นข้อความอธิบายปกติก่อน และตบท้ายด้วย JSON Block ตามรูปแบบนี้:
+                        { "chart": { "type": "pie"|"bar"|"line", "title": "หัวข้อ", "labels": ["A", "B"], "series": [10, 20] } }` 
+            },
             { role: "user", content: prompt }
           ],
           response_format: { type: "json_object" },
@@ -830,6 +1031,7 @@ async function analyzeWithOpenRouter(apiKey: string) {
       executiveSummary.value = parsed.executiveSummary
       score.value = parsed.score
       insights.value = parsed.insights
+      chartData.value = parsed.chart || null
       return // สำเร็จแล้ว ออกจากฟังก์ชัน
     } catch (err: any) {
       console.error(`Failed with model ${modelId}:`, err)
@@ -842,14 +1044,14 @@ async function analyzeWithOpenRouter(apiKey: string) {
 
 /** ระบบแชทพูดคุยต่อเนื่อง */
 async function sendMessage() {
-  if (isThinking.value || !userInput.value.trim()) return
+  if (isChatting.value || !userInput.value.trim()) return
   const text = userInput.value.trim()
   userInput.value = ''
   chatHistory.value.push({ role: 'user', content: text })
   await nextTick()
   scrollToBottom()
-  isThinking.value = true
-  thinkingMessage.value = 'AI กำลังคิดคำตอบ...'
+  isChatting.value = true
+  chatThinkingMessage.value = 'AI กำลังคิดคำตอบ...'
   await nextTick()
   scrollToBottom()
 
@@ -861,25 +1063,33 @@ async function sendMessage() {
     const apiKey = receiptSettings.value.geminiApiKey
     if (!apiKey) throw new Error('ไม่พบ API Key')
     const modelName = await getAvailableModel(apiKey)
-    const url = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`
+    const modelNameFull = modelName.startsWith('models/') ? modelName : `models/${modelName}`
+    const url = `https://generativelanguage.googleapis.com/v1beta/${modelNameFull}:generateContent?key=${apiKey}`
     // สร้าง Context สำหรับแชท (เพิ่มข้อมูลสินค้าขายดี และแนวโน้มเชิงลึก)
+    const isMonthly = props.analysisMode === 'monthly'
+    const profitVal = isMonthly ? (props.data.revenue - (props.data.expenses || 0)) : (props.data.revenue - props.data.cost)
+    const profitName = isMonthly ? 'กำไรสุทธิ (หลังหักค่าใช้จ่ายทั้งหมด)' : 'กำไรสินค้า (ยังไม่หักค่าใช้จ่ายอื่นๆ)'
+
     const context = `
       คุณคือที่ปรึกษาธุรกิจร้านยำ (Yum2K) ข้อมูลเชิงลึกของร้านคือ:
-      - รายได้รวม: ฿${props.data.revenue.toLocaleString()}, รายจ่าย: ฿${(props.data.expenses || 0).toLocaleString()}, กำไร: ฿${(props.data.revenue - (props.data.expenses || 0)).toLocaleString()}
+      - รายได้รวม: ฿${props.data.revenue.toLocaleString()}
+      - ต้นทุนสินค้า: ฿${props.data.cost.toLocaleString()}
+      - ค่าใช้จ่ายอื่นๆ: ฿${(props.data.expenses || 0).toLocaleString()}
+      - ${profitName}: ฿${profitVal.toLocaleString()}
       - สินค้าขายดี 5 อันดับแรก: ${props.data.topProducts.slice(0, 5).map(p => `${p.productName} (ขายได้ ${p.quantitySold} ชุด)`).join(', ')}
-      - สถิติเพิ่มเติม:
-        - ยอดขายรายชั่วโมง: ${JSON.stringify(props.data.salesByDayHour || props.data.hourlyStats)}
-        - ยอดสินค้าตามวัน: ${JSON.stringify(props.data.productByDay || 'N/A')}
-        - ยอดสินค้าตามชั่วโมง: ${JSON.stringify(props.data.productByHour || 'N/A')}
+      
+      กฎการตอบ:
+      1. ตอบแบบมีความรู้ อธิบายเข้าใจง่าย เป็นกันเอง อารมณ์ดี และให้กำลังใจเจ้าของร้านเสมอ 
+      2. พูดจาไพเราะแบบผู้หญิง ใช้คำลงท้าย "ค่ะ/นะคะ"
+      3. วิเคราะห์ข้อมูลเชิงลึก (Insight) รวมถึงสภาพอากาศที่อาจส่งผลต่อยอดขาย
+      4. ห้ามวาดแผนภูมิด้วยตัวอักษร (ASCII Art) เด็ดขาด
+      5. หากเจ้าของร้านขอให้ "สร้างกราฟ" หรือ "สรุปเป็นแผนภูมิ" ให้คุณตอบโดยใส่ JSON โครงสร้างนี้ไว้ที่บรรทัดสุดท้ายเสมอ:
+         { "chart": { "type": "pie"|"bar"|"line", "title": "ชื่อกราฟ", "labels": ["A", "B"], "series": [10, 20] } }
       
       ประวัติการคุย:
       ${chatHistory.value.slice(-5).map(m => `${m.role}: ${m.content}`).join('\n')}
-      
       คำถามล่าสุดจากเจ้าของร้าน: ${text}
       สภาพอากาศปัจจุบัน: ${weatherData.value ? JSON.stringify(weatherData.value.daily) : 'ไม่มีข้อมูล'}
-      คำแนะนำ: ตอบแบบมีความรู้ อธิบายเข้าใจง่าย เป็นกันเอง อารมณ์ดี และให้กำลังใจเจ้าของร้านเสมอ 
-      พูดจาไพเราะแบบผู้หญิง ใช้คำลงท้าย "ค่ะ/นะคะ" วิเคราะห์ข้อมูลเชิงลึก (Insight) รวมถึงสภาพอากาศที่อาจส่งผลต่อยอดขาย
-      หากลูกค้าถามเรื่องอากาศ ให้ใช้ข้อมูลที่ให้มาตอบได้เลยค่ะ
     `
     const response = await fetch(url, {
       method: 'POST',
@@ -913,23 +1123,39 @@ async function sendMessage() {
 
     currentProvider.value = 'Gemini'
     const result = await response.json()
+    if (!result.candidates?.[0]) throw new Error('AI ไม่ส่งข้อมูลกลับมา (Empty response)')
     const aiResponse = result.candidates[0].content.parts[0].text
-    chatHistory.value.push({ role: 'assistant', content: aiResponse })
+    
+    // แยกส่วนข้อความกับ Chart JSON (ถ้ามี) ออกจากกันอย่างหมดจด
+    const parsed = safeJsonParse(aiResponse)
+    const cleanContent = aiResponse
+      .replace(/```json[\s\S]*?```/g, '') // ลบ block json แบบ markdown
+      .replace(/\{[\s\S]*\}/g, '')        // ลบ json ที่อาจไม่มี block
+      .trim()
+
+    chatHistory.value.push({ 
+      role: 'assistant', 
+      content: cleanContent || (parsed?.chart ? 'นี่คือผลการวิเคราะห์ข้อมูลที่คุณขอค่ะ:' : aiResponse),
+      chart: parsed?.chart || null 
+    })
     await nextTick()
     scrollToLastMessage()
   } catch (err: any) {
     console.error('Chat Error:', err)
     chatHistory.value.push({ role: 'assistant', content: 'ขออภัยค่ะ ฉันไม่สามารถตอบได้ในขณะนี้: ' + err.message })
   } finally {
-    isThinking.value = false
+    isChatting.value = false
   }
 }
 
 /** ฟังก์ชันสำหรับส่งแชทไปที่ Groq (Fallback) */
 async function sendChatToGroq(apiKey: string, context: string) {
-  isThinking.value = true // ย้ำอีกครั้งเผื่อเรียกแยก
+  isChatting.value = true // ย้ำอีกครั้งเผื่อเรียกแยก
   await nextTick()
   scrollToBottom()
+  
+  await loadReceiptSettings()
+  const modelName = receiptSettings.value.groqModel || "llama-3.3-70b-versatile"
   
   const url = 'https://api.groq.com/openai/v1/chat/completions'
   const response = await fetch(url, {
@@ -939,7 +1165,7 @@ async function sendChatToGroq(apiKey: string, context: string) {
       'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: modelName,
       messages: [
         { role: "system", content: "คุณคือที่ปรึกษาธุรกิจร้านยำ Yum2K ที่รอบรู้ อธิบายง่าย เป็นกันเอง อารมณ์ดี และชอบให้กำลังใจเจ้าของร้าน พูดจาไพเราะแบบผู้หญิง (ค่ะ/นะคะ)" },
         { role: "user", content: context }
@@ -955,24 +1181,40 @@ async function sendChatToGroq(apiKey: string, context: string) {
 
   currentProvider.value = 'Groq'
   const result = await response.json()
+  if (!result.choices?.[0]) throw new Error('AI ไม่ส่งข้อมูลกลับมา (Empty response)')
   const aiResponse = result.choices[0].message.content
-  chatHistory.value.push({ role: 'assistant', content: aiResponse })
+  
+  const parsed = safeJsonParse(aiResponse)
+  const cleanContent = aiResponse
+    .replace(/```json[\s\S]*?```/g, '')
+    .replace(/\{[\s\S]*\}/g, '')
+    .trim()
+
+  chatHistory.value.push({ 
+    role: 'assistant', 
+    content: cleanContent || (parsed?.chart ? 'วิเคราะห์กราฟมาให้แล้วค่ะ:' : aiResponse),
+    chart: parsed?.chart || null 
+  })
   await nextTick()
   scrollToLastMessage()
 }
 
 /** ฟังก์ชันสำหรับส่งแชทไปที่ OpenRouter (พร้อมระบบลองหลายโมเดล) */
 async function sendChatToOpenRouter(apiKey: string, context: string) {
-  isThinking.value = true
+  isChatting.value = true
   await nextTick()
   scrollToBottom()
   
   const url = 'https://openrouter.ai/api/v1/chat/completions'
-  const freeModels = [
-    "inclusionai/ling-2.6-1t:free",
-    "z-ai/glm-4.5-air:free",
-    "openai/gpt-oss-120b:free"
-  ]
+  await loadReceiptSettings()
+  
+  const freeModels = receiptSettings.value.openRouterModels 
+    ? receiptSettings.value.openRouterModels.split(',').map(m => m.trim()).filter(m => m)
+    : [
+        "inclusionai/ling-2.6-1t:free",
+        "z-ai/glm-4.5-air:free",
+        "openai/gpt-oss-120b:free"
+      ]
 
   let lastError = null
 
@@ -993,7 +1235,9 @@ async function sendChatToOpenRouter(apiKey: string, context: string) {
           messages: [
             { 
               role: "system", 
-              content: "คุณคือที่ปรึกษาและเพื่อนคู่คิดอัจฉริยะของร้านยำ Yum2K ที่อารมณ์ดี เป็นกันเอง รอบรู้ และอธิบายเรื่องยากให้เข้าใจง่าย ให้กำลังใจเจ้าของร้านเสมอ (ใช้คำลงท้าย ค่ะ/นะคะ)" 
+              content: `คุณคือที่ปรึกษาธุรกิจร้านยำ Yum2K อารมณ์ดีและเป็นกันเอง (ใช้คำลงท้าย "ค่ะ/นะคะ")
+                        หากมีการขอให้สร้างกราฟ ให้ตอบข้อความปกติและตบท้ายด้วย JSON:
+                        { "chart": { "type": "pie"|"bar"|"line", "title": "...", "labels": ["..."], "series": [10] } }` 
             },
             { role: "user", content: context }
           ],
@@ -1010,8 +1254,20 @@ async function sendChatToOpenRouter(apiKey: string, context: string) {
 
       currentProvider.value = 'OpenRouter'
       const result = await response.json()
+      if (!result.choices?.[0]) throw new Error('AI ไม่ส่งข้อมูลกลับมา (Empty response)')
       const aiResponse = result.choices[0].message.content
-      chatHistory.value.push({ role: 'assistant', content: aiResponse })
+
+      const parsed = safeJsonParse(aiResponse)
+      const cleanContent = aiResponse
+        .replace(/```json[\s\S]*?```/g, '')
+        .replace(/\{[\s\S]*\}/g, '')
+        .trim()
+
+      chatHistory.value.push({ 
+        role: 'assistant', 
+        content: cleanContent || (parsed?.chart ? 'สรุปข้อมูลเป็นกราฟดังนี้ค่ะ:' : aiResponse),
+        chart: parsed?.chart || null 
+      })
       await nextTick()
       scrollToLastMessage()
       return
@@ -1137,11 +1393,34 @@ onMounted(() => {
 .ai-fade-leave-to {
   opacity: 0;
 }
-.scrollbar-thin::-webkit-scrollbar {
-  width: 4px;
+
+/* 
+  Modern Premium Scrollbar 
+  ปรับแต่งให้บางลง มนขึ้น และรองรับทั้งโหมดมืด/สว่าง
+*/
+:deep(::-webkit-scrollbar) {
+  width: 6px;
+  height: 6px;
 }
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+
+:deep(::-webkit-scrollbar-track) {
+  background: transparent;
+}
+
+:deep(::-webkit-scrollbar-thumb) {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 20px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+:deep(::-webkit-scrollbar-thumb:hover) {
+  background: rgba(148, 163, 184, 0.45);
+}
+
+/* Firefox */
+:deep(*) {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
 }
 </style>

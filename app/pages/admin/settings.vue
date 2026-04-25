@@ -82,33 +82,78 @@
                 <input v-model="form.footerMessage" type="text" placeholder="เช่น ขอบคุณที่อุดหนุนครับ/ค่ะ" class="form-input" />
               </div>
               
-              <!-- AI Integration -->
-              <div class="pt-4 border-t border-surface-800">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            </div>
+          </div>
+
+          <!-- การรวมระบบ AI (AI Integration) -->
+          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
+            <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-4">การตั้งค่า AI อัจฉริยะ</h2>
+            <div class="space-y-6">
+              
+              <!-- Gemini -->
+              <div class="p-4 bg-primary-500/5 border border-primary-500/10 rounded-xl space-y-3">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xl">🤖</span>
+                    <span class="text-sm font-bold text-primary-400">Google Gemini</span>
+                  </div>
+                  <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[10px] text-primary-400 underline decoration-primary-400/30">รับ API Key</a>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label class="form-label flex items-center gap-2">
-                      <span>🤖 Gemini Key</span>
-                      <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[10px] text-primary-400 underline">รับ Key</a>
-                    </label>
-                    <input v-model="form.geminiApiKey" type="password" placeholder="AI_xxxxxxxx" class="form-input font-mono text-[10px]" />
+                    <label class="form-label !text-[10px]">API Key</label>
+                    <input v-model="form.geminiApiKey" type="password" placeholder="AI_xxxxxxxx" class="form-input font-mono !text-[11px]" />
                   </div>
                   <div>
-                    <label class="form-label flex items-center gap-2">
-                      <span>🌐 OpenRouter Key</span>
-                      <a href="https://openrouter.ai/keys" target="_blank" class="text-[10px] text-amber-400 underline">รับ Key</a>
-                    </label>
-                    <input v-model="form.openRouterApiKey" type="password" placeholder="sk-or-v1-xxxx..." class="form-input font-mono text-[10px]" />
-                  </div>
-                  <div>
-                    <label class="form-label flex items-center gap-2">
-                      <span>⚡ Groq Key (สำรอง)</span>
-                      <a href="https://console.groq.com/keys" target="_blank" class="text-[10px] text-cyan-400 underline">รับ Key</a>
-                    </label>
-                    <input v-model="form.groqApiKey" type="password" placeholder="gsk_xxxxxxxx" class="form-input font-mono text-[10px]" />
+                    <label class="form-label !text-[10px]">Model Name</label>
+                    <input v-model="form.geminiModel" type="text" placeholder="เช่น gemini-3.1-flash-lite-preview" class="form-input font-mono !text-[11px]" />
                   </div>
                 </div>
-                <p class="text-[10px] text-surface-500 mt-2 italic">แนะนำ: Gemini (ตัวหลัก) > OpenRouter (ศูนย์รวม AI ฟรี) > Groq (ความเร็วสูง)</p>
               </div>
+
+              <!-- OpenRouter -->
+              <div class="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl space-y-3">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xl">🌐</span>
+                    <span class="text-sm font-bold text-amber-400">OpenRouter (แนะนำ)</span>
+                  </div>
+                  <a href="https://openrouter.ai/keys" target="_blank" class="text-[10px] text-amber-400 underline decoration-amber-400/30">รับ API Key</a>
+                </div>
+                <div class="space-y-3">
+                  <div>
+                    <label class="form-label !text-[10px]">API Key</label>
+                    <input v-model="form.openRouterApiKey" type="password" placeholder="sk-or-v1-xxxx..." class="form-input font-mono !text-[11px]" />
+                  </div>
+                  <div>
+                    <label class="form-label !text-[10px]">Models (คั่นด้วยคอมมา สำหรับระบบสำรองอัตโนมัติ)</label>
+                    <textarea v-model="form.openRouterModels" rows="2" placeholder="เช่น qwen/qwen3-32b:free, llama-3.3-70b-versatile:free" class="form-input font-mono !text-[11px] resize-none" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Groq -->
+              <div class="p-4 bg-cyan-500/5 border border-cyan-500/10 rounded-xl space-y-3">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xl">⚡</span>
+                    <span class="text-sm font-bold text-cyan-400">Groq (Fallback)</span>
+                  </div>
+                  <a href="https://console.groq.com/keys" target="_blank" class="text-[10px] text-cyan-400 underline decoration-cyan-400/30">รับ API Key</a>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label class="form-label !text-[10px]">API Key</label>
+                    <input v-model="form.groqApiKey" type="password" placeholder="gsk_xxxxxxxx" class="form-input font-mono !text-[11px]" />
+                  </div>
+                  <div>
+                    <label class="form-label !text-[10px]">Model Name</label>
+                    <input v-model="form.groqModel" type="text" placeholder="เช่น llama-3.3-70b-versatile" class="form-input font-mono !text-[11px]" />
+                  </div>
+                </div>
+              </div>
+
+              <p class="text-[10px] text-surface-500 italic text-center">หากเว้นช่อง Model ไว้ ระบบจะใช้ค่าเริ่มต้นที่เหมาะสมที่สุดให้ทันทีค่ะ</p>
             </div>
           </div>
 
@@ -276,6 +321,11 @@ const form = reactive<ReceiptSettings>({
   showStaffName: true,
   showTaxInfo: false,
   geminiApiKey: '',
+  geminiModel: '',
+  groqApiKey: '',
+  groqModel: '',
+  openRouterApiKey: '',
+  openRouterModels: '',
 })
 
 onMounted(async () => {

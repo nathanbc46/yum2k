@@ -81,7 +81,7 @@
           <div class="text-xs text-surface-500 mt-1">{{ filteredStats.orderCount }} บิล</div>
         </div>
         <div class="bg-gradient-to-br from-primary-500/20 to-surface-900 border border-primary-500/20 rounded-2xl p-4">
-          <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">กำไรสุทธิ</div>
+          <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">กำไรสินค้า (GP)</div>
           <div class="text-2xl font-black text-primary-400">฿{{ filteredStats.profit.toLocaleString() }}</div>
           <div class="text-xs text-surface-500 mt-1">Margin {{ filteredStats.revenue > 0 ? ((filteredStats.profit / filteredStats.revenue) * 100).toFixed(1) : 0 }}%</div>
         </div>
@@ -347,7 +347,7 @@
                 <div class="flex justify-between"><span>จำนวนบิล</span><span class="font-bold">{{ filteredStats.orderCount }} บิล</span></div>
                 <div class="flex justify-between"><span>ยอดขายรวม</span><span class="font-bold text-green-700">฿{{ filteredStats.revenue.toLocaleString() }}</span></div>
                 <div class="flex justify-between"><span>ต้นทุนรวม</span><span>฿{{ filteredStats.cost.toLocaleString() }}</span></div>
-                <div class="flex justify-between font-bold border-t border-dashed pt-1 mt-1"><span>กำไรสุทธิ</span><span class="text-green-700">฿{{ filteredStats.profit.toLocaleString() }}</span></div>
+                <div class="flex justify-between font-bold border-t border-dashed pt-1 mt-1"><span>กำไรสินค้า (GP)</span><span class="text-green-700">฿{{ filteredStats.profit.toLocaleString() }}</span></div>
               </div>
 
               <div class="border-t border-dashed pt-2">
@@ -380,6 +380,7 @@
       v-if="isAiModalOpen"
       :data="aiData"
       :initial-tab="aiModalInitialTab"
+      analysis-mode="daily"
       @close="isAiModalOpen = false"
     />
   </div>
