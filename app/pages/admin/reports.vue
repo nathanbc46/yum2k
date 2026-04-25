@@ -19,6 +19,14 @@
             <option :value="365">ย้อนหลัง 1 ปี</option>
           </select>
           <button @click="loadData" class="p-2 bg-surface-800 hover:bg-surface-700 rounded-xl border border-surface-700 transition-colors" title="รีเฟรช">🔄</button>
+          <button @click="openAiModal('insight')"
+            class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary-600 to-cyan-600 text-white rounded-xl text-sm font-black transition-all hover:shadow-lg hover:shadow-primary-500/20 active:scale-95">
+            🤖 วิเคราะห์ AI
+          </button>
+          <button @click="openAiModal('chat')"
+            class="flex items-center gap-2 px-4 py-2 bg-surface-800 hover:bg-surface-700 text-surface-200 rounded-xl text-sm font-bold border border-surface-700 transition-all active:scale-95">
+            💬 แชทกับ AI
+          </button>
         </div>
       </div>
       <!-- Category / Product Filter -->
@@ -311,6 +319,14 @@
       </div>
 
     </main>
+
+    <!-- AI Analysis Modal -->
+    <AdminAiAnalysisModal
+      v-if="isAiModalOpen"
+      :data="aiData"
+      :initial-tab="aiModalInitialTab"
+      @close="isAiModalOpen = false"
+    />
   </div>
 </template>
 
@@ -320,6 +336,7 @@ import {
   type DailySummary, type TopProductMetric,
   type ProductHeatmapRow, type WeeklyTrendData, type VelocityMetric
 } from '~/composables/useReports'
+import AdminAiAnalysisModal from '~/components/admin/AiAnalysisModal.vue'
 import { useProfitability } from '~/composables/useProfitability'
 import type { Category, Product } from '~/types'
 import { db } from '~/db'
@@ -349,6 +366,29 @@ const filterCategoryId = ref<number>(0)
 const filterProductUuid = ref('')
 const categories = ref<Category[]>([])
 const allProducts = ref<Product[]>([])
+const isAiModalOpen = ref(false)
+const aiModalInitialTab = ref<'insight' | 'chat'>('insight')
+
+function openAiModal(tab: 'insight' | 'chat') {
+  aiModalInitialTab.value = tab
+  isAiModalOpen.value = true
+}
+
+const aiData = computed(() => ({
+  revenue: summary.value.revenue,
+  cost: summary.value.cost,
+  profit: summary.value.profit,
+  orderCount: summary.value.orderCount,
+  topProducts: topProducts.value,
+  hourlyStats: [], 
+  expenses: summary.value.totalExpenses,
+  // ข้อมูลเชิงลึกเพิ่มเติม
+  salesByDayHour: orderHeatmap.value,
+  productByDay: productDayRows.value.map(r => ({ name: r.productName, days: r.data })),
+  productByHour: productHourRows.value.map(r => ({ name: r.productName, hours: r.data })),
+  weeklyTrend: weeklyTrendData.value,
+  velocity: velocityData.value
+}))
 
 const filteredProductOptions = computed(() =>
   filterCategoryId.value

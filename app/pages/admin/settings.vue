@@ -81,6 +81,34 @@
                 <label class="form-label">ข้อความท้ายใบเสร็จ</label>
                 <input v-model="form.footerMessage" type="text" placeholder="เช่น ขอบคุณที่อุดหนุนครับ/ค่ะ" class="form-input" />
               </div>
+              
+              <!-- AI Integration -->
+              <div class="pt-4 border-t border-surface-800">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label class="form-label flex items-center gap-2">
+                      <span>🤖 Gemini Key</span>
+                      <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[10px] text-primary-400 underline">รับ Key</a>
+                    </label>
+                    <input v-model="form.geminiApiKey" type="password" placeholder="AI_xxxxxxxx" class="form-input font-mono text-[10px]" />
+                  </div>
+                  <div>
+                    <label class="form-label flex items-center gap-2">
+                      <span>🌐 OpenRouter Key</span>
+                      <a href="https://openrouter.ai/keys" target="_blank" class="text-[10px] text-amber-400 underline">รับ Key</a>
+                    </label>
+                    <input v-model="form.openRouterApiKey" type="password" placeholder="sk-or-v1-xxxx..." class="form-input font-mono text-[10px]" />
+                  </div>
+                  <div>
+                    <label class="form-label flex items-center gap-2">
+                      <span>⚡ Groq Key (สำรอง)</span>
+                      <a href="https://console.groq.com/keys" target="_blank" class="text-[10px] text-cyan-400 underline">รับ Key</a>
+                    </label>
+                    <input v-model="form.groqApiKey" type="password" placeholder="gsk_xxxxxxxx" class="form-input font-mono text-[10px]" />
+                  </div>
+                </div>
+                <p class="text-[10px] text-surface-500 mt-2 italic">แนะนำ: Gemini (ตัวหลัก) > OpenRouter (ศูนย์รวม AI ฟรี) > Groq (ความเร็วสูง)</p>
+              </div>
             </div>
           </div>
 
@@ -247,6 +275,7 @@ const form = reactive<ReceiptSettings>({
   showOrderNumber: true,
   showStaffName: true,
   showTaxInfo: false,
+  geminiApiKey: '',
 })
 
 onMounted(async () => {

@@ -20,6 +20,9 @@ export interface ReceiptSettings {
   showOrderNumber: boolean   // แสดงเลขที่บิล
   showStaffName: boolean     // แสดงชื่อพนักงาน
   showTaxInfo: boolean       // แสดงข้อมูลภาษี (VAT)
+  geminiApiKey?: string     // Google Gemini API Key สำหรับ AI Analysis
+  groqApiKey?: string       // Groq API Key (Llama 3) สำหรับเป็นตัวสำรอง (Fallback)
+  openRouterApiKey?: string // OpenRouter API Key (ศูนย์รวม AI ฟรี) สำหรับความยั่งยืน
 }
 
 // ---------------------------------------------------------------------------
@@ -36,6 +39,9 @@ export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
   showOrderNumber: true,
   showStaffName: true,
   showTaxInfo: false,
+  geminiApiKey: '',
+  groqApiKey: '',
+  openRouterApiKey: '',
 }
 
 const RECEIPT_SETTINGS_KEY = 'receipt_settings'

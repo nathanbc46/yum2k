@@ -17,6 +17,14 @@
             class="bg-surface-800 border border-surface-700 text-surface-50 rounded-xl px-3 py-2 text-sm focus:border-primary-500 outline-none" />
           <button @click="loadData" :disabled="isLoading"
             class="p-2 bg-surface-800 hover:bg-surface-700 rounded-xl border border-surface-700 transition-colors disabled:opacity-50">🔄</button>
+          <button @click="openAiModal('insight')"
+            class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary-600 to-cyan-600 text-white rounded-xl text-sm font-black transition-all hover:shadow-lg hover:shadow-primary-500/20 active:scale-95">
+            🤖 วิเคราะห์ AI
+          </button>
+          <button @click="openAiModal('chat')"
+            class="flex items-center gap-2 px-4 py-2 bg-surface-800 hover:bg-surface-700 text-surface-200 rounded-xl text-sm font-bold border border-surface-700 transition-all active:scale-95">
+            💬 แชทกับ AI
+          </button>
           <button @click="showPrintModal = true"
             class="flex items-center gap-2 px-4 py-2 bg-primary-600/20 text-primary-400 hover:bg-primary-600/30 rounded-xl border border-primary-500/30 text-sm font-bold transition-all">
             🖨️ พิมพ์ใบสรุป
@@ -366,11 +374,20 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- AI Analysis Modal -->
+    <AdminAiAnalysisModal
+      v-if="isAiModalOpen"
+      :data="aiData"
+      :initial-tab="aiModalInitialTab"
+      @close="isAiModalOpen = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { useReports } from '~/composables/useReports'
+import AdminAiAnalysisModal from '~/components/admin/AiAnalysisModal.vue'
 import type { Order, Category, Product } from '~/types'
 import { db } from '~/db'
 
@@ -396,6 +413,66 @@ const filterProductUuid = ref('')
 // --- Modal State ---
 const selectedOrder = ref<Order | null>(null)
 const showPrintModal = ref(false)
+const isAiModalOpen = ref(false)
+const aiModalInitialTab = ref<'insight' | 'chat'>('insight')
+
+function openAiModal(tab: 'insight' | 'chat') {
+  aiModalInitialTab.value = tab
+  isAiModalOpen.value = true
+}
+
+const aiData = computed(() => {
+  // คำนวณความนิยมสินค้าตามชั่วโมง (เฉพาะวันนี้)
+  const pByH: Record<string, Record<number, number>> = {}
+  // คำนวณความนิยมสินค้าตามวัน (สำหรับหน้านี้คือแค่วันเดียว)
+  const pByD: Record<string, Record<string, number>> = {}
+  // คำนวณยอดบิลรายชั่วโมง (สำหรับหน้านี้)
+  const sByH: Record<number, Record<number, number>> = {}
+
+  const d = new Date(selectedDate.value)
+  const dayName = d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase()
+  const dayIdx = [0, 1, 2, 3, 4, 5, 6].indexOf(d.getDay()) // Day index (Sun=0)
+
+  for (const order of filteredOrders.value) {
+    const h = new Date(order.createdAt).getHours()
+    
+    // 1. ยอดบิลรายชั่วโมง
+    if (!sByH[dayIdx]) sByH[dayIdx] = {}
+    const billRow = sByH[dayIdx]
+    if (billRow) {
+      billRow[h] = (billRow[h] || 0) + 1
+    }
+
+    for (const item of (order.items || [])) {
+      // 2. สินค้ารายชั่วโมง
+      if (!pByH[item.productName]) pByH[item.productName] = {}
+      const hourRow = pByH[item.productName]
+      if (hourRow) {
+        hourRow[h] = (hourRow[h] || 0) + item.quantity
+      }
+
+      // 3. สินค้ารายวัน (เฉพาะวันนี้)
+      if (!pByD[item.productName]) pByD[item.productName] = {}
+      const dayRow = pByD[item.productName]
+      if (dayRow) {
+        dayRow[dayName] = (dayRow[dayName] || 0) + item.quantity
+      }
+    }
+  }
+  
+  return {
+    revenue: filteredStats.value.revenue,
+    cost: filteredStats.value.cost,
+    profit: filteredStats.value.profit,
+    orderCount: filteredOrders.value.length,
+    topProducts: computedTopProducts.value,
+    hourlyStats: hourlyStats.value.map(h => ({ hour: h.hour, count: h.count, revenue: h.revenue })),
+    // ข้อมูลเชิงลึกใหม่ตามที่ขอ
+    salesByDayHour: sByH,
+    productByDay: Object.entries(pByD).map(([name, days]) => ({ name, days })),
+    productByHour: Object.entries(pByH).map(([name, hours]) => ({ name, hours }))
+  }
+})
 
 // --- Computed ---
 const displayDate = computed(() => {
