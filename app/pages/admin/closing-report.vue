@@ -32,30 +32,7 @@
         </div>
       </div>
 
-      <!-- Filters Row -->
-      <div class="flex items-center gap-2 mt-3 flex-wrap">
-        <span class="text-xs text-surface-500 font-medium">กรอง:</span>
-        <!-- หมวดหมู่ -->
-        <select v-model="filterCategoryId" @change="filterProductUuid = ''"
-          class="bg-surface-800 border border-surface-700 text-surface-50 rounded-xl px-3 py-1.5 text-xs focus:border-primary-500 outline-none transition-all">
-          <option value="">ทุกหมวดหมู่</option>
-          <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-        </select>
-        <!-- สินค้า (กรองตามหมวดหมู่) -->
-        <select v-model="filterProductUuid"
-          class="bg-surface-800 border border-surface-700 text-surface-50 rounded-xl px-3 py-1.5 text-xs focus:border-primary-500 outline-none transition-all"
-          :disabled="!filterCategoryId">
-          <option value="">ทุกสินค้า</option>
-          <option v-for="p in filteredProductOptions" :key="p.uuid" :value="p.uuid">{{ p.name }}</option>
-        </select>
-        <span v-if="filterCategoryId || filterProductUuid"
-          class="text-xs text-primary-400 bg-primary-600/10 border border-primary-500/20 px-2 py-1 rounded-lg">
-          กำลังกรอง
-        </span>
-        <button v-if="filterCategoryId || filterProductUuid"
-          @click="filterCategoryId = ''; filterProductUuid = ''"
-          class="text-xs text-surface-400 hover:text-danger transition-colors">✕ ล้างตัวกรอง</button>
-      </div>
+      <!-- Filters Row (Removed Category/Product Filters) -->
     </header>
 
     <!-- Loading -->
@@ -64,7 +41,7 @@
     </div>
 
     <!-- No Data -->
-    <div v-else-if="filteredOrders.length === 0 && !filterCategoryId && !filterProductUuid && stats.orderCount === 0"
+    <div v-else-if="todayOrders.length === 0 && stats.orderCount === 0"
       class="flex-1 flex flex-col items-center justify-center text-surface-500">
       <div class="text-5xl mb-4 opacity-40">🏪</div>
       <p class="text-lg font-medium">ยังไม่มีข้อมูลการขายในวันนี้</p>
@@ -74,35 +51,69 @@
     <div v-else class="flex-1 overflow-y-auto p-5 space-y-5">
 
       <!-- KPI Cards (ตามตัวกรอง) -->
-      <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-gradient-to-br from-success/20 to-surface-900 border border-success/20 rounded-2xl p-4">
-          <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">ยอดขายรวม</div>
-          <div class="text-2xl font-black text-success">฿{{ filteredStats.revenue.toLocaleString() }}</div>
-          <div class="text-xs text-surface-500 mt-1">{{ filteredStats.orderCount }} บิล</div>
+      <section class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div class="bg-gradient-to-br from-blue-600/20 to-white dark:to-surface-900 border border-blue-600/40 rounded-2xl p-4 shadow-sm">
+          <div class="text-[10px] uppercase tracking-widest text-blue-700 dark:text-blue-400 mb-1 font-bold">ยอดขายรวม</div>
+          <div class="text-3xl font-black text-blue-700 dark:text-blue-400">฿{{ stats.revenue.toLocaleString() }}</div>
+          <div class="text-xs text-surface-500 mt-1 font-medium">{{ stats.orderCount }} บิล</div>
         </div>
-        <div class="bg-gradient-to-br from-primary-500/20 to-surface-900 border border-primary-500/20 rounded-2xl p-4">
-          <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">กำไรสินค้า (GP)</div>
-          <div class="text-2xl font-black text-primary-400">฿{{ filteredStats.profit.toLocaleString() }}</div>
-          <div class="text-xs text-surface-500 mt-1">Margin {{ filteredStats.revenue > 0 ? ((filteredStats.profit / filteredStats.revenue) * 100).toFixed(1) : 0 }}%</div>
+
+        <div class="bg-gradient-to-br from-red-500/20 to-surface-900 border border-red-500/20 rounded-2xl p-4">
+          <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">รายจ่ายเฉลี่ย/วัน</div>
+          <div class="text-2xl font-black text-red-400">฿{{ dailyAvgExpense.toLocaleString(undefined, { maximumFractionDigits: 0 }) }}</div>
+          <div class="text-xs text-surface-500 mt-1">เฉลี่ยเดือน {{ expenseMonthLabel }}</div>
         </div>
+
+        <div :class="[
+          'relative overflow-hidden border-2 rounded-2xl p-4 transition-all duration-500 shadow-xl',
+          (stats.revenue - dailyAvgExpense) >= 0 
+            ? 'bg-gradient-to-br from-success/30 to-white dark:to-surface-900 border-success/50 shadow-success/20 animate-pulse-subtle' 
+            : 'bg-gradient-to-br from-red-500/30 to-white dark:to-surface-900 border-red-500/50 shadow-red-500/20 animate-pulse-subtle'
+        ]">
+          <!-- Shine Effect Overlay (เพิ่มความชัดเจน) -->
+          <div class="absolute inset-0 pointer-events-none overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full animate-shine" />
+          </div>
+
+          <div :class="['text-[10px] uppercase tracking-widest mb-1 flex justify-between items-center font-bold', (stats.revenue - dailyAvgExpense) >= 0 ? 'text-success-700 dark:text-success/80' : 'text-red-700 dark:text-red-400/80']">
+            <span>กำไรสุทธิ</span>
+            <span v-if="(stats.revenue - dailyAvgExpense) >= 0" class="animate-bounce text-lg">🚀</span>
+            <span v-else class="animate-bounce text-red-600 text-lg">🚨</span>
+          </div>
+          <div :class="['text-3xl font-black relative z-10', (stats.revenue - dailyAvgExpense) >= 0 ? 'text-success-600 dark:text-success' : 'text-red-600 dark:text-red-400']">
+            {{ (stats.revenue - dailyAvgExpense) < 0 ? '-' : '' }}฿{{ Math.abs(stats.revenue - dailyAvgExpense).toLocaleString(undefined, { maximumFractionDigits: 0 }) }}
+          </div>
+          <div class="text-[10px] text-surface-500 dark:text-surface-500 mt-1 font-medium">
+            ยอดขาย - รายจ่ายเฉลี่ย
+          </div>
+        </div>
+
         <div class="bg-surface-900 border border-surface-800 rounded-2xl p-4">
           <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">เฉลี่ยต่อบิล</div>
-          <div class="text-2xl font-black">฿{{ filteredStats.orderCount > 0 ? Math.round(filteredStats.revenue / filteredStats.orderCount).toLocaleString() : 0 }}</div>
-          <div class="text-xs text-surface-500 mt-1">Avg Ticket</div>
+          <div class="text-2xl font-black">฿{{ stats.orderCount > 0 ? Math.round(stats.revenue / stats.orderCount).toLocaleString() : 0 }}</div>
+          <div class="text-[10px] text-surface-500 mt-1">฿{{ stats.revenue.toLocaleString() }} / {{ stats.orderCount }} บิล</div>
+          <div v-if="stats.orderCount > 0" class="text-[10px] text-surface-500 mt-0.5">เฉลี่ย {{ (stats.itemCount / stats.orderCount).toFixed(1) }} รายการ/บิล</div>
         </div>
+
         <div class="bg-gradient-to-br from-warning/20 to-surface-900 border border-warning/20 rounded-2xl p-4">
           <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">ต้นทุนรวม</div>
-          <div class="text-2xl font-black text-warning">฿{{ filteredStats.cost.toLocaleString() }}</div>
-          <div class="text-xs text-surface-500 mt-1">COGS</div>
+          <div class="text-2xl font-black text-warning">฿{{ stats.cost.toLocaleString() }}</div>
+          <div class="text-xs text-surface-500 mt-1">COGS (ค่าของสด)</div>
+        </div>
+
+        <div class="bg-surface-900 border border-surface-800 rounded-2xl p-4">
+          <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">กำไรสินค้า (GP)</div>
+          <div class="text-2xl font-black text-surface-50">฿{{ stats.profit.toLocaleString() }}</div>
+          <div class="text-xs text-surface-500 mt-1">Margin {{ stats.revenue > 0 ? ((stats.profit / stats.revenue) * 100).toFixed(1) : 0 }}%</div>
         </div>
       </section>
 
-      <!-- Payment + Hourly -->
+      <!-- Payment + Category -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <!-- การชำระเงิน -->
-        <div class="bg-surface-900 border border-surface-800 rounded-2xl p-5">
+        <div class="bg-surface-900 border border-surface-800 rounded-2xl p-5 flex flex-col">
           <h2 class="text-sm font-bold mb-4">💳 ยอดแยกตามประเภทชำระ</h2>
-          <div class="space-y-3">
+          <div class="space-y-3 flex-1">
             <div v-for="pm in paymentBreakdown" :key="pm.method"
               class="flex items-center justify-between p-3 rounded-xl bg-surface-800/60">
               <div class="flex items-center gap-2">
@@ -114,52 +125,65 @@
               </div>
               <div class="text-right">
                 <div class="font-bold text-success">฿{{ pm.total.toLocaleString() }}</div>
-                <div class="text-xs text-surface-500">{{ filteredStats.revenue > 0 ? ((pm.total / filteredStats.revenue) * 100).toFixed(1) : 0 }}%</div>
+                <div class="text-xs text-surface-500">{{ stats.revenue > 0 ? ((pm.total / stats.revenue) * 100).toFixed(1) : 0 }}%</div>
               </div>
             </div>
             <div v-if="paymentBreakdown.length === 0" class="text-center text-surface-500 text-sm py-4">ไม่มีข้อมูล</div>
           </div>
         </div>
 
-        <!-- ยอดขายรายชั่วโมง (Stacked by Category) -->
-        <div class="bg-surface-900 border border-surface-800 rounded-2xl p-5">
-          <h2 class="text-sm font-bold mb-4">⏰ ยอดขายรายชั่วโมง</h2>
-          <div class="space-y-2">
-            <div v-for="h in hourlyStats.filter(h => h.count > 0)" :key="h.hour" class="flex items-center gap-2">
-              <div class="text-xs text-surface-500 w-14 shrink-0">{{ h.hour }}:00</div>
-              <!-- Stacked Bar -->
-              <div class="flex-1 rounded-full h-5 overflow-hidden flex items-stretch">
-                <div
-                  v-for="(seg, i) in h.segments"
-                  :key="seg.categoryName"
-                  :style="{
-                    flex: `0 0 ${(seg.revenue / maxHourlyRevenue) * 100}%`,
-                    backgroundColor: seg.color
-                  }"
-                  :title="`${seg.categoryName}: ฿${seg.revenue.toLocaleString()}`"
-                  :class="[
-                    'h-full transition-all duration-700',
-                    i === h.segments.length - 1 ? 'rounded-r-full' : ''
-                  ]"
-                />
-              </div>
-              <!-- Label ยอดรวม (นอกแท่ง อ่านง่าย) -->
-              <div class="text-xs font-mono font-bold text-surface-200 w-16 text-right shrink-0">
-                ฿{{ h.revenue.toLocaleString() }}
-              </div>
-              <div class="text-xs text-surface-500 w-10 text-right shrink-0">{{ h.count }} บิล</div>
-            </div>
-            <div v-if="hourlyStats.every(h => h.count === 0)" class="text-center text-surface-500 text-sm py-4">ไม่มีข้อมูล</div>
+        <!-- สัดส่วนหมวดหมู่ -->
+        <div class="bg-surface-900 border border-surface-800 rounded-2xl p-5 flex flex-col min-h-[300px]">
+          <h2 class="text-sm font-bold mb-4">🍩 สัดส่วนยอดขายตามหมวดหมู่</h2>
+          <div class="flex-1 flex items-center justify-center min-h-0">
+            <ClientOnly>
+              <apexchart v-if="categoryDonutSeries.length > 0"
+                type="donut" width="100%" :options="categoryDonutOptions" :series="categoryDonutSeries" />
+              <div v-else class="text-surface-500 text-sm">ไม่มีข้อมูล</div>
+            </ClientOnly>
           </div>
-
           <!-- Legend หมวดหมู่ -->
-          <div v-if="activeCategorySegments.length > 0" class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-surface-800">
+          <div v-if="activeCategorySegments.length > 0" class="flex flex-wrap gap-x-4 gap-y-2 mt-4 pt-3 border-t border-surface-800 justify-center">
             <div v-for="seg in activeCategorySegments" :key="seg.categoryName"
-              class="flex items-center gap-1.5 text-xs text-surface-400">
-              <span class="w-3 h-3 rounded-full shrink-0" :style="{ backgroundColor: seg.color }" />
+              class="flex items-center gap-1.5 text-[10px] text-surface-400">
+              <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: seg.color }" />
               <span>{{ seg.categoryName }}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- ยอดขายรายชั่วโมง (Stacked by Product) -->
+      <div class="bg-surface-900 border border-surface-800 rounded-2xl p-5">
+        <h2 class="text-sm font-bold mb-4">⏰ ยอดขายรายชั่วโมง (แยกตามสินค้า)</h2>
+        <div class="space-y-2">
+          <div v-for="h in hourlyStats.filter(h => h.count > 0)" :key="h.hour" class="flex items-center gap-2">
+            <div class="text-xs text-surface-500 w-14 shrink-0">{{ h.hour }}:00</div>
+            <!-- Stacked Bar -->
+            <div class="flex-1 rounded-full h-6 overflow-hidden flex items-stretch bg-surface-800/30">
+              <div
+                v-for="(seg, i) in h.segments"
+                :key="seg.name"
+                :style="{
+                  flex: `0 0 ${(seg.revenue / maxHourlyRevenue) * 100}%`,
+                  backgroundColor: seg.color
+                }"
+                :title="`${seg.name}: ฿${seg.revenue.toLocaleString()}`"
+                class="h-full transition-all duration-700 flex items-center justify-center min-w-[2px] border-r border-dashed border-white/20 last:border-r-0"
+                :class="i === h.segments.length - 1 ? 'rounded-r-full' : ''"
+              >
+                <span v-if="((seg.revenue / maxHourlyRevenue) * 100) > 8" class="text-[9px] font-bold text-white/90 truncate px-1 whitespace-nowrap">
+                  {{ seg.name }}
+                </span>
+              </div>
+            </div>
+            <!-- Label ยอดรวม -->
+            <div class="text-xs font-mono font-bold text-surface-200 w-16 text-right shrink-0">
+              ฿{{ h.revenue.toLocaleString() }}
+            </div>
+            <div class="text-xs text-surface-500 w-10 text-right shrink-0">{{ h.count }} บิล</div>
+          </div>
+          <div v-if="hourlyStats.every(h => h.count === 0)" class="text-center text-surface-500 text-sm py-4">ไม่มีข้อมูล</div>
         </div>
       </div>
 
@@ -188,7 +212,7 @@
       <!-- Order List -->
       <div class="bg-surface-900 border border-surface-800 rounded-2xl p-5">
         <div class="flex items-center justify-between mb-4 gap-2 flex-wrap">
-          <h2 class="text-sm font-bold">📜 รายการบิลวันนี้ ({{ filteredOrders.length }} บิล)</h2>
+          <h2 class="text-sm font-bold">📜 รายการบิลวันนี้ ({{ todayOrders.length }} บิล)</h2>
           <span class="text-xs text-surface-500">* คลิกเลขบิลเพื่อดูรายละเอียด</span>
         </div>
         <div class="overflow-x-auto">
@@ -203,7 +227,7 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-surface-800/50">
-              <tr v-for="order in filteredOrders" :key="order.uuid"
+              <tr v-for="order in todayOrders" :key="order.uuid"
                 class="hover:bg-surface-800/40 transition-colors cursor-pointer"
                 @click="openOrderDetail(order)">
                 <td class="py-2 pr-4 text-surface-400 text-xs whitespace-nowrap">
@@ -344,10 +368,10 @@
               <div class="text-center font-medium">{{ displayDate }}</div>
 
               <div class="border-t border-dashed pt-2 space-y-1">
-                <div class="flex justify-between"><span>จำนวนบิล</span><span class="font-bold">{{ filteredStats.orderCount }} บิล</span></div>
-                <div class="flex justify-between"><span>ยอดขายรวม</span><span class="font-bold text-green-700">฿{{ filteredStats.revenue.toLocaleString() }}</span></div>
-                <div class="flex justify-between"><span>ต้นทุนรวม</span><span>฿{{ filteredStats.cost.toLocaleString() }}</span></div>
-                <div class="flex justify-between font-bold border-t border-dashed pt-1 mt-1"><span>กำไรสินค้า (GP)</span><span class="text-green-700">฿{{ filteredStats.profit.toLocaleString() }}</span></div>
+                <div class="flex justify-between"><span>จำนวนบิล</span><span class="font-bold">{{ stats.orderCount }} บิล</span></div>
+                <div class="flex justify-between"><span>ยอดขายรวม</span><span class="font-bold text-green-700">฿{{ stats.revenue.toLocaleString() }}</span></div>
+                <div class="flex justify-between"><span>ต้นทุนรวม</span><span>฿{{ stats.cost.toLocaleString() }}</span></div>
+                <div class="flex justify-between font-bold border-t border-dashed pt-1 mt-1"><span>กำไรสินค้า (GP)</span><span class="text-green-700">฿{{ stats.profit.toLocaleString() }}</span></div>
               </div>
 
               <div class="border-t border-dashed pt-2">
@@ -388,6 +412,7 @@
 
 <script setup lang="ts">
 import { useReports } from '~/composables/useReports'
+import { useProfitability } from '~/composables/useProfitability'
 import AdminAiAnalysisModal from '~/components/admin/AiAnalysisModal.vue'
 import type { Order, Category, Product } from '~/types'
 import { db } from '~/db'
@@ -395,21 +420,31 @@ import { db } from '~/db'
 definePageMeta({ layout: 'admin' })
 
 const { getTopProducts } = useReports()
+const { getSummary: getExpenseSummary } = useProfitability()
+
+function formatDate(d: Date) {
+  // วิธีที่ชัวร์ที่สุดสำหรับระบบที่อาจเป็น พ.ศ. หรือ ค.ศ.
+  let year = d.getFullYear()
+  if (year > 2400) year -= 543
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const dailyAvgExpense = ref(0)
+const monthTotalExpenses = ref(0)
+const expenseMonthLabel = ref('')
 
 // --- State ---
 const today = new Date().toISOString().slice(0, 10)
 const selectedDate = ref(today)
 const isLoading = ref(true)
 
-const stats = ref({ revenue: 0, cost: 0, profit: 0, orderCount: 0 })
+const stats = ref({ revenue: 0, cost: 0, profit: 0, orderCount: 0, itemCount: 0 })
 const todayOrders = ref<Order[]>([])
 const categories = ref<Category[]>([])
 const allProducts = ref<Product[]>([])
 const topProductsData = ref<{ productName: string; quantitySold: number; totalRevenue: number }[]>([])
-
-// --- Filter State ---
-const filterCategoryId = ref<number | ''>('')
-const filterProductUuid = ref('')
 
 // --- Modal State ---
 const selectedOrder = ref<Order | null>(null)
@@ -434,7 +469,7 @@ const aiData = computed(() => {
   const dayName = d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase()
   const dayIdx = [0, 1, 2, 3, 4, 5, 6].indexOf(d.getDay()) // Day index (Sun=0)
 
-  for (const order of filteredOrders.value) {
+  for (const order of todayOrders.value) {
     const h = new Date(order.createdAt).getHours()
     
     // 1. ยอดบิลรายชั่วโมง
@@ -462,10 +497,13 @@ const aiData = computed(() => {
   }
   
   return {
-    revenue: filteredStats.value.revenue,
-    cost: filteredStats.value.cost,
-    profit: filteredStats.value.profit,
-    orderCount: filteredOrders.value.length,
+    revenue: stats.value.revenue,
+    cost: stats.value.cost,
+    productProfitGP: stats.value.profit, // กำไรสินค้า (GP)
+    netProfit: stats.value.revenue - dailyAvgExpense.value, // กำไรสุทธิ (หักรายจ่ายเฉลี่ย)
+    dailyAvgExpense: dailyAvgExpense.value,
+    actualTotalExpenses: monthTotalExpenses.value, // ส่งรายจ่ายรวมของเดือนให้ AI ด้วย
+    orderCount: todayOrders.value.length,
     topProducts: computedTopProducts.value,
     hourlyStats: hourlyStats.value.map(h => ({ hour: h.hour, count: h.count, revenue: h.revenue })),
     dateRange: {
@@ -493,60 +531,9 @@ const displayDate = computed(() => {
   return d.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 })
 
-// สินค้าที่ dropdown ให้เลือก (กรองตาม Category)
-const filteredProductOptions = computed(() => {
-  if (!filterCategoryId.value) return []
-  return allProducts.value.filter(p => p.categoryId === filterCategoryId.value && !p.isDeleted)
-})
-
-// ออร์เดอร์ที่ผ่านตัวกรอง
-const filteredOrders = computed(() => {
-  if (!filterCategoryId.value && !filterProductUuid.value) return todayOrders.value
-  return todayOrders.value.filter(order => {
-    return order.items?.some(item => {
-      if (filterProductUuid.value) return item.productUuid === filterProductUuid.value
-      if (filterCategoryId.value) {
-        // ตรวจสอบจาก categoryUuid ของ item ก่อน
-        const cat = categories.value.find(c => c.id === filterCategoryId.value)
-        if (cat && item.categoryUuid === cat.uuid) return true
-        // fallback: ตรวจจาก productId → category
-        const p = allProducts.value.find(p => p.id === item.productId)
-        return p?.categoryId === filterCategoryId.value
-      }
-      return true
-    })
-  })
-})
-
-// คำนวณสถิติจากออร์เดอร์ที่กรองแล้ว
-const filteredStats = computed(() => {
-  const orders = filteredOrders.value
-  if (!filterCategoryId.value && !filterProductUuid.value) return stats.value
-  // คำนวณใหม่จากไอเทมที่ตรง filter
-  let revenue = 0, cost = 0, profit = 0
-  for (const order of orders) {
-    const matchItems = (order.items || []).filter(item => {
-      if (filterProductUuid.value) return item.productUuid === filterProductUuid.value
-      if (filterCategoryId.value) {
-        const cat = categories.value.find(c => c.id === filterCategoryId.value)
-        if (cat && item.categoryUuid === cat.uuid) return true
-        const p = allProducts.value.find(p => p.id === item.productId)
-        return p?.categoryId === filterCategoryId.value
-      }
-      return true
-    })
-    matchItems.forEach(item => {
-      revenue += item.totalPrice
-      cost += item.costPrice * item.quantity
-    })
-  }
-  profit = revenue - cost
-  return { revenue, cost, profit, orderCount: orders.length }
-})
-
 const paymentBreakdown = computed(() => {
   const methods: Record<string, { method: string; label: string; icon: string; total: number; count: number }> = {}
-  for (const order of filteredOrders.value) {
+  for (const order of todayOrders.value) {
     const m = order.paymentMethod || 'other'
     if (!methods[m]) {
       methods[m] = {
@@ -585,48 +572,42 @@ const hourlyStats = computed(() => {
     hour: i + 6,
     revenue: 0,
     count: 0,
-    // สำหรับ Stacked Bar: เก็บยอดขายแต่ละหมวดหมู่
-    catMap: new Map<string, { categoryName: string; revenue: number; color: string }>()
+    itemMap: new Map<string, { name: string; categoryName: string; revenue: number; color: string }>()
   }))
 
-  for (const order of filteredOrders.value) {
+  for (const order of todayOrders.value) {
     const h = new Date(order.createdAt).getHours()
     const slot = hours.find(x => x.hour === h)
     if (!slot) continue
     slot.revenue += order.totalAmount
     slot.count++
 
-    // แตกยอดตามหมวดหมู่
     for (const item of (order.items || [])) {
+      const prodName = item.productName
+      
+      // หาแม่สีจาก Category ของสินค้า
       let catName = 'อื่นๆ'
       let catColor = '#78716c'
-
-      // หาชื่อ + สีของหมวดหมู่
-      const catByUuid = item.categoryUuid
-        ? categories.value.find(c => c.uuid === item.categoryUuid)
-        : null
-      const catById = !catByUuid && item.categoryId
-        ? categories.value.find(c => c.id === item.categoryId)
-        : null
+      const catByUuid = item.categoryUuid ? categories.value.find(c => c.uuid === item.categoryUuid) : null
+      const catById = !catByUuid && item.categoryId ? categories.value.find(c => c.id === item.categoryId) : null
       const cat = catByUuid || catById
-
+      
       if (cat) {
         catName = cat.name
         catColor = categoryColorMap.value[cat.uuid || ''] || '#78716c'
       }
 
-      const existing = slot.catMap.get(catName)
+      const existing = slot.itemMap.get(prodName)
       if (existing) {
         existing.revenue += item.totalPrice
       } else {
-        slot.catMap.set(catName, { categoryName: catName, revenue: item.totalPrice, color: catColor })
+        slot.itemMap.set(prodName, { name: prodName, categoryName: catName, revenue: item.totalPrice, color: catColor })
       }
     }
   }
 
-  // แปลง Map เป็น segments พร้อม % สัดส่วน
   return hours.map(slot => {
-    const entries = Array.from(slot.catMap.values()).sort((a, b) => b.revenue - a.revenue)
+    const entries = Array.from(slot.itemMap.values()).sort((a, b) => b.revenue - a.revenue)
     const total = entries.reduce((s, e) => s + e.revenue, 0)
     const segments = entries.map(e => ({
       ...e,
@@ -649,11 +630,65 @@ const activeCategorySegments = computed(() => {
   return Array.from(seen.entries()).map(([categoryName, color]) => ({ categoryName, color }))
 })
 
-// Top products (คำนวณ on-the-fly จาก filteredOrders)
+// --- Category Donut Chart ---
+const categoryDonutSeries = computed(() => {
+  return activeCategorySegments.value.map(seg => {
+    return hourlyStats.value.reduce((sum, h) => {
+      const s = h.segments.find(s => s.categoryName === seg.categoryName)
+      return sum + (s ? s.revenue : 0)
+    }, 0)
+  })
+})
+
+const categoryDonutOptions = computed(() => ({
+  labels: activeCategorySegments.value.map(s => s.categoryName),
+  colors: activeCategorySegments.value.map(s => s.color),
+  chart: { background: 'transparent', foreColor: '#a8a29e', fontFamily: 'Inter, sans-serif' },
+  stroke: { show: false },
+  legend: { show: false },
+  dataLabels: { 
+    enabled: true,
+    formatter: (val: number, opts: any) => {
+      const name = opts.w.globals.labels[opts.seriesIndex]
+      return `${name}\n${val.toFixed(0)}%`
+    },
+    style: { 
+      fontSize: '9px', 
+      fontWeight: 'bold',
+      colors: ['#fff']
+    },
+    dropShadow: { enabled: true, blur: 1, opacity: 0.5 },
+    offsetY: 0
+  },
+  plotOptions: {
+    pie: {
+      donut: {
+        size: '65%',
+        labels: {
+          show: true,
+          total: {
+            show: true,
+            label: 'รวมยอดขาย',
+            color: '#a8a29e',
+            fontSize: '12px',
+            formatter: (w: any) => '฿' + w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0).toLocaleString()
+          },
+          value: { color: '#f5f5f5', fontSize: '16px', fontWeight: 'bold' }
+        }
+      },
+      dataLabels: {
+        offset: -15, // ขยับให้อยู่ขอบด้านในเพื่อให้มีพื้นที่แสดงชื่อ
+        minAngleToShowLabel: 10
+      }
+    }
+  },
+  tooltip: { theme: 'dark' }
+}))
+
+// Top products (คำนวณ on-the-fly จาก todayOrders)
 const computedTopProducts = computed(() => {
-  if (!filterCategoryId.value && !filterProductUuid.value) return topProductsData.value
   const productMap = new Map<string, { productName: string; quantitySold: number; totalRevenue: number }>()
-  for (const order of filteredOrders.value) {
+  for (const order of todayOrders.value) {
     for (const item of (order.items || [])) {
       const key = item.productUuid || item.productName
       const ex = productMap.get(key) || { productName: item.productName, quantitySold: 0, totalRevenue: 0 }
@@ -669,6 +704,19 @@ const computedTopProducts = computed(() => {
 async function loadData() {
   isLoading.value = true
   try {
+    // 1. คำนวณรายจ่ายเฉลี่ยรายวันของเดือนที่เลือก
+    const d = new Date(selectedDate.value)
+    const y = d.getFullYear()
+    const m = d.getMonth()
+    const monthStart = new Date(y, m, 1)
+    const monthEnd = new Date(y, m + 1, 0)
+
+    expenseMonthLabel.value = d.toLocaleDateString('th-TH', { month: 'short', year: 'numeric' })
+    const expSummary = await getExpenseSummary(formatDate(monthStart), formatDate(monthEnd))
+    monthTotalExpenses.value = expSummary.totalExpenses || 0
+    dailyAvgExpense.value = (expSummary.totalExpenses || 0) / monthEnd.getDate()
+
+    // 2. โหลด Master Data
     const start = new Date(selectedDate.value + 'T00:00:00')
     const end = new Date(selectedDate.value + 'T23:59:59.999')
 
@@ -688,9 +736,14 @@ async function loadData() {
     topProductsData.value = topData
 
     // คำนวณ stats
-    let revenue = 0, cost = 0, profit = 0
-    for (const o of orders) { revenue += o.totalAmount; cost += o.totalCost; profit += o.profitAmount }
-    stats.value = { revenue, cost, profit, orderCount: orders.length }
+    let revenue = 0, cost = 0, profit = 0, itemCount = 0
+    for (const o of orders) { 
+      revenue += o.totalAmount
+      cost += (o.totalCost || 0)
+      profit += (o.profitAmount || 0)
+      itemCount += (o.items || []).reduce((sum, item) => sum + item.quantity, 0)
+    }
+    stats.value = { revenue, cost, profit, orderCount: orders.length, itemCount }
   } catch (err) {
     console.error('Closing report error:', err)
   } finally {
@@ -739,4 +792,19 @@ onMounted(loadData)
 .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from,
 .fade-leave-to { opacity: 0; }
+
+@keyframes shine {
+  0% { transform: translateX(-200%) skewX(-20deg); }
+  100% { transform: translateX(200%) skewX(-20deg); }
+}
+.animate-shine {
+  animation: shine 3.5s infinite ease-in-out;
+}
+@keyframes pulse-subtle {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.15); }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s infinite ease-in-out;
+}
 </style>

@@ -377,4 +377,5 @@ export interface DailySummary {
     card: number
     other: number
   }
+  expenses?: Expense[]       // รายการรายจ่ายย่อย (ถ้ามี)
 }

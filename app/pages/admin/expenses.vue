@@ -12,13 +12,22 @@
         </div>
       </div>
       
-      <button 
-        @click="showAddModal = true"
-        class="h-12 px-6 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-primary-900/20"
-      >
-        <Plus :size="20" />
-        <span>เพิ่มรายจ่าย</span>
-      </button>
+      <div class="flex items-center gap-3">
+        <button 
+          @click="showReportModal = true"
+          class="h-12 px-5 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all active:scale-95 flex items-center gap-2 border border-surface-700"
+        >
+          <BarChart3 :size="20" />
+          <span>รายงานรายเดือน</span>
+        </button>
+        <button 
+          @click="showAddModal = true"
+          class="h-12 px-6 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-primary-900/20"
+        >
+          <Plus :size="20" />
+          <span>เพิ่มรายจ่าย</span>
+        </button>
+      </div>
     </div>
 
     <!-- Main Content: Expense List -->
@@ -290,12 +299,84 @@
         </div>
       </Transition>
     </Teleport>
+    
+    <!-- Modal: Monthly Report Chart -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="showReportModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm">
+          <Transition
+            enter-active-class="transition duration-300 ease-out"
+            enter-from-class="opacity-0 scale-95 translate-y-4"
+            enter-to-class="opacity-100 scale-100 translate-y-0"
+            leave-active-class="transition duration-200 ease-in"
+            leave-from-class="opacity-100 scale-100 translate-y-0"
+            leave-to-class="opacity-0 scale-95 translate-y-4"
+          >
+            <div v-if="showReportModal" class="bg-surface-900 border border-surface-800 rounded-[2.5rem] shadow-2xl w-full max-w-4xl overflow-hidden">
+              <!-- Modal Header -->
+              <div class="px-8 pt-8 pb-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 bg-primary-500/10 rounded-xl flex items-center justify-center text-primary-400">
+                    <BarChart3 :size="20" />
+                  </div>
+                  <div>
+                    <h3 class="text-xl font-black text-surface-50">สรุปรายจ่ายรายเดือน</h3>
+                    <p class="text-xs text-surface-500">เปรียบเทียบมูลค่ารวมแยกตามเดือน</p>
+                  </div>
+                </div>
+                <button 
+                  @click="showReportModal = false"
+                  class="w-10 h-10 bg-surface-800 text-surface-400 hover:text-surface-50 rounded-xl flex items-center justify-center transition-colors"
+                >
+                  <X :size="20" />
+                </button>
+              </div>
+
+              <!-- Chart Content -->
+              <div class="p-8">
+                <div class="bg-surface-950/50 border border-surface-800 rounded-3xl p-6 h-[400px]">
+                  <ClientOnly>
+                    <apexchart 
+                      v-if="monthlyChartData.categories.length > 0"
+                      type="bar"
+                      height="100%"
+                      :options="monthlyChartOptions"
+                      :series="monthlyChartData.series"
+                    />
+                    <div v-else class="h-full flex flex-col items-center justify-center text-surface-600 gap-4">
+                      <BarChart3 :size="48" class="opacity-20" />
+                      <p class="font-bold">ไม่มีข้อมูลสำหรับแสดงกราฟ</p>
+                    </div>
+                  </ClientOnly>
+                </div>
+              </div>
+              
+              <div class="px-8 pb-8 flex justify-end">
+                <button 
+                  @click="showReportModal = false"
+                  class="px-8 h-12 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all"
+                >
+                  ปิดหน้าต่าง
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Banknote, Plus, Calendar, Filter, Trash2, X, Save, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { Banknote, Plus, Calendar, Filter, Trash2, X, Save, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-vue-next'
 import { useProfitability } from '~/composables/useProfitability'
 import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import { useAuthStore } from '~/stores/auth'
@@ -316,11 +397,13 @@ const { lastPullTimestamp } = useMasterDataSync()
 
 // --- State ---
 const showAddModal = ref(false)
+const showReportModal = ref(false)
 const editingId = ref<number | null>(null)
 const isSubmitting = ref(false)
 const expenses = ref<Expense[]>([])
-const startDate = ref(new Date(new Date().setDate(1)).toISOString().slice(0, 10)) // เริ่มต้นวันที่ 1 ของเดือน
-const endDate = ref(new Date().toISOString().slice(0, 10)) // ถึงวันนี้
+const currentYear = new Date().getFullYear() > 2400 ? new Date().getFullYear() - 543 : new Date().getFullYear()
+const startDate = ref(`${currentYear}-01-01`)
+const endDate = ref(`${currentYear}-12-31`)
 const filterCategory = ref('')
 const currentPage = ref(1)
 const itemsPerPage = 10
@@ -368,6 +451,94 @@ const paginatedExpenses = computed(() => {
 const pageTotalAmount = computed(() => {
   return paginatedExpenses.value.reduce((sum, exp) => sum + exp.amount, 0)
 })
+
+// --- Chart Data & Options ---
+const monthlyChartData = computed(() => {
+  const monthMap: Record<string, Record<ExpenseCategory, number>> = {}
+  const allCats = Object.keys(categoryLabels) as ExpenseCategory[]
+  
+  expenses.value.forEach(e => {
+    const month = e.expenseDate.slice(0, 7)
+    if (!monthMap[month]) {
+      const newMonthData = {} as Record<ExpenseCategory, number>
+      allCats.forEach(c => newMonthData[c] = 0)
+      monthMap[month] = newMonthData
+    }
+    monthMap[month]![e.category] += e.amount
+  })
+  
+  const sortedMonths = Object.keys(monthMap).sort().slice(-12)
+  
+  const series = allCats.map(cat => ({
+    name: categoryLabels[cat],
+    data: sortedMonths.map(m => monthMap[m]![cat] || 0)
+  }))
+    
+  return {
+    categories: sortedMonths.map(m => {
+      const [y, mm] = m.split('-')
+      return new Date(Number(y), Number(mm) - 1).toLocaleDateString('th-TH', { month: 'short', year: '2-digit' })
+    }),
+    series
+  }
+})
+
+const monthlyChartOptions = computed(() => ({
+  chart: { 
+    type: 'bar',
+    stacked: true,
+    toolbar: { show: false }, 
+    background: 'transparent',
+    fontFamily: 'Inter, sans-serif',
+    foreColor: '#a8a29e'
+  },
+  colors: ['#06b6d4', '#3b82f6', '#f97316', '#a855f7', '#0891b2', '#64748b'], // เรียงตามหมวดหมู่
+  plotOptions: {
+    bar: {
+      borderRadius: 4,
+      columnWidth: '50%',
+      dataLabels: {
+        total: {
+          enabled: true,
+          style: {
+            fontSize: '11px',
+            fontWeight: '900',
+            color: '#06b6d4'
+          },
+          formatter: (v: number) => `฿${v.toLocaleString()}`
+        }
+      }
+    }
+  },
+  dataLabels: {
+    enabled: true,
+    formatter: (val: number, opts: any) => {
+      if (val < 500) return '' // ซ่อนถ้าค่าน้อยเกินไปเพื่อไม่ให้เบียดกัน
+      const name = opts.w.globals.seriesNames[opts.seriesIndex]
+      return `${name}\n฿${val.toLocaleString()}`
+    },
+    style: { 
+      fontSize: '9px', 
+      fontWeight: 'bold', 
+      colors: ['#fff'] 
+    },
+    dropShadow: { enabled: true, blur: 1, opacity: 0.5 }
+  },
+  xaxis: {
+    categories: monthlyChartData.value.categories,
+    axisBorder: { show: false },
+    axisTicks: { show: false }
+  },
+  yaxis: {
+    labels: { formatter: (v: number) => `฿${v.toLocaleString()}` }
+  },
+  grid: { borderColor: '#292524', strokeDashArray: 4 },
+  legend: { position: 'top', horizontalAlign: 'right' },
+  tooltip: { 
+    theme: 'dark',
+    y: { formatter: (v: number) => `฿${v.toLocaleString()}` }
+  }
+}))
 
 // รีเซ็ตหน้าเมื่อตัวกรองเปลี่ยน
 watch([startDate, endDate, filterCategory], () => {

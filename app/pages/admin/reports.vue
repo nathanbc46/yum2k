@@ -9,14 +9,17 @@
           <p class="text-xs text-surface-500 mt-0.5">สรุปผลการดำเนินงานและแนวโน้มการขาย</p>
         </div>
         <div class="flex gap-2 flex-wrap items-center">
-          <select v-model="selectedDays" @change="loadData"
+          <select v-model="selectedPeriod" @change="loadData"
             class="bg-surface-800 border border-surface-700 text-surface-50 rounded-xl px-3 py-2 text-sm focus:border-primary-500 outline-none transition-all">
-            <option :value="7">ย้อนหลัง 7 วัน</option>
-            <option :value="14">ย้อนหลัง 14 วัน</option>
-            <option :value="30">ย้อนหลัง 30 วัน</option>
-            <option :value="90">ย้อนหลัง 3 เดือน</option>
-            <option :value="180">ย้อนหลัง 6 เดือน</option>
-            <option :value="365">ย้อนหลัง 1 ปี</option>
+            <option value="this-month">เดือนนี้</option>
+            <option value="last-month">เดือนที่แล้ว</option>
+            <option value="this-year">ปีนี้</option>
+            <option value="7">ย้อนหลัง 7 วัน</option>
+            <option value="14">ย้อนหลัง 14 วัน</option>
+            <option value="30">ย้อนหลัง 30 วัน</option>
+            <option value="90">ย้อนหลัง 3 เดือน</option>
+            <option value="180">ย้อนหลัง 6 เดือน</option>
+            <option value="365">ย้อนหลัง 1 ปี</option>
           </select>
           <button @click="loadData" class="p-2 bg-surface-800 hover:bg-surface-700 rounded-xl border border-surface-700 transition-colors" title="รีเฟรช">🔄</button>
           <button @click="openAiModal('insight')"
@@ -30,7 +33,7 @@
         </div>
       </div>
       <!-- Category / Product Filter -->
-      <div class="flex items-center gap-2 mt-3 flex-wrap">
+      <div v-if="activeTab !== 'overview'" class="flex items-center gap-2 mt-3 flex-wrap">
         <span class="text-xs text-surface-500 font-medium">กรองสินค้า:</span>
         <select v-model="filterCategoryId" @change="filterProductUuid = ''; loadData()"
           class="bg-surface-800 border border-surface-700 text-surface-50 rounded-xl px-3 py-1.5 text-xs focus:border-primary-500 outline-none transition-all">
@@ -70,20 +73,70 @@
       <div v-if="activeTab === 'overview'" class="p-6 space-y-6">
         <!-- Summary Cards -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="bg-surface-900 p-5 rounded-2xl border border-surface-800">
-            <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">ยอดขายรวม</div>
-            <div class="text-2xl font-black text-surface-50">฿{{ summary.revenue.toLocaleString() }}</div>
-            <div class="text-[10px] text-surface-600 mt-2">ยอดรับเงินทั้งหมด</div>
+          <div class="bg-gradient-to-br from-blue-600/20 to-white dark:to-surface-900 border border-blue-600/40 p-5 rounded-2xl shadow-sm">
+            <div class="text-[10px] uppercase tracking-widest text-blue-700 dark:text-blue-400 mb-1 font-bold">ยอดขายรวม</div>
+            <div class="text-3xl font-black text-blue-700 dark:text-blue-400">฿{{ summary.revenue.toLocaleString() }}</div>
+            <div class="text-[10px] text-surface-500 mt-2 font-medium">ยอดรับเงินทั้งหมด</div>
           </div>
-          <div class="bg-surface-900 p-5 rounded-2xl border border-surface-800">
-            <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">รายจ่ายรวมหน้างาน</div>
-            <div class="text-2xl font-black text-red-400">฿{{ summary.totalExpenses?.toLocaleString() || 0 }}</div>
-            <div class="text-[10px] text-surface-600 mt-2">หักเงินสดหน้างาน</div>
+          <div 
+            class="bg-surface-900 p-5 rounded-2xl border border-surface-800 group relative cursor-help transition-all hover:bg-surface-800/40"
+            @click.stop="showExpenseTooltip = !showExpenseTooltip"
+          >
+            <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">รายจ่ายรวม</div>
+            <div class="text-2xl font-black text-red-400">฿{{ summary.totalExpenses?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || 0 }}</div>
+            <div class="text-[10px] text-surface-600 mt-2">คำนวณเฉลี่ยตามเดือน (แตะเพื่อดูรายละเอียด)</div>
+            
+            <!-- Custom Tooltip (รองรับทั้ง Hover และ Click) -->
+            <div 
+              :class="[
+                'absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 p-4 bg-surface-950/95 backdrop-blur-xl border border-surface-700 rounded-2xl shadow-2xl transition-all duration-300 z-[100]',
+                showExpenseTooltip 
+                  ? 'opacity-100 translate-y-0 pointer-events-auto' 
+                  : 'opacity-0 -translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto'
+              ]"
+            >
+              <div class="text-[10px] text-surface-500 uppercase tracking-widest mb-2 border-b border-surface-800 pb-2 flex justify-between items-center">
+                <span>รายละเอียดรายจ่ายเฉลี่ย</span>
+                <span class="text-[9px] bg-surface-800 px-1.5 py-0.5 rounded text-surface-400">รายวัน</span>
+              </div>
+              <div class="space-y-2">
+                <div v-for="(val, month) in monthlyAvgs" :key="month" class="flex justify-between items-center text-xs">
+                  <span class="text-surface-400 font-medium">{{ month }}</span>
+                  <span class="font-black text-red-400 bg-red-400/10 px-2 py-1 rounded-lg border border-red-400/20">
+                    ฿{{ Math.round(val).toLocaleString() }}
+                  </span>
+                </div>
+              </div>
+              <!-- Arrow -->
+              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-[-1px] border-8 border-transparent border-b-surface-700" />
+            </div>
           </div>
-          <div class="bg-surface-900 p-5 rounded-2xl border border-primary-500/30 bg-primary-500/5">
-            <div class="text-[10px] uppercase tracking-widest text-primary-400 mb-1">กำไรสุทธิ (รายเดือน)</div>
-            <div class="text-2xl font-black text-primary-400">฿{{ (summary.revenue - (summary.totalExpenses || 0)).toLocaleString() }}</div>
-            <div class="text-[10px] text-surface-600 mt-2">ยอดขาย - รายจ่ายรวม</div>
+          <div :class="[
+            'relative overflow-hidden p-5 rounded-2xl border-2 transition-all duration-500 shadow-xl',
+            (summary.revenue - (summary.totalExpenses || 0)) >= 0 
+              ? 'bg-gradient-to-br from-emerald-500/20 to-white dark:to-surface-900 border-emerald-500/50 shadow-emerald-500/10 animate-pulse-subtle' 
+              : 'bg-gradient-to-br from-red-500/20 to-white dark:to-surface-900 border-red-500/50 shadow-red-500/10 animate-pulse-subtle'
+          ]">
+            <!-- Shine Effect Overlay -->
+            <div class="absolute inset-0 pointer-events-none overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full animate-shine" />
+            </div>
+
+            <div :class="[
+              'text-[10px] uppercase tracking-widest mb-1 flex justify-between items-center font-bold',
+              (summary.revenue - (summary.totalExpenses || 0)) >= 0 ? 'text-emerald-600' : 'text-red-600'
+            ]">
+              <span>กำไรสุทธิ (รายเดือน)</span>
+              <span v-if="(summary.revenue - (summary.totalExpenses || 0)) >= 0" class="animate-bounce text-lg">🚀</span>
+              <span v-else class="animate-bounce text-red-600 text-lg">🚨</span>
+            </div>
+            <div :class="[
+              'text-3xl font-black transition-colors relative z-10',
+              (summary.revenue - (summary.totalExpenses || 0)) >= 0 ? 'text-emerald-600' : 'text-red-600'
+            ]">
+              ฿{{ Math.round(summary.revenue - (summary.totalExpenses || 0)).toLocaleString() }}
+            </div>
+            <div class="text-[10px] text-surface-600 mt-2 font-medium">ยอดขาย - รายจ่ายรวม</div>
           </div>
           <div class="bg-surface-900 p-5 rounded-2xl border border-surface-800">
             <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">กำไรสินค้า (GP)</div>
@@ -91,22 +144,59 @@
             <div class="text-[10px] text-surface-600 mt-2">ยอดขาย - ต้นทุนสินค้า</div>
           </div>
         </div>
-        <!-- Charts -->
+
+        <!-- 📈 แนวโน้มยอดขายและกำไรสุทธิ (เฉลี่ยรายวัน) -->
+        <div class="bg-surface-900 p-6 rounded-2xl border border-primary-500/20 bg-primary-500/5 flex flex-col min-h-[350px] mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-sm font-bold flex items-center gap-2">📈 แนวโน้มยอดขายและกำไรสุทธิ (รายวัน)</h3>
+              <p class="text-[10px] text-surface-500 mt-0.5">กราฟแสดงการเปรียบเทียบยอดขายและกำไรสุทธิในแต่ละวัน</p>
+            </div>
+            <button @click="openChartModal('daily-trend', '📈 แนวโน้มยอดขายและกำไรสุทธิ (เฉลี่ยรายวัน)', 'area', netProfitChartOptions, netProfitChartSeries)" 
+              class="p-2 hover:bg-surface-800 rounded-lg transition-all text-surface-400 hover:text-primary-400" title="ขยายเต็มจอ">
+              <Expand :size="18" />
+            </button>
+          </div>
+          <div class="flex-1 min-h-0">
+            <ClientOnly><apexchart type="area" height="100%" :options="netProfitChartOptions" :series="netProfitChartSeries" /></ClientOnly>
+          </div>
+        </div>
+
+        <!-- Charts Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- 📊 สรุปภาพรวมรายเดือน (รายได้ · รายจ่าย · กำไรสุทธิ) -->
           <div class="lg:col-span-2 bg-surface-900 p-6 rounded-2xl border border-surface-800 flex flex-col min-h-[350px]">
-            <h3 class="text-sm font-bold mb-4">📈 แนวโน้มยอดขายและกำไรรายวัน</h3>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-bold">📊 สรุปภาพรวมรายเดือน (รายได้ · รายจ่าย · กำไรสุทธิ)</h3>
+              <button @click="openChartModal('monthly-summary', '📊 สรุปภาพรวมรายเดือน', 'bar', monthlySummaryChartOptions, monthlySummaryChartSeries)" 
+                class="p-2 hover:bg-surface-800 rounded-lg transition-all text-surface-400 hover:text-primary-400" title="ขยายเต็มจอ">
+                <Expand :size="18" />
+              </button>
+            </div>
             <div class="flex-1 min-h-0">
-              <ClientOnly><apexchart type="area" height="100%" :options="revenueChartOptions" :series="revenueChartSeries" /></ClientOnly>
+              <ClientOnly><apexchart type="bar" height="100%" :options="monthlySummaryChartOptions" :series="monthlySummaryChartSeries" /></ClientOnly>
             </div>
           </div>
           <div class="bg-surface-900 p-6 rounded-2xl border border-surface-800 flex flex-col min-h-[350px]">
-            <h3 class="text-sm font-bold mb-4">🍩 สัดส่วนยอดขายตามหมวดหมู่</h3>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-bold">🍩 สัดส่วนยอดขายตามหมวดหมู่</h3>
+              <button @click="openChartModal('category-donut', '🍩 สัดส่วนยอดขายตามหมวดหมู่', 'donut', donutChartOptions, donutChartSeries)" 
+                class="p-2 hover:bg-surface-800 rounded-lg transition-all text-surface-400 hover:text-primary-400" title="ขยายเต็มจอ">
+                <Expand :size="18" />
+              </button>
+            </div>
             <div class="flex-1 flex items-center justify-center min-h-0">
               <ClientOnly><apexchart type="donut" width="100%" :options="donutChartOptions" :series="donutChartSeries" /></ClientOnly>
             </div>
           </div>
-          <div class="lg:col-span-3 bg-surface-900 p-6 rounded-2xl border border-surface-800 flex flex-col min-h-[320px]">
-            <h3 class="text-sm font-bold mb-4">⭐ 10 อันดับสินค้าขายดี (ตามจำนวนชิ้น)</h3>
+          <div class="lg:col-span-3 bg-surface-900 p-6 rounded-2xl border border-surface-800 flex flex-col min-h-[480px]">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-bold">⭐ 15 อันดับสินค้าขายดี (ตามจำนวนชิ้น)</h3>
+              <button @click="openChartModal('product-ranking', '⭐ 15 อันดับสินค้าขายดี', 'bar', productChartOptions, productChartSeries)" 
+                class="p-2 hover:bg-surface-800 rounded-lg transition-all text-surface-400 hover:text-primary-400" title="ขยายเต็มจอ">
+                <Expand :size="18" />
+              </button>
+            </div>
             <div class="flex-1 min-h-0">
               <ClientOnly><apexchart type="bar" height="100%" :options="productChartOptions" :series="productChartSeries" /></ClientOnly>
             </div>
@@ -256,9 +346,15 @@
 
         <!-- Weekly Trend Chart -->
         <div class="bg-surface-900 border border-surface-800 rounded-2xl p-6">
-          <div>
-            <h3 class="text-sm font-bold">📅 แนวโน้มยอดขายสินค้า Top 6 (รายสัปดาห์)</h3>
-            <p class="text-xs text-surface-500 mt-0.5">เห็นว่าสินค้าไหนกำลัง 🔺 ขึ้น หรือ 🔻 ลง — ปรับ Menu ได้ทันเหตุการณ์</p>
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-sm font-bold">📅 แนวโน้มยอดขายสินค้า Top 6 (รายสัปดาห์)</h3>
+              <p class="text-xs text-surface-500 mt-0.5">เห็นว่าสินค้าไหนกำลัง 🔺 ขึ้น หรือ 🔻 ลง — ปรับ Menu ได้ทันเหตุการณ์</p>
+            </div>
+            <button @click="openChartModal('weekly-trend', '📅 แนวโน้มยอดขายสินค้า Top 6', 'line', weeklyTrendOptions, weeklyTrendData.series)" 
+              class="p-2 hover:bg-surface-800 rounded-lg transition-all text-surface-400 hover:text-primary-400" title="ขยายเต็มจอ">
+              <Expand :size="18" />
+            </button>
           </div>
           <div class="mt-4 min-h-[300px]">
             <ClientOnly>
@@ -328,6 +424,32 @@
       source-title="วิเคราะห์ยอดขาย"
       @close="isAiModalOpen = false"
     />
+
+    <!-- Chart Expansion Modal -->
+    <Teleport to="body">
+      <div v-if="isChartModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-200">
+        <div class="absolute inset-0 bg-surface-950/90 backdrop-blur-sm" @click="isChartModalOpen = false" />
+        <div class="relative bg-surface-900 border border-surface-800 rounded-3xl w-full h-full flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <header class="flex items-center justify-between px-8 py-6 border-b border-surface-800 bg-surface-900/50 backdrop-blur-md">
+            <h2 class="text-xl font-bold text-surface-50">{{ expandedChart?.title }}</h2>
+            <button @click="isChartModalOpen = false" 
+              class="w-10 h-10 flex items-center justify-center hover:bg-surface-800 rounded-xl transition-all text-surface-400 hover:text-red-400">
+              <X :size="24" />
+            </button>
+          </header>
+          <div class="flex-1 p-8 min-h-0 bg-surface-900/30">
+            <ClientOnly v-if="expandedChart">
+              <apexchart 
+                :type="expandedChart.type" 
+                height="100%" 
+                :options="expandedChart.options" 
+                :series="expandedChart.series" 
+              />
+            </ClientOnly>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -341,6 +463,7 @@ import AdminAiAnalysisModal from '~/components/admin/AiAnalysisModal.vue'
 import { useProfitability } from '~/composables/useProfitability'
 import type { Category, Product } from '~/types'
 import { db } from '~/db'
+import { Expand, X } from 'lucide-vue-next'
 
 definePageMeta({ layout: 'admin' })
 
@@ -360,17 +483,45 @@ const tabs = [
 ]
 const activeTab = ref('overview')
 
+// ล้าง Filter เมื่อกลับมาที่หน้าภาพรวม
+watch(activeTab, (newTab) => {
+  if (newTab === 'overview') {
+    if (filterCategoryId.value !== 0 || filterProductUuid.value !== '') {
+      filterCategoryId.value = 0
+      filterProductUuid.value = ''
+      loadData()
+    }
+  }
+})
+
 // --- Filter State ---
-const selectedDays = ref(30)
+const selectedPeriod = ref<string | number>('this-month')
 const isLoading = ref(false)
 const filterCategoryId = ref<number>(0)
 const filterProductUuid = ref('')
+const showExpenseTooltip = ref(false)
+
+// ปิด Tooltip เมื่อคลิกที่อื่น
+if (process.client) {
+  const closeTooltip = () => { showExpenseTooltip.value = false }
+  onMounted(() => window.addEventListener('click', closeTooltip))
+  onUnmounted(() => window.removeEventListener('click', closeTooltip))
+}
 const startDate = ref(new Date())
 const endDate = ref(new Date())
 const categories = ref<Category[]>([])
 const allProducts = ref<Product[]>([])
 const isAiModalOpen = ref(false)
 const aiModalInitialTab = ref<'insight' | 'chat'>('insight')
+
+// --- Chart Expansion ---
+const isChartModalOpen = ref(false)
+const expandedChart = ref<{ id: string; title: string; type: string; options: any; series: any } | null>(null)
+
+function openChartModal(id: string, title: string, type: string, options: any, series: any) {
+  expandedChart.value = { id, title, type, options: { ...options, chart: { ...options.chart, height: '100%' } }, series }
+  isChartModalOpen.value = true
+}
 
 function openAiModal(tab: 'insight' | 'chat') {
   aiModalInitialTab.value = tab
@@ -380,12 +531,15 @@ function openAiModal(tab: 'insight' | 'chat') {
 const aiData = computed(() => ({
   revenue: summary.value.revenue,
   cost: summary.value.cost,
-  profit: summary.value.profit,
+  productProfitGP: summary.value.profit, // กำไรขั้นต้น (ยอดขาย - ต้นทุนสินค้า) สำหรับวิเคราะห์สินค้า
+  netProfit: summary.value.revenue - (summary.value.totalExpenses || 0), // กำไรสุทธิ (ยอดขาย - รายจ่ายรวมเฉลี่ย) สำหรับวิเคราะห์ภาพรวม
+  totalExpenses: summary.value.totalExpenses, // ยอดปันส่วนตามวันที่มีการขาย
+  actualTotalExpenses: rawTotalExpenses.value, // ยอดจ่ายจริงรวมทั้งหมดในช่วงเวลา
+  monthlyAverageExpenses: monthlyAvgs.value,
   orderCount: summary.value.orderCount,
   topProducts: topProducts.value,
-  hourlyStats: [], 
   categoryStats: categorySales.value,
-  expenses: summary.value.totalExpenses,
+  hourlyStats: [], // ในหน้าภาพรวมรายเดือนจะเน้นแนวโน้มรายวันมากกว่ารายชั่วโมง
   dateRange: { 
     start: startDate.value.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }), 
     end: endDate.value.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) 
@@ -396,7 +550,16 @@ const aiData = computed(() => ({
   productByHour: productHourRows.value.map(r => ({ name: r.productName, hours: r.data })),
   weeklyTrend: weeklyTrendData.value,
   velocity: velocityData.value,
-  dailyHistory: dailyHistory.value, // ส่งยอดขายแยกตามวันที่จริงเข้าไป
+  dailyHistory: dailyHistory.value.map(d => {
+    const monthKey = d.date.slice(0, 7)
+    const avgExp = monthlyAvgs.value[monthKey] || 0
+    return {
+      date: d.date,
+      revenue: d.revenue,
+      productProfitGP: d.profit, // เดิมคือ GP
+      netProfit: d.revenue - avgExp // กำไรหลังหักรายจ่ายเฉลี่ย
+    }
+  }), 
   dailyProductStats: dailyProductStats.value // ข้อมูลสินค้าแยกรายวัน
 }))
 
@@ -412,6 +575,12 @@ const topProducts = ref<TopProductMetric[]>([])
 const dailyHistory = ref<{ date: string; revenue: number; profit: number }[]>([])
 const categorySales = ref<{ categoryName: string; value: number }[]>([])
 const dailyProductStats = ref<Record<string, any>>({}) // เก็บข้อมูล: { '2024-04-20': { total: 500, items: { 'ยำปูม้า': 5 } } }
+const monthlyAvgs = ref<Record<string, number>>({}) // เก็บข้อมูล: { '2024-04': 183.33 }
+const rawTotalExpenses = ref(0) // ยอดรวมรายจ่ายจริงจาก DB (ไม่ปันส่วน)
+const expenseTooltip = ref('') // ข้อความรายละเอียดเมื่อเอาเมาส์ชี้รายจ่าย
+
+// ข้อมูลสำหรับกราฟสรุปรายเดือน
+const monthlySummaryData = ref<{ month: string; revenue: number; expense: number; profit: number }[]>([])
 
 // --- Heatmap: Day × Hour (บิล) ---
 const heatmapDays = [
@@ -486,7 +655,48 @@ const revenueChartOptions = computed(() => ({
   grid: { borderColor: '#292524', strokeDashArray: 4 },
   tooltip: { theme: 'dark' },
   legend: { position: 'top', horizontalAlign: 'right' },
-  dataLabels: { enabled: false }
+  dataLabels: { 
+    enabled: true,
+    formatter: (v: number) => v > 0 ? `฿${Math.round(v).toLocaleString()}` : '',
+    offsetY: -10,
+    style: { 
+      fontSize: '11px', 
+      colors: ['#06b6d4', '#10b981'], 
+      fontWeight: '900' 
+    },
+    background: { enabled: false }
+  }
+}))
+
+// --- กราฟกำไรสุทธิ (หักรายจ่ายเฉลี่ย) ---
+const netProfitChartSeries = computed(() => {
+  return [
+    { name: 'ยอดขาย', data: dailyHistory.value.map(d => d.revenue) },
+    { 
+      name: 'กำไรสุทธิ', 
+      data: dailyHistory.value.map(d => {
+        // หาเดือนของวันที่นี้ (YYYY-MM)
+        const monthKey = d.date.slice(0, 7)
+        const avgExpense = monthlyAvgs.value[monthKey] || 0
+        return Math.max(0, d.revenue - avgExpense)
+      }) 
+    }
+  ]
+})
+
+const netProfitChartOptions = computed(() => ({
+  ...revenueChartOptions.value,
+  colors: ['#06b6d4', '#ec4899'], 
+  dataLabels: {
+    ...revenueChartOptions.value.dataLabels,
+    style: {
+      ...revenueChartOptions.value.dataLabels.style,
+      colors: ['#06b6d4', '#ec4899']
+    }
+  },
+  title: {
+    text: undefined
+  }
 }))
 
 const donutChartSeries = computed(() => categorySales.value.map(c => c.value))
@@ -496,17 +706,54 @@ const donutChartOptions = computed(() => ({
   colors: ['#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'],
   stroke: { show: false },
   legend: { position: 'bottom' },
-  plotOptions: { pie: { donut: { size: '70%', labels: { show: true, total: { show: true, label: 'รวมยอดขาย', formatter: (w: any) => '฿' + w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0).toLocaleString() } } } } },
-  dataLabels: { enabled: false }
+  dataLabels: { 
+    enabled: true,
+    formatter: (val: number, opts: any) => {
+      const name = opts.w.globals.labels[opts.seriesIndex]
+      return `${name}\n${val.toFixed(0)}%`
+    },
+    style: {
+      fontSize: '9px',
+      fontWeight: 'bold',
+      colors: ['#fff']
+    },
+    dropShadow: { enabled: true, blur: 1, opacity: 0.5 }
+  },
+  plotOptions: {
+    pie: {
+      donut: {
+        size: '65%',
+        labels: {
+          show: true,
+          total: {
+            show: true,
+            label: 'รวมยอดขาย',
+            color: '#a8a29e',
+            fontSize: '12px',
+            formatter: (w: any) => '฿' + w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0).toLocaleString()
+          },
+          value: { color: '#f5f5f5', fontSize: '16px', fontWeight: 'bold' }
+        }
+      },
+      dataLabels: {
+        offset: -15,
+        minAngleToShowLabel: 10
+      }
+    }
+  }
 }))
 
-const productChartSeries = computed(() => [{ name: 'จำนวนชิ้น', data: topProducts.value.slice(0, 10).map(p => p.quantitySold) }])
+const productChartSeries = computed(() => [{ name: 'จำนวนชิ้น', data: topProducts.value.slice(0, 15).map(p => p.quantitySold) }])
 const productChartOptions = computed(() => ({
   chart: { type: 'bar', toolbar: { show: false }, background: 'transparent', foreColor: '#a8a29e' },
   plotOptions: { bar: { borderRadius: 6, horizontal: true, distributed: true, barHeight: '60%' } },
-  colors: ['#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#3b82f6', '#f472b6', '#a855f7', '#22c55e'],
+  colors: [
+    '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', 
+    '#ec4899', '#3b82f6', '#f472b6', '#a855f7', '#22c55e',
+    '#14b8a6', '#f97316', '#6366f1', '#d946ef', '#0ea5e9'
+  ],
   dataLabels: { enabled: true, formatter: (val: number) => val + ' ชิ้น' },
-  xaxis: { categories: topProducts.value.slice(0, 10).map(p => p.productName), labels: { show: false } },
+  xaxis: { categories: topProducts.value.slice(0, 15).map(p => p.productName), labels: { show: false } },
   grid: { show: false }, legend: { show: false }
 }))
 
@@ -523,17 +770,104 @@ const weeklyTrendOptions = computed(() => ({
   legend: { position: 'top', horizontalAlign: 'right', fontSize: '11px' }
 }))
 
+// --- กราฟสรุปรายเดือน ---
+const monthlySummaryChartSeries = computed(() => [
+  { name: 'รายได้', data: monthlySummaryData.value.map(m => m.revenue) },
+  { name: 'รายจ่าย', data: monthlySummaryData.value.map(m => m.expense) },
+  { name: 'กำไรสุทธิ', data: monthlySummaryData.value.map(m => m.profit) }
+])
+const monthlySummaryChartOptions = computed(() => ({
+  chart: { type: 'bar', toolbar: { show: false }, background: 'transparent', foreColor: '#a8a29e' },
+  plotOptions: { 
+    bar: { 
+      borderRadius: 4, 
+      columnWidth: '60%',
+      dataLabels: {
+        position: 'top',
+      },
+      colors: {
+        ranges: [{
+          from: -1000000,
+          to: -1,
+          color: '#ef4444' // สีแดงสำหรับยอดติดลบ
+        }]
+      }
+    } 
+  },
+  colors: ['#06b6d4', '#f97316', '#10b981'], // รายได้(ฟ้า), รายจ่าย(ส้ม), กำไร(เขียว)
+  dataLabels: { 
+    enabled: true,
+    offsetY: -20,
+    style: {
+      fontSize: '10px',
+      fontWeight: 'bold',
+      colors: ['#a8a29e']
+    },
+    formatter: (v: number) => {
+      if (v === 0) return ''
+      const prefix = v < 0 ? '-' : ''
+      const absV = Math.abs(v)
+      if (absV >= 1000) return prefix + (absV / 1000).toFixed(1) + 'k'
+      return v.toLocaleString()
+    }
+  },
+  xaxis: { categories: monthlySummaryData.value.map(m => m.month), axisBorder: { show: false } },
+  yaxis: { 
+    labels: { formatter: (v: number) => `฿${v.toLocaleString()}` },
+    tickAmount: 5
+  },
+  annotations: {
+    yaxis: [{
+      y: 0,
+      strokeDashArray: 0,
+      borderColor: '#ef4444',
+      borderWidth: 1.5,
+      opacity: 0.8,
+      label: {
+        borderColor: '#ef4444',
+        style: { color: '#fff', background: '#ef4444' },
+        text: '0',
+      }
+    }]
+  },
+  grid: { 
+    borderColor: '#292524', 
+    strokeDashArray: 4,
+    padding: { top: 20 }
+  },
+  tooltip: { theme: 'dark' },
+  legend: { position: 'top', horizontalAlign: 'right' }
+}))
+
 // --- Data Loading ---
 async function loadData() {
   isLoading.value = true
-  endDate.value = new Date()
-  endDate.value.setHours(23, 59, 59, 999)
-  startDate.value = new Date()
-  startDate.value.setDate(endDate.value.getDate() - selectedDays.value)
-  startDate.value.setHours(0, 0, 0, 0)
+  
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const gregorianY = currentYear > 2400 ? currentYear - 543 : currentYear
+
+  if (selectedPeriod.value === 'this-month') {
+    startDate.value = new Date(gregorianY, now.getMonth(), 1, 0, 0, 0, 0)
+    endDate.value = new Date(gregorianY, now.getMonth(), now.getDate(), 23, 59, 59, 999)
+  } else if (selectedPeriod.value === 'last-month') {
+    startDate.value = new Date(gregorianY, now.getMonth() - 1, 1, 0, 0, 0, 0)
+    endDate.value = new Date(gregorianY, now.getMonth(), 0, 23, 59, 59, 999)
+  } else if (selectedPeriod.value === 'this-year') {
+    startDate.value = new Date(gregorianY, 0, 1, 0, 0, 0, 0)
+    endDate.value = new Date(gregorianY, now.getMonth(), now.getDate(), 23, 59, 59, 999)
+  } else {
+    const days = Number(selectedPeriod.value)
+    endDate.value = new Date()
+    endDate.value.setHours(23, 59, 59, 999)
+    startDate.value = new Date()
+    startDate.value.setDate(endDate.value.getDate() - days)
+    startDate.value.setHours(0, 0, 0, 0)
+  }
   
   const start = startDate.value
   const end = endDate.value
+  const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
 
   try {
     // โหลด Master Data
@@ -564,9 +898,16 @@ async function loadData() {
     for (const o of filteredOrders) { revenue += o.totalAmount; cost += o.totalCost; profit += o.profitAmount }
     
     // ดึงข้อมูลรายจ่ายรวมในช่วงเวลา
-    const startStr = start.toISOString().slice(0, 10)
-    const endStr = end.toISOString().slice(0, 10)
-    const expenseSummary = await getExpenseSummary(startStr, endStr)
+    const formatDate = (d: Date) => {
+      let year = d.getFullYear()
+      if (year > 2400) year -= 543 
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+    const startStr = formatDate(start)
+    const endStr = formatDate(end)
+    const expenseSummary: any = await getExpenseSummary(startStr, endStr)
 
     summary.value = { 
       revenue, 
@@ -575,6 +916,8 @@ async function loadData() {
       orderCount: filteredOrders.length,
       totalExpenses: expenseSummary.totalExpenses
     }
+
+    monthlyAvgs.value = {}
 
     // คำนวณ Order Heatmap (Day × Hour)
     const matrix: Record<number, Record<number, number>> = {}
@@ -593,11 +936,11 @@ async function loadData() {
     // โหลด Reports ต่างๆ แบบ Parallel
     const [topData, graphData, catData, pdRows, phRows, wTrend, velocity] = await Promise.all([
       getTopProducts(start, end),
-      getDailyRevenueSnapshot(selectedDays.value),
+      getDailyRevenueSnapshot(start, end),
       getCategorySalesDistribution(start, end),
       getProductDayHeatmap(start, end, 15),
       getProductHourHeatmap(start, end, 15),
-      getWeeklyTrend(Math.min(4, Math.ceil(selectedDays.value / 7))),
+      getWeeklyTrend(Math.min(12, Math.max(1, Math.ceil(diffDays / 7)))),
       getProductVelocity(start, end)
     ])
     topProducts.value = topData
@@ -607,6 +950,66 @@ async function loadData() {
     productHourRows.value = phRows
     weeklyTrendData.value = wTrend
     velocityData.value = velocity
+
+    // --- คำนวณรายจ่ายเฉลี่ยแยกตามเดือน (ย้ายมาไว้ตรงนี้) ---
+    const monthlyData: Record<string, number> = {}
+    expenseSummary.expenses?.forEach((e: any) => {
+      const mKey = e.expenseDate.slice(0, 7)
+      monthlyData[mKey] = (monthlyData[mKey] || 0) + e.amount
+    })
+
+    const avgs: Record<string, number> = {}
+    const activeMonths = new Set<string>()
+    dailyHistory.value.forEach(d => activeMonths.add(d.date.slice(0, 7)))
+
+    activeMonths.forEach(mKey => {
+      const parts = mKey.split('-').map(Number)
+      const currentYear = new Date().getFullYear()
+      const year = parts[0] || (currentYear > 2400 ? currentYear - 543 : currentYear)
+      const month = parts[1] || (new Date().getMonth() + 1)
+      const daysInMonth = new Date(year, month, 0).getDate()
+      avgs[mKey] = (monthlyData[mKey] || 0) / daysInMonth
+    })
+    monthlyAvgs.value = avgs
+
+    // สร้าง Tooltip
+    const tooltipParts: string[] = []
+    Object.keys(avgs).sort().forEach(mKey => {
+      const [year, month] = mKey.split('-')
+      const monthName = new Date(Number(year), Number(month) - 1).toLocaleDateString('th-TH', { month: 'short', year: 'numeric' })
+      tooltipParts.push(`${monthName}: ฿${avgs[mKey]!.toLocaleString(undefined, { maximumFractionDigits: 0 })}/วัน`)
+    })
+    expenseTooltip.value = 'รายละเอียดรายจ่ายเฉลี่ย:\n' + tooltipParts.join('\n')
+
+    // --- คำนวณยอดรายจ่ายรวมเฉลี่ยตามวันที่เลือกจริง (Allocated Expenses) ---
+    let totalAllocatedExpenses = 0
+    const monthlySummaryMap: Record<string, { revenue: number; expense: number; profit: number }> = {}
+
+    dailyHistory.value.forEach(d => {
+      const monthKey = d.date.slice(0, 7)
+      const avgExp = avgs[monthKey] || 0
+      totalAllocatedExpenses += avgExp
+
+      if (!monthlySummaryMap[monthKey]) monthlySummaryMap[monthKey] = { revenue: 0, expense: 0, profit: 0 }
+      monthlySummaryMap[monthKey].revenue += d.revenue
+      monthlySummaryMap[monthKey].expense += avgExp
+      monthlySummaryMap[monthKey].profit += (d.revenue - avgExp)
+    })
+    summary.value.totalExpenses = totalAllocatedExpenses
+    rawTotalExpenses.value = expenseSummary.totalExpenses || 0
+
+    // สรุปข้อมูลสำหรับกราฟแท่ง
+    monthlySummaryData.value = Object.keys(monthlySummaryMap).sort().map(mKey => {
+      const [year, month] = mKey.split('-')
+      const monthLabel = new Date(Number(year), Number(month) - 1).toLocaleDateString('th-TH', { month: 'short', year: '2-digit' })
+      const data = monthlySummaryMap[mKey]!
+      return {
+        month: monthLabel,
+        revenue: data.revenue,
+        expense: data.expense,
+        profit: data.profit
+      }
+    })
 
     // คำนวณสรุปสินค้าแยกตามวันสำหรับ AI
     const stats: Record<string, any> = {}
@@ -626,3 +1029,20 @@ async function loadData() {
 
 onMounted(loadData)
 </script>
+
+<style scoped>
+@keyframes shine {
+  0% { transform: translateX(-200%) skewX(-20deg); }
+  100% { transform: translateX(200%) skewX(-20deg); }
+}
+.animate-shine {
+  animation: shine 3.5s infinite ease-in-out;
+}
+@keyframes pulse-subtle {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.15); }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s infinite ease-in-out;
+}
+</style>

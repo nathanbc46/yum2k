@@ -1,0 +1,17 @@
+
+<style scoped>
+@keyframes shine {
+  0% { transform: translateX(-200%) skewX(-20deg); }
+  100% { transform: translateX(200%) skewX(-20deg); }
+}
+.animate-shine {
+  animation: shine 3.5s infinite ease-in-out;
+}
+@keyframes pulse-subtle {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.15); }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s infinite ease-in-out;
+}
+</style>

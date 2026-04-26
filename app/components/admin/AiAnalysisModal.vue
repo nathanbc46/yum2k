@@ -301,7 +301,7 @@
                       borderTopRightRadius: msg.role === 'user' ? '0' : '1rem'
                     }"
                   >
-                    <div v-if="msg.role === 'assistant'" v-html="formatMarkdown(msg.content)"></div>
+                    <div v-if="msg.role === 'assistant'" class="ai-message-content" v-html="formatMarkdown(msg.content)"></div>
                     <div v-else>{{ msg.content }}</div>
 
                     <!-- Chart inside Chat -->
@@ -419,21 +419,26 @@ const props = withDefaults(defineProps<{
   data: {
     revenue: number
     cost: number
-    profit: number
+    productProfitGP: number // กำไรสินค้า (GP)
+    netProfit: number       // กำไรสุทธิ (หักรายจ่ายเฉลี่ย)
     orderCount: number
     topProducts: any[]
     hourlyStats: any[]
-    categoryStats?: any[] // ยอดขายแยกตามหมวดหมู่
-    expenses?: number
-    dateRange?: { start: string; end: string } // ช่วงเวลาของข้อมูล
-    // ข้อมูลเชิงลึกเพิ่มเติมสำหรับ AI
-    salesByDayHour?: any // ยอดขายตามวันxชั่วโมง (จำนวนบิล)
-    productByDay?: any   // สินค้า วันxสัปดาห์ (จำนวนชิ้น)
-    productByHour?: any  // สินค้า วันxชั่วโมง (จำนวนชิ้น)
-    weeklyTrend?: any    // แนวโน้มรายสัปดาห์
-    velocity?: any       // ความถี่การขาย (Velocity)
-    dailyHistory?: any   // ยอดขายรายวัน (วันที่, ยอดขาย, กำไร)
-    dailyProductStats?: any // สรุปสินค้าแยกรายวัน
+    categoryStats?: any[]
+    dailyAvgExpense?: number
+    totalExpenses?: number
+    monthlyAverageExpenses?: Record<string, number>
+    dateRange?: { start: string; end: string }
+    // ข้อมูลเชิงลึกเพิ่มเติม
+    salesByDayHour?: any
+    productByDay?: any
+    productByHour?: any
+    weeklyTrend?: any
+    velocity?: any
+    dailyHistory?: any
+    dailyProductStats?: any
+    actualTotalExpenses?: number // ยอดรายจ่ายรวมจริง
+    expenses?: any[]             // รายการรายจ่ายย่อย
   }
   initialTab?: 'insight' | 'chat'
   analysisMode?: 'daily' | 'monthly'
@@ -619,7 +624,7 @@ const quickQuestions = [
   'เมนูไหนขายดีที่สุด?',
   'พรุ่งนี้ฝนตกไหม?',
   'วิเคราะห์ภาพรวมให้หน่อย ?',
-  'กำไรและยอดขายพร้อม Line Chart แต่ละวัน'
+  'กำไรสุทธิเป็นอย่างไรบ้าง?'
 ]
 
 const thinkingMessages = [
@@ -787,33 +792,46 @@ async function getAvailableModelsList(apiKey: string): Promise<string[]> {
 
 /** สร้าง Prompt กลางสำหรับทุกโมเดล */
 function generatePrompt() {
-  const { revenue, cost, profit, topProducts, hourlyStats, expenses = 0 } = props.data
+  const { 
+    revenue, cost, productProfitGP, netProfit, 
+    dailyAvgExpense, totalExpenses, monthlyAverageExpenses,
+    topProducts, categoryStats, dateRange
+  } = props.data
   
-  // คำนวณกำไร 2 รูปแบบตามตรรกะเจ้าของร้าน
-  const productMarginProfit = revenue - cost // กำไรตามสูตรสินค้า
-  const cashFlowProfit = revenue - expenses // กำไรตามเงินเข้า-ออกจริง
   const isMonthly = props.analysisMode === 'monthly'
   
   return `
     คุณคือที่ปรึกษาและเพื่อนคู่คิดอัจฉริยะของร้านยำ Yum2K ที่รอบรู้ อารมณ์ดี และเป็นกันเองสุดๆ
-    ช่วยวิเคราะห์ข้อมูลยอดขายเหล่านี้ และให้คำแนะนำที่เข้าใจง่าย มีพลังบวก และให้กำลังใจเจ้าของร้านด้วยภาษาไทยนะคะ
-    ${isMonthly ? 'โดยเน้นการวิเคราะห์ภาพรวมรายเดือนและความคุ้มค่าเมื่อหักค่าใช้จ่ายทั้งหมด' : 'โดยเน้นการวิเคราะห์กำไรจากการขายสินค้าในแต่ละวัน'}
+    ช่วยวิเคราะห์ข้อมูลเหล่านี้ และให้คำแนะนำที่เข้าใจง่าย มีพลังบวก และให้กำลังใจเจ้าของร้านด้วยภาษาไทยนะคะ
+    
+    กฎสำคัญในการวิเคราะห์กำไรสำหรับคุณ:
+    1. "กำไรสุทธิ" (Net Profit) คือ ยอดขายหักรายจ่ายเฉลี่ย (Fixed Costs) ใช้สำหรับดูภาพรวมว่าร้านมีเงินเหลือสุทธิเท่าไหร่
+    2. "กำไรสินค้า GP" (Gross Profit) คือ ยอดขายหักต้นทุนวัตถุดิบ (COGS) ใช้สำหรับดูว่าขายสินค้าตัวไหนคุ้มค่าที่สุด หรือหมวดหมู่ไหนกำไรดี
+    
+    ### 📊 ข้อมูลสรุปทางการเงิน (ห้ามคำนวณเอง ให้ใช้ตามนี้เท่านั้น):
+    - ช่วงเวลา: ${dateRange?.start || 'N/A'} ถึง ${dateRange?.end || 'N/A'}
+    - **ยอดขายรวม (Total Revenue): ฿${revenue.toLocaleString()}**
+    - **รายจ่ายรวมที่บันทึกจริง (Actual Monthly Expenses): ฿${(props.data as any).actualTotalExpenses?.toLocaleString() || '0'}**
+    - **รายจ่ายปันส่วนตามวัน (Allocated Expenses): ฿${(dailyAvgExpense || totalExpenses || 0).toLocaleString()}**
+    - **กำไรสุทธิ (Net Profit): ${netProfit >= 0 ? '฿' + netProfit.toLocaleString() : '-฿' + Math.abs(netProfit).toLocaleString()}** (ต้องวิเคราะห์ตามตัวเลขนี้เท่านั้น แม้จะติดลบก็ต้องบอกตามจริง)
+    - กำไรจากตัวสินค้า GP: ฿${productProfitGP.toLocaleString()}
+    
+    กฎเหล็กสำหรับคุณ:
+    1. ห้ามบอกว่า "ไม่มีรายจ่าย" หรือ "รายจ่ายเป็น 0" เพราะข้อมูลระบุชัดเจนว่ามีรายจ่ายจริง
+    2. หากกำไรสุทธิติดลบ ให้วิเคราะห์ถึงสาเหตุ (เช่น ยอดขายยังไม่คุ้มทุนรายจ่ายคงที่) และให้กำลังใจเจ้าของร้าน
+    3. แยกแยะระหว่าง "กำไรสินค้า (GP)" และ "กำไรสุทธิ (Net Profit)" ให้ชัดเจน
+    
+    ${isMonthly ? 'เน้นการวิเคราะห์ความคุ้มค่ารายเดือนและสัดส่วนรายจ่ายเทียบกับยอดขาย' : 'เน้นการวิเคราะห์กำไรต่อสินค้าและการเพิ่มยอดขายรายวัน'}
     
     Business Data:
     - Analyzing Page: ${props.sourceTitle || 'General Overview'}
-    - Analysis Period: ${props.data.dateRange ? `${props.data.dateRange.start} ถึง ${props.data.dateRange.end}` : 'Not specified'}
     - Total Revenue: ฿${revenue.toLocaleString()}
-    - Total Product Cost (COGS): ฿${cost.toLocaleString()} (ต้นทุนตามสูตร/ราคาขาย)
-    - Other Expenses: ฿${expenses.toLocaleString()} (ยอดจ่ายจริงรวมซื้อวัตถุดิบหน้างาน)
-    - Net Profit (Cash Flow): ฿${cashFlowProfit.toLocaleString()} (Revenue - Other Expenses)
-    - Gross Profit (Product Margin): ฿${productMarginProfit.toLocaleString()} (Revenue - COGS)
+    - Total Expenses (Fixed/Other): ฿${(dailyAvgExpense || totalExpenses || 0).toLocaleString()}
+    - Net Profit: ${netProfit >= 0 ? '฿' + netProfit.toLocaleString() : '-฿' + Math.abs(netProfit).toLocaleString()}
+    - Gross Profit (GP): ฿${productProfitGP.toLocaleString()}
     
-    Note for AI (ตรรกะการคำนวณตามหน้าการใช้งาน):
-    - ปัจจุบันคุณอยู่ในโหมด: ${props.analysisMode === 'daily' ? 'วิเคราะห์รายวัน (Daily)' : 'วิเคราะห์ภาพรวม (Monthly)'}
-    1. หากมาจากหน้า "วิเคราะห์รายวัน (Daily)": ให้ใช้สูตร [กำไรสุทธิรายวัน = ยอดขายรายวัน - ต้นทุนสินค้า (COGS)]
-    2. หากมาจากหน้า "วิเคราะห์ภาพรวม (Monthly)": ให้ใช้สูตร [กำไรสุทธิรายวัน = ยอดขายรายวัน - รายจ่ายรวมเฉลี่ยต่อวัน]
-    3. ห้ามนำ COGS ไปลบออกจากรายจ่ายรวม (Expenses) ซ้ำซ้อน (Double Counting) ในโหมด Monthly
-    - Order Count: ${props.data.orderCount}
+    Note for AI:
+    - Order Count: ${props.data.orderCount} บิล
     - All Products Performance Data: ${topProducts.map(p => {
         const rev = p.totalRevenue || (p.quantitySold * (p.price || 0))
         const cost = p.totalCost || (rev * 0.6) // Fallback cost 60%
@@ -1095,14 +1113,14 @@ async function sendMessage() {
     // สร้าง Context สำหรับแชท (เพิ่มข้อมูลสินค้าขายดี และแนวโน้มเชิงลึก)
     // คำนวณกำไร 2 รูปแบบสำหรับระบบแชท
     const productMarginProfit = props.data.revenue - props.data.cost
-    const cashFlowProfit = props.data.revenue - (props.data.expenses || 0)
+    const cashFlowProfit = props.data.revenue - (props.data.actualTotalExpenses || props.data.totalExpenses || 0)
 
     const context = `
       คุณคือที่ปรึกษาธุรกิจร้านยำ (Yum2K) ข้อมูลเชิงลึกของร้านคือ:
       - ช่วงเวลาที่วิเคราะห์: ${props.data.dateRange ? `${props.data.dateRange.start} ถึง ${props.data.dateRange.end}` : 'ไม่ได้ระบุ'}
       - รายได้รวม: ฿${props.data.revenue.toLocaleString()}
       - ต้นทุนสินค้า (COGS): ฿${props.data.cost.toLocaleString()} (ต้นทุนตามสูตร)
-      - รายจ่ายรวม (Expenses): ฿${(props.data.expenses || 0).toLocaleString()} (เงินจ่ายออกจริง)
+      - รายจ่ายรวม (Expenses): ฿${(props.data.actualTotalExpenses || props.data.totalExpenses || 0).toLocaleString()} (เงินจ่ายออกจริง)
       - กำไรสุทธิจากกระแสเงินสด (Net Profit): ฿${cashFlowProfit.toLocaleString()}
       - กำไรจากส่วนต่างสินค้า (Gross Profit): ฿${productMarginProfit.toLocaleString()}
       - ยอดขายแยกตามหมวดหมู่: ${props.data.categoryStats ? props.data.categoryStats.map((c: any) => `${c.categoryName} (฿${c.value.toLocaleString()})`).join(', ') : 'ไม่มีข้อมูล'}
@@ -1111,10 +1129,12 @@ async function sendMessage() {
       - รายละเอียดสินค้าที่ขายได้ในแต่ละวัน: ${props.data.dailyProductStats ? JSON.stringify(props.data.dailyProductStats) : 'ไม่มีข้อมูล'}
       - ข้อมูลความหนาแน่นยอดขาย (วัน x ชั่วโมง): ${props.data.salesByDayHour ? JSON.stringify(props.data.salesByDayHour) : 'ไม่มีข้อมูล'}
       - สถิติสินค้าแยกตามรายชั่วโมง: ${props.data.productByHour ? JSON.stringify(props.data.productByHour) : 'ไม่มีข้อมูล'}
-      - ค่าใช้จ่ายเฉลี่ยต่อวัน: ฿${((props.data.expenses || 0) / (props.data.dailyHistory?.length || 1)).toLocaleString()}
+      - รายจ่ายเฉลี่ยแยกตามเดือน (Daily Avg per Month): ${props.data.monthlyAverageExpenses ? JSON.stringify(props.data.monthlyAverageExpenses) : 'ไม่มีข้อมูล'}
       
       กฎการคำนวณกำไรสุทธิรายวัน (ห้ามคำนวณผิด!):
       - คุณกำลังทำงานในโหมด: ${props.analysisMode === 'daily' ? 'วิเคราะห์รายวัน (Daily Closing)' : 'วิเคราะห์ภาพรวม (Monthly Reports)'}
+      - **หากเป็นโหมด Monthly**: ในการคำนวณกำไรแต่ละวัน ให้คุณดูว่าวันนั้นอยู่ในเดือนไหน แล้วไปหยิบค่า "รายจ่ายเฉลี่ยต่อวัน" ของเดือนนั้นมาจากตารางด้านบน (Daily Avg per Month) มาหักลบออกจากยอดขายของวันนั้นๆ
+      - ตัวอย่าง: หากวันคือ 2026-04-24 และค่าเฉลี่ยเดือน 04 คือ 183.33 -> กำไรวันนั้น = ยอดขาย - 183.33
       - หากเป็นโหมด "Daily": กำไรสุทธิรายวัน = ยอดขายรายวัน - ต้นทุนสินค้า (COGS)
       - หากเป็นโหมด "Monthly": กำไรสุทธิรายวัน = ยอดขายรายวัน - รายจ่ายรวมเฉลี่ยต่อวัน
       - สำคัญ: ในโหมด Monthly ห้ามหัก COGS ซ้ำซ้อน เพราะมันรวมอยู่ในรายจ่ายรวมแล้ว
@@ -1355,23 +1375,55 @@ function scrollToLastMessage() {
 /** แปลง Markdown พื้นฐาน (**, *) เป็น HTML */
 function formatMarkdown(text: string) {
   if (!text) return ''
+  const lines = text.split('\n')
+  const result: string[] = []
+  let tableBuffer: string[] = []
+
+  const flushTable = () => {
+    if (tableBuffer.length > 0) {
+      result.push(`<div class="font-mono text-[11px] whitespace-pre overflow-x-auto bg-surface-900/20 px-3 py-2 rounded-xl my-2 border border-surface-800/50 shadow-inner">${tableBuffer.join('\n')}</div>`)
+      tableBuffer = []
+    }
+  }
+
+  for (let line of lines) {
+    const trimmed = line.trim()
+    const isTableLine = trimmed.startsWith('|') && (trimmed.endsWith('|') || trimmed.includes('|'))
+
+    if (isTableLine) {
+      tableBuffer.push(line)
+    } else {
+      flushTable()
+      
+      let l = line
+      // แปลงหัวข้อ ###
+      if (l.trim().startsWith('### ')) {
+        result.push(`<h3 class="text-lg font-black mt-4 mb-2 text-primary-500 flex items-center gap-2"><span>📊</span><span>${l.trim().substring(4)}</span></h3>`)
+        continue
+      }
+
+      // แปลงตัวหนา
+      l = l.replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-primary-600 dark:text-primary-400">$1</strong>')
+      
+      // แปลงรายการ * text เป็น bullet
+      if (l.trim().startsWith('* ')) {
+        result.push(`<div class="flex gap-2 ml-2 my-1"><span>•</span><span>${l.trim().substring(2)}</span></div>`)
+      } else {
+        result.push(`<div class="my-1">${l}</div>`)
+      }
+    }
+  }
+  flushTable()
   
-  let formatted = text
-    // แปลงตัวหนา **text** เป็น <b>text</b>
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-primary-600 dark:text-primary-400">$1</strong>')
-    // แปลงรายการ * text เป็น bullet
-    .replace(/^\* (.*$)/gm, '<div class="flex gap-2 ml-2"><span>•</span><span>$1</span></div>')
-    // แปลงการขึ้นบรรทัดใหม่
-    .replace(/\n/g, '<br/>')
-    
-  return formatted
+  return result.join('\n')
 }
 
 /** วิเคราะห์ด้วยตรรกะโปรแกรม (Heuristic Fallback) */
 async function analyzeWithHeuristics() {
   await new Promise(resolve => setTimeout(resolve, 1500))
-  const { revenue, expenses = 0, topProducts } = props.data
-  const profit = revenue - expenses
+  const { revenue, totalExpenses, actualTotalExpenses, topProducts } = props.data
+  const expensesNum = actualTotalExpenses || totalExpenses || 0
+  const profit = revenue - expensesNum
   currentProvider.value = 'Offline'
   score.value = revenue > 0 ? (profit > 0 ? 75 : 40) : 0
   executiveSummary.value = `[โหมด Offline] สวัสดีค่ะ! ฉันวิเคราะห์เบื้องต้นพบว่ายอดขายอยู่ที่ ฿${revenue.toLocaleString()} และกำไรคือ ฿${profit.toLocaleString()} นะคะ สู้ๆ นะคะ! (ส่วนเรื่องอากาศ ลองเช็กผ่านเน็ตอีกทีนะคะ ตอนนี้ฉันยังดึงข้อมูลไม่ได้ค่ะ)`
@@ -1478,5 +1530,11 @@ onMounted(() => {
 :deep(*) {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+}
+
+.ai-message-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
 }
 </style>

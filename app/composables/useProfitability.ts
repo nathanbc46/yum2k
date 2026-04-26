@@ -64,13 +64,10 @@ export function useProfitability() {
       }
     })
 
-    // 2. ดึงข้อมูลรายจ่ายในช่วงเวลา
-    const expenses = await db.expenses
-      .where('expenseDate')
-      .between(startDate, endDate, true, true)
+    // 2. ดึงข้อมูลรายจ่ายในช่วงเวลา (ใช้ .filter เพื่อความแม่นยำสูงและรองรับกรณี Index คลาดเคลื่อน)
+    const activeExpenses = await db.expenses
+      .filter(e => !e.isDeleted && e.expenseDate >= startDate && e.expenseDate <= endDate)
       .toArray()
-
-    const activeExpenses = expenses.filter(e => !e.isDeleted)
     const totalExpenses = activeExpenses.reduce((sum, exp) => sum + exp.amount, 0)
 
     // 3. คำนวณกำไรทั้ง 2 แบบ
@@ -90,7 +87,8 @@ export function useProfitability() {
       totalExpenses,    // ยอดรวมรายจ่าย
       netProfit,        // กำไรสุทธิ (หักหมดทุกอย่าง)
       totalItemsSold,
-      paymentBreakdown
+      paymentBreakdown,
+      expenses: activeExpenses // เพิ่มรายการรายจ่ายย่อยเข้าไป
     }
   }
 

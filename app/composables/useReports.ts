@@ -116,10 +116,24 @@ export function useReports() {
   /**
    * ข้อมูลรายได้ย้อนหลังรายวัน (สำหรับกราฟเส้น)
    */
-  async function getDailyRevenueSnapshot(days: number = 14): Promise<Array<{ date: string; revenue: number; profit: number }>> {
-    const end = new Date()
-    const start = new Date()
-    start.setDate(end.getDate() - days)
+  async function getDailyRevenueSnapshot(daysOrStart: number | Date = 14, maybeEnd?: Date): Promise<Array<{ date: string; revenue: number; profit: number }>> {
+    let start: Date
+    let end: Date
+    let days: number
+
+    if (daysOrStart instanceof Date && maybeEnd instanceof Date) {
+      start = new Date(daysOrStart)
+      start.setHours(0, 0, 0, 0)
+      end = new Date(maybeEnd)
+      end.setHours(23, 59, 59, 999)
+      days = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+    } else {
+      days = daysOrStart as number
+      end = new Date()
+      start = new Date()
+      start.setDate(end.getDate() - days)
+      start.setHours(0, 0, 0, 0)
+    }
 
     const orders = await db.orders
       .where('createdAt').between(start, end)
