@@ -1120,17 +1120,21 @@ async function sendMessage() {
       body: JSON.stringify({ contents: [{ parts: [{ text: context }] }] })
     })
 
-    if (response.status === 429) {
+    // ถ้าล้มเหลว (429, 500, 503, ฯลฯ) ให้ลองใช้ Fallback ตัวอื่น
+    if (!response.ok) {
+      console.warn(`[AI-Chat] Gemini failed with status ${response.status}, trying fallback...`)
+      
       const orKey = receiptSettings.value.openRouterApiKey
       if (orKey) {
         try {
-          console.warn('Gemini Chat Limit hit, switching to OpenRouter...')
+          console.warn('Switching to OpenRouter fallback...')
           await sendChatToOpenRouter(orKey, context)
           return
         } catch (e: any) {
           console.error('OpenRouter Fallback failed:', e)
         }
       }
+
       const groqKey = receiptSettings.value.groqApiKey
       if (groqKey?.startsWith('gsk_')) {
         try {
@@ -1141,7 +1145,14 @@ async function sendMessage() {
           console.error('Groq Fallback failed:', e)
         }
       }
-      throw new Error('โควตาการใช้งาน AI ฟรีเต็มชั่วคราว (Limit Exceeded) กรุณารอ 1 นาทีแล้วลองถามใหม่นะคะ')
+
+      // ถ้าไม่มี fallback หรือ fallback พังหมด ให้แจ้ง Error ตามจริง
+      if (response.status === 429) {
+        throw new Error('โควตาการใช้งาน AI ฟรีเต็มชั่วคราว (Limit Exceeded) กรุณารอ 1 นาทีแล้วลองถามใหม่นะคะ')
+      }
+      
+      const errBody = await response.json().catch(() => ({}))
+      throw new Error(errBody?.error?.message || `AI ไม่สามารถให้บริการได้ในขณะนี้ (Error ${response.status})`)
     }
 
     currentProvider.value = 'Gemini'
