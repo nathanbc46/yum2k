@@ -951,16 +951,19 @@ async function loadData() {
     weeklyTrendData.value = wTrend
     velocityData.value = velocity
 
-    // --- คำนวณรายจ่ายเฉลี่ยแยกตามเดือน (ย้ายมาไว้ตรงนี้) ---
-    const monthlyData: Record<string, number> = {}
-    expenseSummary.expenses?.forEach((e: any) => {
-      const mKey = e.expenseDate.slice(0, 7)
-      monthlyData[mKey] = (monthlyData[mKey] || 0) + e.amount
-    })
-
-    const avgs: Record<string, number> = {}
+    // --- คำนวณรายจ่ายเฉลี่ยแยกตามเดือน (โหลดข้อมูลทั้งเดือนเพื่อให้ได้ค่าเฉลี่ยที่ถูกต้อง) ---
     const activeMonths = new Set<string>()
     dailyHistory.value.forEach(d => activeMonths.add(d.date.slice(0, 7)))
+
+    const monthlyData: Record<string, number> = {}
+    for (const mKey of activeMonths) {
+      const fullMonthExpenses = await db.expenses
+        .filter(e => !e.isDeleted && e.expenseDate.startsWith(mKey))
+        .toArray()
+      monthlyData[mKey] = fullMonthExpenses.reduce((sum, e) => sum + e.amount, 0)
+    }
+
+    const avgs: Record<string, number> = {}
 
     activeMonths.forEach(mKey => {
       const parts = mKey.split('-').map(Number)
