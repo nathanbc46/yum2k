@@ -432,6 +432,8 @@ const props = withDefaults(defineProps<{
     productByHour?: any  // สินค้า วันxชั่วโมง (จำนวนชิ้น)
     weeklyTrend?: any    // แนวโน้มรายสัปดาห์
     velocity?: any       // ความถี่การขาย (Velocity)
+    dailyHistory?: any   // ยอดขายรายวัน (วันที่, ยอดขาย, กำไร)
+    dailyProductStats?: any // สรุปสินค้าแยกรายวัน
   }
   initialTab?: 'insight' | 'chat'
   analysisMode?: 'daily' | 'monthly'
@@ -617,7 +619,7 @@ const quickQuestions = [
   'เมนูไหนขายดีที่สุด?',
   'พรุ่งนี้ฝนตกไหม?',
   'วิเคราะห์ภาพรวมให้หน่อย ?',
-  'ควรเตรียมของตอนกี่โมงดี?'
+  'กำไรและยอดขายพร้อม Line Chart แต่ละวัน'
 ]
 
 const thinkingMessages = [
@@ -806,10 +808,11 @@ function generatePrompt() {
     - Net Profit (Cash Flow): ฿${cashFlowProfit.toLocaleString()} (Revenue - Other Expenses)
     - Gross Profit (Product Margin): ฿${productMarginProfit.toLocaleString()} (Revenue - COGS)
     
-    Note for AI:
-    1. ให้ใช้ "Net Profit (Cash Flow)" ในการวิเคราะห์สุขภาพการเงินและกระแสเงินสด
-    2. ให้ใช้ "Gross Profit (Product Margin)" ในการวิเคราะห์ความคุ้มค่าของเมนูอาหาร
-    3. "Other Expenses" คือเงินที่จ่ายออกจริง ซึ่งอาจรวมค่าวัตถุดิบที่ซื้อเติมแล้ว ดังนั้นไม่ต้องหัก COGS ซ้ำจาก Net Profit อีก เพื่อป้องกันการคำนวณซ้ำซ้อน (Double Counting)
+    Note for AI (ตรรกะการคำนวณตามหน้าการใช้งาน):
+    - ปัจจุบันคุณอยู่ในโหมด: ${props.analysisMode === 'daily' ? 'วิเคราะห์รายวัน (Daily)' : 'วิเคราะห์ภาพรวม (Monthly)'}
+    1. หากมาจากหน้า "วิเคราะห์รายวัน (Daily)": ให้ใช้สูตร [กำไรสุทธิรายวัน = ยอดขายรายวัน - ต้นทุนสินค้า (COGS)]
+    2. หากมาจากหน้า "วิเคราะห์ภาพรวม (Monthly)": ให้ใช้สูตร [กำไรสุทธิรายวัน = ยอดขายรายวัน - รายจ่ายรวมเฉลี่ยต่อวัน]
+    3. ห้ามนำ COGS ไปลบออกจากรายจ่ายรวม (Expenses) ซ้ำซ้อน (Double Counting) ในโหมด Monthly
     - Order Count: ${props.data.orderCount}
     - All Products Performance Data: ${topProducts.map(p => {
         const rev = p.totalRevenue || (p.quantitySold * (p.price || 0))
@@ -827,16 +830,18 @@ function generatePrompt() {
     - Product Popularity by Hour: ${props.data.productByHour ? JSON.stringify(props.data.productByHour) : 'Not available'}
     - Weekly Sales Trend: ${props.data.weeklyTrend ? JSON.stringify(props.data.weeklyTrend) : 'Not available'}
     - Sales Velocity (Frequency): ${props.data.velocity ? JSON.stringify(props.data.velocity) : 'Not available'}
+    - Daily Sales History (Specific Dates): ${props.data.dailyHistory ? JSON.stringify(props.data.dailyHistory) : 'Not available'}
+    - Daily Product Breakdown (What sold each day): ${props.data.dailyProductStats ? JSON.stringify(props.data.dailyProductStats) : 'Not available'}
     
     ${(props.includeWeather && weatherData.value) ? `Weather Data (Next 7 days in Bangkok):\n${JSON.stringify(weatherData.value.daily)}` : 'Weather context: Not requested/Not available'}
 
     Rules:
-    1. Focus on Revenue, total Expenses, and patterns in Day/Hour/Products.
-    2. Suggest when to prepare ingredients (Prep Timing) based on product peaks.
+    1. Focus on Revenue, total Expenses, and patterns in Daily History (look for trends/outliers), Day of week, and Hours.
+    2. Suggest when to prepare ingredients (Prep Timing) based on product peaks and daily trends.
     3. Analyze sales velocity: identify "Hot" items that sell frequently vs "Slow" items that waste space.
-    4. Suggest when to increase staff based on sales density.
-    5. Provide 4 specific insights with icons.
-    5. The "action" field should be a short, actionable tip.
+    4. Suggest when to increase staff based on sales density (Day x Hour).
+    5. Provide 4 specific insights with icons based on the deep data provided.
+    6. The "action" field should be a short, actionable tip.
 
     Return ONLY raw JSON:
       "executiveSummary": "overview in Thai",
@@ -922,6 +927,7 @@ async function analyzeWithGemini(apiKey: string) {
     const errBody = await response.json().catch(() => ({}))
     throw new Error(errBody?.error?.message || `Error ${response.status}`)
   }
+
   currentProvider.value = 'Gemini'
   const result = await response.json()
   const text = result.candidates[0].content.parts[0].text
@@ -1083,6 +1089,7 @@ async function sendMessage() {
     const apiKey = receiptSettings.value.geminiApiKey
     if (!apiKey) throw new Error('ไม่พบ API Key')
     const modelName = await getAvailableModel(apiKey)
+    activeModelName.value = modelName.split('/').pop() || modelName
     const modelNameFull = modelName.startsWith('models/') ? modelName : `models/${modelName}`
     const url = `https://generativelanguage.googleapis.com/v1beta/${modelNameFull}:generateContent?key=${apiKey}`
     // สร้าง Context สำหรับแชท (เพิ่มข้อมูลสินค้าขายดี และแนวโน้มเชิงลึก)
@@ -1099,7 +1106,20 @@ async function sendMessage() {
       - กำไรสุทธิจากกระแสเงินสด (Net Profit): ฿${cashFlowProfit.toLocaleString()}
       - กำไรจากส่วนต่างสินค้า (Gross Profit): ฿${productMarginProfit.toLocaleString()}
       - ยอดขายแยกตามหมวดหมู่: ${props.data.categoryStats ? props.data.categoryStats.map((c: any) => `${c.categoryName} (฿${c.value.toLocaleString()})`).join(', ') : 'ไม่มีข้อมูล'}
-      - ข้อมูลสินค้าทั้งหมดที่มีการขาย: ${props.data.topProducts.map(p => `${p.productName} (ขายได้ ${p.quantitySold} ชุด)`).join(', ')}
+      - ข้อมูลสินค้าทั้งหมด (สรุป): ${props.data.topProducts.map(p => `${p.productName} (ขายได้ ${p.quantitySold} ชุด)`).join(', ')}
+      - ยอดขายรายวัน (ระบุวันที่จริง): ${props.data.dailyHistory ? JSON.stringify(props.data.dailyHistory) : 'ไม่มีข้อมูล'}
+      - รายละเอียดสินค้าที่ขายได้ในแต่ละวัน: ${props.data.dailyProductStats ? JSON.stringify(props.data.dailyProductStats) : 'ไม่มีข้อมูล'}
+      - ข้อมูลความหนาแน่นยอดขาย (วัน x ชั่วโมง): ${props.data.salesByDayHour ? JSON.stringify(props.data.salesByDayHour) : 'ไม่มีข้อมูล'}
+      - สถิติสินค้าแยกตามรายชั่วโมง: ${props.data.productByHour ? JSON.stringify(props.data.productByHour) : 'ไม่มีข้อมูล'}
+      - ค่าใช้จ่ายเฉลี่ยต่อวัน: ฿${((props.data.expenses || 0) / (props.data.dailyHistory?.length || 1)).toLocaleString()}
+      
+      กฎการคำนวณกำไรสุทธิรายวัน (ห้ามคำนวณผิด!):
+      - คุณกำลังทำงานในโหมด: ${props.analysisMode === 'daily' ? 'วิเคราะห์รายวัน (Daily Closing)' : 'วิเคราะห์ภาพรวม (Monthly Reports)'}
+      - หากเป็นโหมด "Daily": กำไรสุทธิรายวัน = ยอดขายรายวัน - ต้นทุนสินค้า (COGS)
+      - หากเป็นโหมด "Monthly": กำไรสุทธิรายวัน = ยอดขายรายวัน - รายจ่ายรวมเฉลี่ยต่อวัน
+      - สำคัญ: ในโหมด Monthly ห้ามหัก COGS ซ้ำซ้อน เพราะมันรวมอยู่ในรายจ่ายรวมแล้ว
+      
+      คำแนะนำพิเศษ: ข้อมูล Daily Product Stats ด้านบนคือข้อมูล "บันทึกยอดขายแยกรายวัน" ที่คุณต้องใช้ตอบเมื่อถูกถามถึงรายละเอียดรายวันที่ระบุชัดเจนค่ะ
       
       กฎการตอบ:
       1. ตอบแบบมีความรู้ อธิบายเข้าใจง่าย เป็นกันเอง อารมณ์ดี และให้กำลังใจเจ้าของร้านเสมอ 

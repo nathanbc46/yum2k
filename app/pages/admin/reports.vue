@@ -395,7 +395,9 @@ const aiData = computed(() => ({
   productByDay: productDayRows.value.map(r => ({ name: r.productName, days: r.data })),
   productByHour: productHourRows.value.map(r => ({ name: r.productName, hours: r.data })),
   weeklyTrend: weeklyTrendData.value,
-  velocity: velocityData.value
+  velocity: velocityData.value,
+  dailyHistory: dailyHistory.value, // ส่งยอดขายแยกตามวันที่จริงเข้าไป
+  dailyProductStats: dailyProductStats.value // ข้อมูลสินค้าแยกรายวัน
 }))
 
 const filteredProductOptions = computed(() =>
@@ -409,6 +411,7 @@ const summary = ref<DailySummary & { totalExpenses?: number }>({ revenue: 0, cos
 const topProducts = ref<TopProductMetric[]>([])
 const dailyHistory = ref<{ date: string; revenue: number; profit: number }[]>([])
 const categorySales = ref<{ categoryName: string; value: number }[]>([])
+const dailyProductStats = ref<Record<string, any>>({}) // เก็บข้อมูล: { '2024-04-20': { total: 500, items: { 'ยำปูม้า': 5 } } }
 
 // --- Heatmap: Day × Hour (บิล) ---
 const heatmapDays = [
@@ -604,6 +607,18 @@ async function loadData() {
     productHourRows.value = phRows
     weeklyTrendData.value = wTrend
     velocityData.value = velocity
+
+    // คำนวณสรุปสินค้าแยกตามวันสำหรับ AI
+    const stats: Record<string, any> = {}
+    for (const o of filteredOrders) {
+      const dateKey = new Date(o.createdAt).toLocaleDateString('en-CA')
+      if (!stats[dateKey]) stats[dateKey] = { revenue: 0, items: {} as Record<string, number> }
+      stats[dateKey].revenue += o.totalAmount
+      for (const item of o.items) {
+        stats[dateKey].items[item.productName] = (stats[dateKey].items[item.productName] || 0) + item.quantity
+      }
+    }
+    dailyProductStats.value = stats
   } finally {
     isLoading.value = false
   }
