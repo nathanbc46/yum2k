@@ -180,7 +180,7 @@
                     </div>
                   </div>
 
-                  <p v-if="executiveSummary" class="leading-relaxed text-base font-medium" :style="{ color: isDark ? '#ffffff' : '#000000' }">
+                  <p v-if="executiveSummary" class="leading-relaxed text-base font-medium whitespace-pre-wrap" :style="{ color: isDark ? '#ffffff' : '#000000' }">
                     {{ executiveSummary }}
                   </p>
 
@@ -1395,6 +1395,12 @@ function formatMarkdown(text: string) {
     } else {
       flushTable()
       
+      if (!trimmed) {
+        // บรรทัดว่าง: เพิ่มช่องว่างเล็กน้อย
+        result.push('<div class="h-2"></div>')
+        continue
+      }
+
       let l = line
       // แปลงหัวข้อ ###
       if (l.trim().startsWith('### ')) {
@@ -1407,15 +1413,15 @@ function formatMarkdown(text: string) {
       
       // แปลงรายการ * text เป็น bullet
       if (l.trim().startsWith('* ')) {
-        result.push(`<div class="flex gap-2 ml-2 my-1"><span>•</span><span>${l.trim().substring(2)}</span></div>`)
+        result.push(`<div class="flex gap-2 ml-2 my-0.5"><span>•</span><span>${l.trim().substring(2)}</span></div>`)
       } else {
-        result.push(`<div class="my-1">${l}</div>`)
+        result.push(`<div class="mb-1">${l}</div>`)
       }
     }
   }
   flushTable()
   
-  return result.join('\n')
+  return result.join('')
 }
 
 /** วิเคราะห์ด้วยตรรกะโปรแกรม (Heuristic Fallback) */
@@ -1533,7 +1539,6 @@ onMounted(() => {
 }
 
 .ai-message-content {
-  white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.6;
 }
