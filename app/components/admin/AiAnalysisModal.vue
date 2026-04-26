@@ -8,14 +8,14 @@
 <template>
   <Teleport to="body">
     <Transition name="ai-fade">
-      <div class="fixed inset-0 z-[150] flex items-center justify-center p-4">
+      <div class="fixed inset-0 z-[150] flex items-center justify-center transition-all duration-500" :class="isFullscreen ? 'p-0' : 'p-4'">
         <!-- Backdrop -->
-        <div class="absolute inset-0 bg-surface-950/90 backdrop-blur-md" @click="close" />
+        <div class="absolute inset-0 bg-surface-950/90 backdrop-blur-md" />
 
         <!-- Modal Content -->
         <div :class="[
           'relative border shadow-2xl overflow-hidden flex flex-col transition-all duration-500',
-          isFullscreen ? 'w-full h-full max-w-none rounded-none p-4' : 'w-full max-w-2xl rounded-[2.5rem] h-[90vh]'
+          isFullscreen ? 'w-full h-full max-w-none rounded-none' : 'w-full max-w-2xl rounded-[2.5rem] h-[90vh]'
         ]"
           :style="{ backgroundColor: isDark ? '#111827' : '#ffffff', borderColor: isDark ? '#1f2937' : '#e2e8f0' }"
         >
@@ -48,8 +48,11 @@
                       {{ currentProvider }}
                     </span>
                   </h2>
-                  <p class="text-xs" :style="{ color: isDark ? '#94a3b8' : '#64748b' }">
-                    วิเคราะห์จาก: <span class="font-bold text-primary-500">{{ sourceTitle || 'ข้อมูลภาพรวม' }}</span>
+                  <p class="text-[10px] flex items-center gap-2" :style="{ color: isDark ? '#94a3b8' : '#64748b' }">
+                    <span>วิเคราะห์จาก: <span class="font-bold text-primary-500">{{ sourceTitle || 'ข้อมูลภาพรวม' }}</span></span>
+                    <span v-if="displayDateRange" class="px-2 py-0.5 rounded-full bg-surface-800/50 border border-surface-700/50 text-[9px] font-bold">
+                      📅 {{ displayDateRange }}
+                    </span>
                   </p>
                 </div>
                 <div v-else class="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
@@ -108,6 +111,9 @@
             >
               {{ t === 'insight' ? '📊 สรุปภาพรวม' : '💬 แชทถาม AI' }}
             </button>
+            <div v-if="activeTab === 'chat'" class="flex items-center ml-auto">
+              <!-- Header will be cleaner now, delete button moved to sidebar -->
+            </div>
           </div>
 
           <!-- Content Area -->
@@ -156,9 +162,15 @@
                     บทสรุปอัจฉริยะ
                   </div>
                   <!-- Business Health Badge -->
-                  <div v-if="executiveSummary && !isAnalyzing" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black border transition-all shadow-sm"
+                  <div v-if="executiveSummary && !isAnalyzing" 
+                    class="flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black border transition-all shadow-lg status-badge-animated"
+                    :class="[`status-${healthStatus}`]"
                     :style="healthBadgeStyle"
                   >
+                    <span class="relative flex h-2 w-2">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" :style="{ backgroundColor: healthBadgeStyle.color }"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2" :style="{ backgroundColor: healthBadgeStyle.color }"></span>
+                    </span>
                     <span>{{ healthBadgeLabel }}</span>
                   </div>
                 </div>
@@ -180,9 +192,11 @@
                     </div>
                   </div>
 
-                  <p v-if="executiveSummary" class="leading-relaxed text-base font-medium whitespace-pre-wrap" :style="{ color: isDark ? '#ffffff' : '#000000' }">
-                    {{ executiveSummary }}
-                  </p>
+                  <div v-if="executiveSummary" 
+                    class="ai-message-content leading-relaxed text-[15px]" 
+                    :style="{ color: isDark ? '#f1f5f9' : '#1e293b' }"
+                    v-html="formatMarkdown(executiveSummary)"
+                  ></div>
 
                   <!-- TTS Button for Summary -->
                   <div v-if="executiveSummary && !isAnalyzing" class="mt-4 flex justify-end">
@@ -280,122 +294,234 @@
             </div>
 
             <!-- Tab: Chat -->
-            <div v-else class="flex flex-col h-full space-y-4">
-              <!-- Chat History -->
-              <div ref="chatContainer" class="flex-1 space-y-4 overflow-y-auto pb-4 pr-2 scrollbar-thin">
-                <div v-if="chatHistory.length === 0" class="h-full flex flex-col items-center justify-center text-center text-surface-500 space-y-3 opacity-50">
-                  <div class="text-4xl">💭</div>
-                  <p class="text-sm font-bold">สงสัยตรงไหน ถาม AI เพิ่มเติมได้เลยค่ะ!</p>
-                  <p class="text-[10px]">ระบบจะใช้ข้อมูลจากรายงานล่าสุดในการตอบคำถามคุณ</p>
+            <div v-else class="flex h-full overflow-hidden relative -m-6">
+              <!-- Chat Sidebar (Sessions) -->
+              <div v-if="showChatSidebar" 
+                class="w-64 border-r shrink-0 flex flex-col transition-all duration-300"
+                :style="{ backgroundColor: isDark ? '#0a0f1d' : '#fcfdfe', borderColor: isDark ? '#1f2937' : '#f1f5f9' }"
+              >
+                <div class="p-4 border-b shrink-0 flex items-center gap-2" :style="{ borderColor: isDark ? '#1f2937' : '#f1f5f9' }">
+                  <button 
+                    @click="startNewChat"
+                    class="flex-1 py-2 bg-primary-600/10 hover:bg-primary-600/20 text-primary-500 text-[10px] font-black rounded-xl border border-primary-500/20 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Plus class="w-3 h-3" />
+                    <span>แชตใหม่</span>
+                  </button>
                 </div>
                 
-                <div v-for="(msg, idx) in chatHistory" :key="idx" 
-                  :ref="el => { if (idx === chatHistory.length - 1) lastMessageRef = el as any }"
-                  :class="['flex', msg.role === 'user' ? 'justify-end' : 'justify-start']">
-                  <div class="max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed transition-all shadow-sm"
+                <div class="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
+                  <div v-if="conversations.length === 0" class="py-10 text-center opacity-30">
+                    <p class="text-[10px] font-bold">ยังไม่มีประวัติแชต</p>
+                  </div>
+                  <button 
+                    v-for="conv in conversations" 
+                    :key="conv.uuid"
+                    @click="selectConversation(conv.uuid)"
+                    class="w-full p-3 rounded-xl text-left transition-all group relative overflow-hidden"
+                    :class="[currentConversationUuid === conv.uuid ? 'shadow-sm' : 'hover:bg-surface-800/30']"
                     :style="{ 
-                      backgroundColor: msg.role === 'user' ? '#f97316' : (isDark ? '#1f2937' : '#f8fafc'), 
-                      color: msg.role === 'user' ? '#ffffff' : (isDark ? '#f1f5f9' : '#0f172a'),
-                      border: msg.role === 'user' ? 'none' : `1px solid ${isDark ? '#374151' : '#f1f5f9'}`,
-                      borderTopLeftRadius: msg.role === 'assistant' ? '0' : '1rem',
-                      borderTopRightRadius: msg.role === 'user' ? '0' : '1rem'
+                      backgroundColor: currentConversationUuid === conv.uuid ? (isDark ? '#1f2937' : '#f1f5f9') : 'transparent',
                     }"
                   >
-                    <div v-if="msg.role === 'assistant'" class="ai-message-content" v-html="formatMarkdown(msg.content)"></div>
-                    <div v-else>{{ msg.content }}</div>
+                    <div v-if="currentConversationUuid === conv.uuid" class="absolute left-0 top-0 bottom-0 w-1 bg-primary-500"></div>
+                    <p class="text-[11px] font-black truncate pr-8" :style="{ color: currentConversationUuid === conv.uuid ? '#f97316' : (isDark ? '#f1f5f9' : '#1e293b') }">
+                      {{ conv.title }}
+                    </p>
+                    <p class="text-[9px] truncate mt-1 opacity-50 pr-8" :style="{ color: isDark ? '#94a3b8' : '#64748b' }">
+                      {{ conv.lastMessage }}
+                    </p>
+                    <p class="text-[8px] mt-1.5 opacity-30 text-right">
+                      {{ new Date(conv.updatedAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) }}
+                    </p>
 
-                    <!-- Chart inside Chat -->
-                    <div v-if="msg.chart" class="mt-4 p-4 rounded-xl border overflow-hidden"
+                    <!-- Delete Button (Visible on Hover/Active) -->
+                    <button 
+                      @click.stop="confirmDelete(conv.uuid)"
+                      class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white text-red-500 bg-red-500/10 z-20"
+                      title="ลบการสนทนา"
+                    >
+                      <Trash2 class="w-3.5 h-3.5" />
+                    </button>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Main Chat Area -->
+              <div class="flex-1 flex flex-col overflow-hidden pt-6 pb-0 px-4 sm:px-6 relative">
+                <!-- Sidebar Toggle Button (Gemini Style) -->
+                <button 
+                  @click="showChatSidebar = !showChatSidebar"
+                  class="absolute top-4 left-4 z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:bg-surface-800/50"
+                  :style="{ color: isDark ? '#94a3b8' : '#64748b' }"
+                  :title="showChatSidebar ? 'ซ่อนเมนู' : 'แสดงเมนู'"
+                >
+                  <Menu class="w-5 h-5" />
+                </button>
+
+                <!-- Chat History -->
+                <div ref="chatContainer" @scroll="handleScroll" class="flex-1 space-y-4 overflow-y-auto pb-4 pr-2 scrollbar-thin mt-8">
+                  <div v-if="chatHistory.length === 0" class="h-full flex flex-col items-center justify-center text-center text-surface-500 space-y-3">
+                    <div class="text-4xl animate-bounce">💭</div>
+                    <p class="text-sm font-bold opacity-70">สงสัยตรงไหน ถาม AI เพิ่มเติมได้เลยค่ะ!</p>
+                    <p class="text-[10px] opacity-40">ระบบจะใช้ข้อมูลจากรายงานล่าสุดเป็นบริบทในการตอบ</p>
+                    <button v-if="!currentConversationUuid && conversations.length > 0" 
+                      @click="showChatSidebar = true"
+                      class="mt-4 text-[10px] text-primary-500 font-bold hover:underline"
+                    >
+                      หรือเลือกดูการสนทนาเดิมจากเมนู
+                    </button>
+                  </div>
+                  
+                  <div v-for="(msg, idx) in chatHistory" :key="idx" 
+                    :ref="el => { if (idx === chatHistory.length - 1) lastMessageRef = el as any }"
+                    :class="['flex', msg.role === 'user' ? 'justify-end' : 'justify-start']">
+                    <div class="max-w-[90%] p-4 rounded-2xl text-sm leading-relaxed transition-all shadow-sm"
                       :style="{ 
-                        backgroundColor: isDark ? '#111827' : '#ffffff', 
-                        borderColor: isDark ? '#374151' : '#f1f5f9' 
+                        backgroundColor: msg.role === 'user' ? '#f97316' : (isDark ? '#1f2937' : '#f8fafc'), 
+                        color: msg.role === 'user' ? '#ffffff' : (isDark ? '#f1f5f9' : '#0f172a'),
+                        border: msg.role === 'user' ? 'none' : `1px solid ${isDark ? '#374151' : '#f1f5f9'}`,
+                        borderTopLeftRadius: msg.role === 'model' ? '0' : '1rem',
+                        borderTopRightRadius: msg.role === 'user' ? '0' : '1rem'
                       }"
                     >
-                      <ClientOnly>
-                        <apexchart 
-                          :type="msg.chart.type || 'bar'" 
-                          :options="getChartOptions(msg.chart)" 
-                          :series="getChartSeries(msg.chart)" 
-                          height="250"
-                        />
-                      </ClientOnly>
-                      <p class="text-center text-[10px] font-bold mt-2" :style="{ color: isDark ? '#94a3b8' : '#64748b' }">{{ msg.chart.title }}</p>
-                    </div>
+                      <div v-if="msg.role === 'model'" class="ai-message-content" v-html="formatMarkdown(msg.content)"></div>
+                      <div v-else class="whitespace-pre-wrap">{{ msg.content }}</div>
 
-                    <!-- Speaker Icon for AI Response -->
-                    <div v-if="msg.role === 'assistant'" class="mt-2 flex justify-end border-t border-surface-700/30 pt-1">
-                      <button 
-                        @click="toggleSpeak(msg.content)"
-                        class="p-1.5 rounded-lg hover:bg-white/5 text-surface-400 hover:text-primary-400 transition-all"
-                        title="อ่านให้ฟัง"
+                      <!-- Chart inside Chat -->
+                      <div v-if="msg.chart" class="mt-4 p-4 rounded-xl border overflow-hidden"
+                        :style="{ 
+                          backgroundColor: isDark ? '#111827' : '#ffffff', 
+                          borderColor: isDark ? '#374151' : '#f1f5f9' 
+                        }"
                       >
-                        <span v-if="speakingText === msg.content" class="text-xs animate-pulse">🔊</span>
-                        <span v-else class="text-xs">🔈</span>
-                      </button>
+                        <ClientOnly>
+                          <apexchart 
+                            :type="msg.chart.type || 'bar'" 
+                            :options="getChartOptions(msg.chart)" 
+                            :series="getChartSeries(msg.chart)" 
+                            height="250"
+                          />
+                        </ClientOnly>
+                        <p class="text-center text-[10px] font-bold mt-2" :style="{ color: isDark ? '#94a3b8' : '#64748b' }">{{ msg.chart.title }}</p>
+                      </div>
+
+                      <!-- Speaker Icon for AI Response -->
+                      <div v-if="msg.role === 'model'" class="mt-2 flex justify-end border-t border-surface-700/30 pt-1">
+                        <button 
+                          @click="toggleSpeak(msg.content)"
+                          class="p-1.5 rounded-lg hover:bg-white/5 text-surface-400 hover:text-primary-400 transition-all"
+                          title="อ่านให้ฟัง"
+                        >
+                          <span v-if="speakingText === msg.content" class="text-xs animate-pulse">🔊</span>
+                          <span v-else class="text-xs">🔈</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- AI Thinking Bubble (Gemini Style) -->
+                  <div v-if="isChatting" class="flex justify-start animate-in fade-in slide-in-from-left-2 duration-300">
+                    <div class="p-4 rounded-2xl rounded-tl-none border shadow-sm flex items-center gap-2"
+                      :style="{ 
+                        backgroundColor: isDark ? '#1f2937' : '#f8fafc', 
+                        borderColor: isDark ? '#374151' : '#f1f5f9'
+                      }"
+                    >
+                      <div class="flex gap-1">
+                        <div class="w-1.5 h-1.5 rounded-full bg-primary-500 animate-bounce [animation-delay:-0.3s]"></div>
+                        <div class="w-1.5 h-1.5 rounded-full bg-primary-500 animate-bounce [animation-delay:-0.15s]"></div>
+                        <div class="w-1.5 h-1.5 rounded-full bg-primary-500 animate-bounce"></div>
+                      </div>
+                      <div class="flex flex-col">
+                        <span class="text-[10px] font-bold text-primary-500 tracking-tight uppercase">AI กำลังประมวลผล...</span>
+                        <span v-if="activeModelName" class="text-[8px] text-primary-500/60 font-mono uppercase tracking-widest mt-0.5">
+                          Using: {{ activeModelName }}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- AI Thinking Bubble (Gemini Style) -->
-                <div v-if="isChatting" class="flex justify-start animate-in fade-in slide-in-from-left-2 duration-300">
-                  <div class="p-4 rounded-2xl rounded-tl-none border shadow-sm flex items-center gap-2"
-                    :style="{ 
-                      backgroundColor: isDark ? '#1f2937' : '#f8fafc', 
-                      borderColor: isDark ? '#374151' : '#f1f5f9'
-                    }"
-                  >
-                    <div class="flex gap-1">
-                      <div class="w-1.5 h-1.5 rounded-full bg-primary-500 animate-bounce [animation-delay:-0.3s]"></div>
-                      <div class="w-1.5 h-1.5 rounded-full bg-primary-500 animate-bounce [animation-delay:-0.15s]"></div>
-                      <div class="w-1.5 h-1.5 rounded-full bg-primary-500 animate-bounce"></div>
-                    </div>
-                    <div class="flex flex-col">
-                      <span class="text-[10px] font-bold text-primary-500 tracking-tight uppercase">AI กำลังประมวลผล...</span>
-                      <span v-if="activeModelName" class="text-[8px] text-primary-500/60 font-mono uppercase tracking-widest mt-0.5">
-                        Using: {{ activeModelName }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Quick Questions -->
-              <div class="flex flex-wrap gap-2 pb-2">
-                <button 
-                  v-for="q in quickQuestions" 
-                  :key="q"
-                  @click="askQuickQuestion(q)"
-                  :disabled="isChatting"
-                  class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 border border-surface-700 rounded-full text-[10px] font-bold text-surface-300 transition-all hover:border-primary-500/50 disabled:opacity-50"
-                >
-                  {{ q }}
-                </button>
-              </div>
-
-              <!-- Chat Input -->
-              <div class="pt-4 border-t border-surface-800">
-                <div class="flex gap-2 bg-surface-950/50 p-2 rounded-2xl border border-surface-800 focus-within:border-primary-500/50 transition-all">
-                  <input 
-                    v-model="userInput" 
-                    @keyup.enter="sendMessage"
-                    type="text" 
-                    placeholder="พิมพ์ข้อความถาม AI..." 
-                    class="flex-1 bg-transparent border-none outline-none text-surface-50 px-3 text-sm"
-                    :disabled="isChatting"
-                  />
+                <!-- Floating Scroll to Bottom Button -->
+                <Transition name="ai-fade">
                   <button 
-                    @click="sendMessage"
-                    :disabled="isChatting || !userInput.trim()"
-                    class="w-10 h-10 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:hover:bg-primary-600 rounded-xl flex items-center justify-center text-white transition-all shadow-lg shadow-primary-900/20"
+                    v-if="showScrollToBottom"
+                    @click="scrollToLastMessage"
+                    class="absolute bottom-28 right-8 z-30 w-10 h-10 rounded-full bg-primary-600 hover:bg-primary-500 text-white shadow-xl shadow-primary-900/40 flex items-center justify-center transition-all hover:scale-110 active:scale-95 animate-bounce duration-[2000ms]"
+                    title="ไปที่ข้อความล่าสุด"
                   >
-                    <span v-if="isChatting">⏳</span>
-                    <span v-else>✈️</span>
+                    <ArrowDown class="w-5 h-5" />
                   </button>
+                </Transition>
+
+                <!-- Quick Questions -->
+                <div class="flex flex-wrap gap-2 pb-2 mt-auto">
+                  <button 
+                    v-for="q in quickQuestions" 
+                    :key="q"
+                    @click="askQuickQuestion(q)"
+                    :disabled="isChatting"
+                    class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 border border-surface-700 rounded-full text-[10px] font-bold text-surface-300 transition-all hover:border-primary-500/50 disabled:opacity-50"
+                  >
+                    {{ q }}
+                  </button>
+                </div>
+
+                <!-- Chat Input -->
+                <div class="pt-2 border-t border-surface-800">
+                  <div class="flex gap-2 bg-surface-950/50 p-2 rounded-2xl border border-surface-800 focus-within:border-primary-500/50 transition-all">
+                    <input 
+                      v-model="userInput" 
+                      @keyup.enter="sendMessage"
+                      type="text" 
+                      placeholder="พิมพ์ข้อความถาม AI..." 
+                      class="flex-1 bg-transparent border-none outline-none text-surface-50 px-3 text-sm"
+                      :disabled="isChatting"
+                    />
+                    <button 
+                      @click="sendMessage"
+                      :disabled="isChatting || !userInput.trim()"
+                      class="w-10 h-10 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:hover:bg-primary-600 rounded-xl flex items-center justify-center text-white transition-all shadow-lg shadow-primary-900/20"
+                    >
+                      <span v-if="isChatting">⏳</span>
+                      <span v-else>✈️</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
 
           </div>
+
+          <!-- Custom Confirm Modal -->
+          <Transition name="ai-fade">
+            <div v-if="deleteTargetUuid" class="fixed inset-0 z-[200] flex items-center justify-center p-4">
+              <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="deleteTargetUuid = null" />
+              <div class="relative w-full max-w-xs border rounded-3xl p-6 shadow-2xl text-center transform transition-all animate-in zoom-in-95 duration-200"
+                :style="{ 
+                  backgroundColor: isDark ? '#111827' : '#ffffff', 
+                  borderColor: isDark ? '#1f2937' : '#e2e8f0' 
+                }"
+              >
+                <div class="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 class="w-8 h-8 text-red-500" />
+                </div>
+                <h3 class="text-lg font-black mb-2" :style="{ color: isDark ? '#ffffff' : '#0f172a' }">ลบการสนทนา?</h3>
+                <p class="text-xs mb-6 px-2" :style="{ color: isDark ? '#94a3b8' : '#64748b' }">ประวัติการคุยทั้งหมดในห้องนี้จะถูกลบถาวรและไม่สามารถเรียกคืนได้</p>
+                <div class="flex gap-3">
+                  <button @click="deleteTargetUuid = null" 
+                    class="flex-1 py-3 text-xs font-bold rounded-2xl transition-all"
+                    :style="{ 
+                      backgroundColor: isDark ? '#1f2937' : '#f1f5f9', 
+                      color: isDark ? '#94a3b8' : '#64748b' 
+                    }"
+                  >ยกเลิก</button>
+                  <button @click="executeDelete" class="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-2xl transition-all shadow-lg shadow-red-900/20">ยืนยันการลบ</button>
+                </div>
+              </div>
+            </div>
+          </Transition>
 
           <!-- Footer Actions -->
           <div v-if="activeTab === 'insight'" class="p-6 bg-surface-950/50 border-t border-surface-800 flex gap-3 shrink-0">
@@ -410,10 +536,13 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, computed, onMounted } from 'vue'
-import { Maximize2, Minimize2, ChevronUp, ChevronDown } from 'lucide-vue-next'
+import { Maximize2, Minimize2, ChevronUp, ChevronDown, Menu, Trash2, Plus, ArrowDown } from 'lucide-vue-next'
 import { useSettings } from '~/composables/useSettings'
 import { useToast } from '~/composables/useToast'
 import { useTheme } from '~/composables/useTheme'
+import { db } from '~/db'
+import { v4 as uuidv4 } from 'uuid'
+import type { AIConversation } from '~/types'
 
 const props = withDefaults(defineProps<{
   data: {
@@ -421,6 +550,8 @@ const props = withDefaults(defineProps<{
     cost: number
     productProfitGP: number // กำไรสินค้า (GP)
     netProfit: number       // กำไรสุทธิ (หักรายจ่ายเฉลี่ย)
+    allocatedExpenseForPeriod?: number // รายจ่ายปันส่วนรวมในช่วงเวลา
+    netProfitForPeriod?: number        // กำไรสุทธิรวมในช่วงเวลา
     orderCount: number
     topProducts: any[]
     hourlyStats: any[]
@@ -460,27 +591,198 @@ const { isDark } = useTheme()
 const activeTab = ref<'insight' | 'chat'>(props.initialTab || 'insight')
 const isAnalyzing = ref(false)
 const isChatting = ref(false)
-const isFullscreen = ref(false)
+const isFullscreen = ref(true)
 const currentProvider = ref<'Gemini' | 'OpenRouter' | 'Groq' | 'Offline' | ''>('')
 const activeModelName = ref('')
 const analysisMessage = ref('กำลังรวบรวมข้อมูล...')
 const chatThinkingMessage = ref('AI กำลังคิดคำตอบ...')
 const score = ref(0)
 const executiveSummary = ref('')
+const aiStatus = ref('')
 const insights = ref<any[]>([])
 const isRealAi = ref(false)
 const speakingText = ref('')
 let speechUtterance: SpeechSynthesisUtterance | null = null
 const isHeaderHidden = ref(false)
+const deleteTargetUuid = ref<string | null>(null)
 
 const chartData = ref<any>(null)
-const chatHistory = ref<{ role: 'user' | 'assistant', content: string, chart?: any }[]>([])
+const conversations = ref<AIConversation[]>([])
+const currentConversationUuid = ref<string | null>(null)
+const chatHistory = ref<{ role: 'user' | 'model', content: string, chart?: any }[]>([])
 const userInput = ref('')
+const showChatSidebar = ref(true)
 const chatContainer = ref<HTMLElement | null>(null)
 const showRawPrompt = ref(false)
 const lastPrompt = ref('')
+
+/** จัดรูปแบบช่วงวันที่สำหรับแสดงผลใน Header */
+const displayDateRange = computed(() => {
+  const start = props.data.dateRange?.start
+  const end = props.data.dateRange?.end
+  if (!start || !end) return ''
+  
+  const formatDate = (dateStr: string) => {
+    try {
+      return new Date(dateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
+    } catch { return dateStr }
+  }
+  
+  return `${formatDate(start)} - ${formatDate(end)}`
+})
+
 const lastMessageRef = ref<HTMLElement | null>(null)
 const weatherData = ref<any>(null)
+const showScrollToBottom = ref(false)
+
+/** ตรวจจับการ Scroll เพื่อแสดง/ซ่อนปุ่มเลื่อนลง */
+function handleScroll() {
+  if (!chatContainer.value) return
+  const { scrollTop, scrollHeight, clientHeight } = chatContainer.value
+  // แสดงปุ่มถ้าเลื่อนขึ้นไปมากกว่า 200px จากจุดล่างสุด
+  showScrollToBottom.value = scrollHeight - (scrollTop + clientHeight) > 200
+}
+
+/** ดึงรายการห้องสนทนาทั้งหมด */
+async function loadConversations() {
+  try {
+    conversations.value = await db.aiConversations
+      .where('source')
+      .equals(props.sourceTitle || 'general')
+      .reverse()
+      .sortBy('updatedAt')
+    
+    // ถ้ายังไม่มีห้องปัจจุบัน ให้เลือกห้องล่าสุด
+    const firstConv = conversations.value[0]
+    if (!currentConversationUuid.value && firstConv) {
+      await selectConversation(firstConv.uuid)
+    }
+  } catch (e) {
+    console.error('[AI] Failed to load conversations:', e)
+  }
+}
+
+/** เลือกห้องสนทนา */
+async function selectConversation(uuid: string) {
+  currentConversationUuid.value = uuid
+  await loadChatHistory(uuid)
+}
+
+/** เริ่มการสนทนาใหม่ */
+async function startNewChat() {
+  currentConversationUuid.value = null
+  chatHistory.value = []
+  userInput.value = ''
+  // ถ้าเป็นมือถือ อาจจะซ่อน Sidebar อัตโนมัติเมื่อเริ่มแชตใหม่
+  if (window.innerWidth < 768) showChatSidebar.value = false
+}
+
+/** ดึงประวัติการแชตของห้องที่เลือก */
+async function loadChatHistory(convUuid: string) {
+  try {
+    const history = await db.aiChats
+      .where('conversationUuid')
+      .equals(convUuid)
+      .sortBy('createdAt')
+    
+    chatHistory.value = history.map(h => ({
+      role: h.role === 'user' ? 'user' : 'model', // แปลงจาก assistant เป็น model อัตโนมัติถ้ามี
+      content: h.content,
+      chart: h.chart || null
+    }))
+    await nextTick()
+    scrollToBottom()
+  } catch (e) {
+    console.error('[AI] Failed to load chat history:', e)
+  }
+}
+
+/** บันทึกข้อความแชตลงห้องที่เลือก */
+async function saveChatMessage(role: 'user' | 'model', content: string, chart?: any) {
+  try {
+    // 1. ถ้ายังไม่มีห้อง ให้สร้างห้องใหม่ก่อน
+    if (!currentConversationUuid.value && role === 'user') {
+      const newUuid = uuidv4()
+      await db.aiConversations.add({
+        uuid: newUuid,
+        title: content.length > 30 ? content.substring(0, 30) + '...' : content,
+        source: props.sourceTitle || 'general',
+        lastMessage: content,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isDeleted: false
+      })
+      currentConversationUuid.value = newUuid
+      // ไม่ต้อง await เพื่อให้ประมวลผลต่อได้ทันที
+      loadConversations()
+    }
+
+    if (!currentConversationUuid.value) return
+
+    // 2. บันทึกข้อความลงในห้อง
+    await db.aiChats.add({
+      uuid: uuidv4(),
+      conversationUuid: currentConversationUuid.value,
+      role,
+      content,
+      chart,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      isDeleted: false
+    })
+
+    // 3. อัปเดตข้อความล่าสุดในห้องสนทนา
+    await db.aiConversations
+      .where('uuid')
+      .equals(currentConversationUuid.value)
+      .modify({ lastMessage: content, updatedAt: new Date() })
+    
+    loadConversations()
+  } catch (e) {
+    console.error('[AI] Failed to save chat message:', e)
+  }
+}
+
+/** เตรียมการลบ (แสดง Confirm Modal) */
+function confirmDelete(uuid: string) {
+  deleteTargetUuid.value = uuid
+}
+
+/** ดำเนินการลบจริง */
+async function executeDelete() {
+  if (!deleteTargetUuid.value) return
+  
+  const uuid = deleteTargetUuid.value
+  try {
+    // ลบแชตที่ผูกอยู่
+    await db.aiChats.where('conversationUuid').equals(uuid).delete()
+    // ลบห้องสนทนา
+    await db.aiConversations.where('uuid').equals(uuid).delete()
+    
+    // ถ้าห้องที่ลบคือห้องที่เปิดอยู่ ให้ล้างหน้าจอ
+    if (currentConversationUuid.value === uuid) {
+      currentConversationUuid.value = null
+      chatHistory.value = []
+    }
+    
+    deleteTargetUuid.value = null
+    await loadConversations()
+    toast.success('ลบการสนทนาเรียบร้อยแล้ว')
+  } catch (e) {
+    console.error('[AI] Failed to delete conversation:', e)
+    toast.error('เกิดข้อผิดพลาดในการลบ')
+  }
+}
+
+/** ล้างประวัติห้องสนทนา (เฉพาะห้องที่เลือก) - เลิกใช้งานแล้ว เปลี่ยนไปใช้ executeDelete แทน */
+async function clearCurrentConversation() {
+  if (!currentConversationUuid.value) return
+  confirmDelete(currentConversationUuid.value)
+}
+
+onMounted(() => {
+  loadConversations()
+})
 
 /** ดึงข้อมูลสภาพอากาศ (Open-Meteo - ใช้ตำแหน่งจริงถ้าขอได้) */
 async function fetchWeather() {
@@ -598,18 +900,18 @@ const healthStatus = computed(() => {
 const healthBadgeLabel = computed(() => {
   if (healthStatus.value === 'excellent') return '🟢 ยอดเยี่ยม'
   if (healthStatus.value === 'stable') return '🟡 ทรงตัว'
-  return '🔵 ควรปรับปรุง'
+  return '🔴 ควรปรับปรุง'
 })
 
 const healthBadgeStyle = computed(() => {
   if (isDark.value) {
     if (healthStatus.value === 'excellent') return { backgroundColor: '#064e3b', color: '#34d399', borderColor: '#065f46' }
     if (healthStatus.value === 'stable') return { backgroundColor: '#451a03', color: '#fbbf24', borderColor: '#78350f' }
-    return { backgroundColor: '#1e3a8a', color: '#60a5fa', borderColor: '#1e40af' }
+    return { backgroundColor: '#4c0519', color: '#fb7185', borderColor: '#881337' } // สีแดง Rose เข้ม
   } else {
     if (healthStatus.value === 'excellent') return { backgroundColor: '#f0fdf4', color: '#166534', borderColor: '#bbf7d0' }
     if (healthStatus.value === 'stable') return { backgroundColor: '#fffbeb', color: '#92400e', borderColor: '#fde68a' }
-    return { backgroundColor: '#eff6ff', color: '#1e40af', borderColor: '#bfdbfe' }
+    return { backgroundColor: '#fff1f2', color: '#e11d48', borderColor: '#fecdd3' } // สีแดง Rose สว่าง
   }
 })
 
@@ -624,7 +926,7 @@ const quickQuestions = [
   'เมนูไหนขายดีที่สุด?',
   'พรุ่งนี้ฝนตกไหม?',
   'วิเคราะห์ภาพรวมให้หน่อย ?',
-  'กำไรสุทธิเป็นอย่างไรบ้าง?'
+  'สรุปผลประกอบการ'
 ]
 
 const thinkingMessages = [
@@ -659,7 +961,45 @@ function copyCleanPrompt() {
 
 async function askQuickQuestion(q: string) {
   if (isChatting.value) return
-  userInput.value = q
+  
+  if (q === 'สรุปผลประกอบการ') {
+    const start = props.data.dateRange?.start || 'เริ่มต้น'
+    const end = props.data.dateRange?.end || 'ปัจจุบัน'
+    // แปลงวันที่เป็นฟอร์แมตไทยให้อ่านง่าย
+    const formatDate = (dateStr: string) => {
+      if (!dateStr) return '...'
+      // ถ้าเป็นภาษาไทยอยู่แล้ว (มีตัวอักษรไทย) ให้ส่งกลับได้เลย
+      if (/[ก-ฮ]/.test(dateStr)) return dateStr
+      
+      try {
+        const d = new Date(dateStr)
+        if (isNaN(d.getTime())) return dateStr // ถ้า parse ไม่ได้ให้คืนค่าเดิม
+        return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
+      } catch { return dateStr }
+    }
+
+    // ดึงชื่อเดือนที่เกี่ยวข้องจากช่วงวันที่เลือกจริง
+    const getMonthNames = (s: string, e: string) => {
+      try {
+        const startMonth = new Date(s).toLocaleDateString('th-TH', { month: 'short' })
+        const endMonth = new Date(e).toLocaleDateString('th-TH', { month: 'short' })
+        return startMonth === endMonth ? `เดือน ${startMonth}` : `เดือน ${startMonth} และ ${endMonth}`
+      } catch { return 'แต่ละเดือน' }
+    }
+
+    const monthNames = getMonthNames(start, end)
+    userInput.value = `ช่วยสรุปผลประกอบการประจำช่วงวันที่ ${formatDate(start)} ถึง ${formatDate(end)} ในรูปแบบ Monthly Report โดยสรุปให้ครบถ้วนในหัวข้อดังนี้:
+    
+    1. สรุปการเงิน: รายได้รวม, รายจ่ายปันส่วนประจำ${monthNames} (คูณจำนวนวันจริง), และกำไรสุทธิ (รายได้ - รายจ่ายปันส่วน)
+    2. มิติเวลา: ช่วงเวลาที่ขายดีที่สุด (Peak Hours) และแนวโน้มวันรายสัปดาห์ (วันไหนคนเยอะที่สุด)
+    3. มิติสินค้า: หมวดหมู่สินค้าที่ขายดีที่สุด และรายการสินค้าดาวเด่น (Top Selling Items)
+    4. มิติความถี่: วิเคราะห์ความถี่ในการขาย (Sales Velocity) ของสินค้าในช่วงนี้
+    
+    ที่สำคัญ: ช่วยฟันธงแบบชัดเจนว่าผลประกอบการในช่วงนี้ "ดี" หรือ "ควรปรับปรุง" พร้อมเหตุผลประกอบ และขอคำแนะนำ 3 ข้อในการปรับปรุงร้านให้ดีขึ้นกว่าเดิมด้วยนะคะ`
+  } else {
+    userInput.value = q
+  }
+  
   await sendMessage()
 }
 
@@ -793,10 +1133,18 @@ async function getAvailableModelsList(apiKey: string): Promise<string[]> {
 /** สร้าง Prompt กลางสำหรับทุกโมเดล */
 function generatePrompt() {
   const { 
-    revenue, cost, productProfitGP, netProfit, 
-    dailyAvgExpense, totalExpenses, monthlyAverageExpenses,
+    revenue, cost, productProfitGP,
+    allocatedExpenseForPeriod, netProfitForPeriod,
     topProducts, categoryStats, dateRange
   } = props.data
+  
+  // ใช้ตัวเลขที่คำนวณสรุปมาให้จากต้นทาง (ปลอดภัยที่สุด)
+  const safeAllocatedExpense = Number(allocatedExpenseForPeriod || 0)
+  const safeAllocatedExpenseFormatted = safeAllocatedExpense.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})
+  
+  const safeNetProfit = Number(netProfitForPeriod || (Number(revenue || 0) - safeAllocatedExpense))
+  const safeNetProfitFormatted = safeNetProfit >= 0 ? '฿' + safeNetProfit.toLocaleString() : '-฿' + Math.abs(safeNetProfit).toLocaleString()
+  
   
   const isMonthly = props.analysisMode === 'monthly'
   
@@ -805,33 +1153,29 @@ function generatePrompt() {
     ช่วยวิเคราะห์ข้อมูลเหล่านี้ และให้คำแนะนำที่เข้าใจง่าย มีพลังบวก และให้กำลังใจเจ้าของร้านด้วยภาษาไทยนะคะ
     
     ตรรกะการวิเคราะห์กำไรที่สำคัญ:
-    1. การปันส่วนรายจ่าย (Expense Allocation): ร้านเรานำรายจ่ายคงที่รายเดือนมาหารเฉลี่ยเป็น "รายจ่ายรายวัน" (เช่น 5,500 / 30 = 183.33 บาท)
-    2. การคำนวณรายจ่ายตามช่วงเวลา (Period Matching):
-       - เมื่อวิเคราะห์ช่วงเวลาที่ไม่เต็มเดือน (เช่น ${props.data.dailyHistory?.length || 0} วัน)
-       - สูตรคือ: [รายจ่ายรายวัน] x [จำนวนวันที่วิเคราะห์จริง]
-       - ตัวอย่างเคสปัจจุบัน: ฿${((dailyAvgExpense || totalExpenses || 0) / (props.data.dailyHistory?.length || 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} x ${props.data.dailyHistory?.length || 0} วัน = ฿${(dailyAvgExpense || totalExpenses || 0).toLocaleString()}
-       - **ห้าม** นำยอดรายจ่ายทั้งเดือน (5,500 บาท) มาอ้างว่าเป็นรายจ่ายของช่วงเวลานี้เด็ดขาด เพราะจะทำให้เจ้าของร้านเข้าใจผิดว่าขาดทุนเกินจริง
-    3. ให้ยึดถือตัวเลข **Net Profit** ที่ระบบส่งไปให้เป็นสรุปสุดท้ายเสมอ
+    1. **รายจ่ายปันส่วนตามจริง (Allocated Expenses)**: ร้านเราคำนวณรายจ่ายรายวันจากงบประมาณหารเฉลี่ยตามวัน
+    2. **ห้าม** คำนวณเลขใหม่เองเด็ดขาด และห้ามใช้ตัวเลข "ยอดรวมรายเดือน" หรือเลขอื่นใดที่ไม่ได้ระบุในสรุปด้านล่างนี้
+    3. การคำนวณที่ถูกต้องคือ: ฿${(safeAllocatedExpense / (props.data.dailyHistory?.length || 1)).toFixed(2)} x ${props.data.dailyHistory?.length || 0} วัน = ฿${safeAllocatedExpenseFormatted}
+    4. ให้ยึดถือตัวเลข **Net Profit** ที่ระบบส่งไปให้เป็นสรุปสุดท้ายเสมอ
+    5. หากจะเขียนถึงรายจ่าย ให้เรียกยอดนี้ว่า "รายจ่ายปันส่วนตามช่วงเวลา" เท่านั้น
     
-    ### 📊 สรุปตัวเลขทางการเงิน (ห้ามคำนวณเลขใหม่ ให้ลอกตามนี้):
-    - ช่วงเวลา: ${dateRange?.start || 'N/A'} ถึง ${dateRange?.end || 'N/A'}
+    ### 📊 สรุปตัวเลขทางการเงิน (ห้ามคิดเลขเอง ให้ใช้ตามนี้เท่านั้น):
     - จำนวนวันวิเคราะห์: ${props.data.dailyHistory?.length || 0} วัน
-    - รายจ่ายเฉลี่ยต่อวัน: ฿${((dailyAvgExpense || totalExpenses || 0) / (props.data.dailyHistory?.length || 1)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-    - **รวมรายจ่ายปันส่วนตามจริง (Allocated Expenses): ฿${(dailyAvgExpense || totalExpenses || 0).toLocaleString()}** (ยอดที่ต้องหักออกจากรายได้)
-    - **กำไรสุทธิสำหรับช่วงนี้ (Net Profit): ${netProfit >= 0 ? '฿' + netProfit.toLocaleString() : '-฿' + Math.abs(netProfit).toLocaleString()}**
+    - รายจ่ายเฉลี่ยต่อวัน: ฿${(safeAllocatedExpense / (props.data.dailyHistory?.length || 1)).toFixed(2)}
+    - **รายจ่ายปันส่วนสำหรับช่วงนี้: ฿${safeAllocatedExpenseFormatted}**
+    - **กำไรสุทธิสำหรับช่วงนี้ (Net Profit): ${safeNetProfitFormatted}**
     - กำไรจากสินค้า GP: ฿${productProfitGP.toLocaleString()}
     
     กฎสำหรับการวิเคราะห์:
-    1. หากคุณจะกล่าวถึง "รายจ่ายรวม" ในบทวิเคราะห์ ให้ใช้ยอดที่ปันส่วนแล้ว (฿${(dailyAvgExpense || totalExpenses || 0).toLocaleString()}) เท่านั้น
+    1. หากคุณจะกล่าวถึง "รายจ่ายรวม" ในบทวิเคราะห์ ให้ใช้ยอดที่ปันส่วนแล้ว (฿${safeAllocatedExpenseFormatted}) เท่านั้น
     2. วิเคราะห์เชิงบวกเกี่ยวกับกระแสเงินสด แม้กำไรสุทธิจะยังน้อยเนื่องจากรายจ่ายคงที่ในวันแรกๆ ของการเปิดร้าน
     
     ${isMonthly ? 'เน้นการวิเคราะห์ความคุ้มค่าเทียบกับรายจ่ายปันส่วนรายวันที่เกิดขึ้นจริงในช่วงเวลาที่เลือก' : 'เน้นการวิเคราะห์กำไรต่อสินค้าและการเพิ่มยอดขายรายวัน'}
     
     Business Data:
-    - Analyzing Page: ${props.sourceTitle || 'General Overview'}
     - Total Revenue: ฿${revenue.toLocaleString()}
-    - Total Expenses (Fixed/Other): ฿${(dailyAvgExpense || totalExpenses || 0).toLocaleString()}
-    - Net Profit: ${netProfit >= 0 ? '฿' + netProfit.toLocaleString() : '-฿' + Math.abs(netProfit).toLocaleString()}
+    - Allocated Expenses (Strict): ฿${safeAllocatedExpenseFormatted}
+    - Net Profit (Final): ${safeNetProfitFormatted}
     - Gross Profit (GP): ฿${productProfitGP.toLocaleString()}
     
     Note for AI:
@@ -891,7 +1235,30 @@ async function analyzeWithGemini(apiKey: string) {
                 ใช้ภาษาที่เป็นกันเอง อารมณ์ดี และต้องให้กำลังใจเจ้าของร้านเสมอ 
                 พูดจาไพเราะแบบผู้หญิง ใช้คำลงท้ายว่า "ค่ะ/นะคะ" เสมอ
                 
-                กฎเหล็ก:
+                ข้อมูลสำคัญของร้าน:
+                - ร้าน Yum2K เป็นร้านที่ขาย "เมนูยำ" เท่านั้น (ไม่มีเครื่องดื่ม น้ำสมุนไพร หรือของหวาน)
+                - ห้ามแนะนำโปรโมชั่นหรือการขายพ่วง (Upsell) ที่เกี่ยวข้องกับสินค้าอื่นที่ไม่ใช่เมนูยำ
+                
+                กฎเหล็กสำหรับการวิเคราะห์:
+                1. ให้คุณสวมบทบาทที่ปรึกษาธุรกิจ ประเมินสถานะของร้าน (status) จากข้อมูลทั้งหมดอย่างอิสระ:
+                   - เลือก **excellent** เมื่อเห็นว่าร้านมีศักยภาพสูง ยอดขายดี หรือมีแนวโน้มเติบโตชัดเจน
+                   - เลือก **stable** เมื่อร้านอยู่ในสภาวะปกติ ทรงตัว หรือมีทั้งจุดดีและจุดที่ต้องระวังปนกัน
+                   - เลือก **improvement** เมื่อเห็นสัญญาณที่ต้องระวัง เช่น กำไรลดลงอย่างต่อเนื่อง หรือมีความเสี่ยงทางธุรกิจ
+                2. ในบทสรุป "executiveSummary" ต้องใช้คำฟันธงที่ตรงกับ "status" ที่คุณเลือกเสมอ (เช่น ถ้าเลือก excellent ควรใช้คำว่า **ยอดเยี่ยม** หรือ **ดีเยี่ยม**)
+                3. ในส่วน "executiveSummary" และการตอบแชท ต้องใช้รูปแบบ Markdown:
+                   - **ต้องใช้ตัวหนา **...** ครอบคำฟันธงสถานะเสมอ** เพื่อให้ระบบแสดงผลเป็นป้ายสี
+                   - ใช้ตัวหนา **...** สำหรับตัวเลขกำไร หรือจุดที่ต้องการเน้นพิเศษ
+                   - ใช้การขึ้นบรรทัดใหม่เมื่อจบใจความสำคัญ
+                   - ใช้รายการแบบตัวเลข (1. 2.) หรือขีดกลาง (-) เมื่อให้คำแนะนำหรือแจกแจงหัวข้อ
+                4. ระบุให้ชัดเจนตั้งแต่ประโยคแรกๆ ว่าผลประกอบการในช่วงนี้เป็นอย่างไร เพราะอะไร
+                5. ระบุ "ช่วงเวลาที่ขายดีที่สุด", "สินค้าดาวเด่น" และ "หมวดหมู่ที่ทำเงินสูงสุด" ลงในบทสรุปนี้ให้ชัดเจน
+                6. ต้องให้คำแนะนำที่นำไปทำได้จริง (Actionable Advice) อย่างน้อย 2-3 ข้อในบทสรุปนี้
+                7. กำไรสุทธิ (Net Profit) = [รายได้รวม] - [รายจ่ายปันส่วนรวม] (ห้ามหักต้นทุนสินค้าซ้ำซ้อนในยอดนี้)
+                8. กำไรรายสินค้า (GP) = [รายได้รวม] - [ต้นทุนสินค้า]
+                5. ห้ามทำคณิตศาสตร์เรื่องรายจ่ายเอง ให้ใช้ตัวเลข 'Allocated Expenses (Strict)' และ 'Net Profit (Final)' ที่ระบุไว้ในข้อมูลเท่านั้น
+                6. หากกำไรติดลบ ให้เน้นให้กำลังใจและชี้เป้าเมนูที่กำไรสินค้า (GP) สูง เพื่อให้ร้านมีรายได้เพิ่มขึ้นในอนาคตคครับ
+                
+                กฎทางเทคนิค:
                 1. ต้องตอบกลับในรูปแบบ JSON ตามโครงสร้างที่กำหนดเท่านั้น
                 2. ห้ามวาดแผนภูมิด้วยตัวอักษร (ASCII Chart) ใน executiveSummary เด็ดขาด
                 3. หากต้องการแสดงแผนภูมิ ให้ใส่ข้อมูลในฟิลด์ "chart" ของ JSON เท่านั้น`
@@ -1000,9 +1367,10 @@ async function analyzeWithGroq(apiKey: string) {
 
   if (!parsed) throw new Error('Groq ตอบกลับในรูปแบบที่ไม่ถูกต้อง')
 
-  executiveSummary.value = parsed.executiveSummary
-  score.value = parsed.score
-  insights.value = parsed.insights
+  if (parsed.executiveSummary) executiveSummary.value = parsed.executiveSummary
+  if (parsed.score) score.value = parsed.score
+  if (parsed.status) aiStatus.value = parsed.status
+  if (parsed.insights) insights.value = parsed.insights
   chartData.value = parsed.chart || null
 }
 
@@ -1014,7 +1382,6 @@ async function analyzeWithOpenRouter(apiKey: string) {
   const url = 'https://openrouter.ai/api/v1/chat/completions'
   
   await loadReceiptSettings()
-  // รายชื่อโมเดลฟรีที่ฉลาดและเร็วที่สุด (หรือใช้ตามที่ผู้ใช้กำหนด)
   const freeModels = receiptSettings.value.openRouterModels 
     ? receiptSettings.value.openRouterModels.split(',').map(m => m.trim()).filter(m => m)
     : [
@@ -1029,7 +1396,6 @@ async function analyzeWithOpenRouter(apiKey: string) {
     try {
       activeModelName.value = `OpenRouter (${modelId.split('/').pop()})`
       analysisMessage.value = `Gemini เต็ม... กำลังลอง ${modelId.split('/').pop()}...`
-      console.log(`%c[OpenRouter] %cTrying model: %c${modelId}`, 'color: #fbbf24; font-weight: bold', 'color: #888', 'color: #fbbf24; font-weight: bold')
       
       const response = await fetch(url, {
         method: 'POST',
@@ -1074,9 +1440,10 @@ async function analyzeWithOpenRouter(apiKey: string) {
         continue
       }
 
-      executiveSummary.value = parsed.executiveSummary
-      score.value = parsed.score
-      insights.value = parsed.insights
+      if (parsed.executiveSummary) executiveSummary.value = parsed.executiveSummary
+      if (parsed.score) score.value = parsed.score
+      if (parsed.status) aiStatus.value = parsed.status
+      if (parsed.insights) insights.value = parsed.insights
       chartData.value = parsed.chart || null
       return // สำเร็จแล้ว ออกจากฟังก์ชัน
     } catch (err: any) {
@@ -1094,6 +1461,8 @@ async function sendMessage() {
   const text = userInput.value.trim()
   userInput.value = ''
   chatHistory.value.push({ role: 'user', content: text })
+  await saveChatMessage('user', text) // บันทึกและจัดการ Session
+  
   await nextTick()
   scrollToBottom()
   isChatting.value = true
@@ -1120,7 +1489,7 @@ async function sendMessage() {
     const cashFlowProfit = props.data.revenue - (props.data.actualTotalExpenses || props.data.totalExpenses || 0)
 
     const context = `
-      คุณคือที่ปรึกษาธุรกิจร้านยำ (Yum2K) ข้อมูลเชิงลึกของร้านคือ:
+      คุณคือที่ปรึกษาธุรกิจร้านยำ (Yum2K) ข้อมูลสำคัญคือร้านนี้ขายเฉพาะ "เมนูยำ" เท่านั้น ห้ามแนะนำน้ำสมุนไพร เครื่องดื่ม หรือสินค้าอื่นๆ ที่ไม่ใช่ยำโดยเด็ดขาด ข้อมูลเชิงลึกของร้านคือ:
       - ช่วงเวลาที่วิเคราะห์: ${props.data.dateRange ? `${props.data.dateRange.start} ถึง ${props.data.dateRange.end}` : 'ไม่ได้ระบุ'}
       - รายได้รวม: ฿${props.data.revenue.toLocaleString()}
       - ต้นทุนสินค้า (COGS): ฿${props.data.cost.toLocaleString()} (ต้นทุนตามสูตร)
@@ -1135,13 +1504,10 @@ async function sendMessage() {
       - สถิติสินค้าแยกตามรายชั่วโมง: ${props.data.productByHour ? JSON.stringify(props.data.productByHour) : 'ไม่มีข้อมูล'}
       - รายจ่ายเฉลี่ยแยกตามเดือน (Daily Avg per Month): ${props.data.monthlyAverageExpenses ? JSON.stringify(props.data.monthlyAverageExpenses) : 'ไม่มีข้อมูล'}
       
-      กฎการคำนวณกำไรสุทธิรายวัน (ห้ามคำนวณผิด!):
-      - คุณกำลังทำงานในโหมด: ${props.analysisMode === 'daily' ? 'วิเคราะห์รายวัน (Daily Closing)' : 'วิเคราะห์ภาพรวม (Monthly Reports)'}
-      - **หากเป็นโหมด Monthly**: ในการคำนวณกำไรแต่ละวัน ให้คุณดูว่าวันนั้นอยู่ในเดือนไหน แล้วไปหยิบค่า "รายจ่ายเฉลี่ยต่อวัน" ของเดือนนั้นมาจากตารางด้านบน (Daily Avg per Month) มาหักลบออกจากยอดขายของวันนั้นๆ
-      - ตัวอย่าง: หากวันคือ 2026-04-24 และค่าเฉลี่ยเดือน 04 คือ 183.33 -> กำไรวันนั้น = ยอดขาย - 183.33
-      - หากเป็นโหมด "Daily": กำไรสุทธิรายวัน = ยอดขายรายวัน - ต้นทุนสินค้า (COGS)
-      - หากเป็นโหมด "Monthly": กำไรสุทธิรายวัน = ยอดขายรายวัน - รายจ่ายรวมเฉลี่ยต่อวัน
-      - สำคัญ: ในโหมด Monthly ห้ามหัก COGS ซ้ำซ้อน เพราะมันรวมอยู่ในรายจ่ายรวมแล้ว
+      กฎการคำนวณทางการเงิน (ต้องแม่นยำ 100%):
+      1. กำไรสุทธิ (Net Profit) = [รายได้รวม] - [รายจ่ายปันส่วนรวม] (ห้ามหักต้นทุนสินค้าในยอดนี้)
+      2. กำไรรายสินค้า (GP) = [รายได้รวม] - [ต้นทุนสินค้า]
+      3. ในการวิเคราะห์รายวัน: กำไรสุทธิวันนั้น = ยอดขายวันนั้น - รายจ่ายปันส่วนเฉลี่ยของเดือนนั้น (ดูจาก Daily Avg per Month)
       
       คำแนะนำพิเศษ: ข้อมูล Daily Product Stats ด้านบนคือข้อมูล "บันทึกยอดขายแยกรายวัน" ที่คุณต้องใช้ตอบเมื่อถูกถามถึงรายละเอียดรายวันที่ระบุชัดเจนค่ะ
       
@@ -1212,15 +1578,16 @@ async function sendMessage() {
       .trim()
 
     chatHistory.value.push({ 
-      role: 'assistant', 
+      role: 'model', 
       content: cleanContent || (parsed?.chart ? 'นี่คือผลการวิเคราะห์ข้อมูลที่คุณขอค่ะ:' : aiResponse),
       chart: parsed?.chart || null 
     })
+    saveChatMessage('model', cleanContent || aiResponse, parsed?.chart) // บันทึกพร้อมกราฟ
     await nextTick()
     scrollToLastMessage()
   } catch (err: any) {
     console.error('Chat Error:', err)
-    chatHistory.value.push({ role: 'assistant', content: 'ขออภัยค่ะ ฉันไม่สามารถตอบได้ในขณะนี้: ' + err.message })
+    chatHistory.value.push({ role: 'model', content: 'ขออภัยค่ะ ฉันไม่สามารถตอบได้ในขณะนี้: ' + err.message })
   } finally {
     isChatting.value = false
   }
@@ -1268,12 +1635,13 @@ async function sendChatToGroq(apiKey: string, context: string) {
     .replace(/\{[\s\S]*\}/g, '')
     .trim()
 
-  chatHistory.value.push({ 
-    role: 'assistant', 
-    content: cleanContent || (parsed?.chart ? 'วิเคราะห์กราฟมาให้แล้วค่ะ:' : aiResponse),
-    chart: parsed?.chart || null 
-  })
-  await nextTick()
+    chatHistory.value.push({ 
+      role: 'model', 
+      content: cleanContent || (parsed?.chart ? 'วิเคราะห์กราฟมาให้แล้วค่ะ:' : aiResponse),
+      chart: parsed?.chart || null 
+    })
+    saveChatMessage('model', cleanContent || aiResponse, parsed?.chart)
+    await nextTick()
   scrollToLastMessage()
 }
 
@@ -1342,10 +1710,11 @@ async function sendChatToOpenRouter(apiKey: string, context: string) {
         .trim()
 
       chatHistory.value.push({ 
-        role: 'assistant', 
+        role: 'model', 
         content: cleanContent || (parsed?.chart ? 'สรุปข้อมูลเป็นกราฟดังนี้ค่ะ:' : aiResponse),
         chart: parsed?.chart || null 
       })
+      saveChatMessage('model', cleanContent || aiResponse, parsed?.chart)
       await nextTick()
       scrollToLastMessage()
       return
@@ -1412,14 +1781,29 @@ function formatMarkdown(text: string) {
         continue
       }
 
-      // แปลงตัวหนา
-      l = l.replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-primary-600 dark:text-primary-400">$1</strong>')
+      // แปลงตัวหนา (เน้นสีตามเนื้อหา)
+      l = l.replace(/\*\*(.*?)\*\*/g, (match, p1) => {
+        const isPositive = /ดี|ยอดเยี่ยม|กำไร|เพิ่มขึ้น|สำเร็จ|เหมาะสม|คุ้มค่า/.test(p1)
+        const isNegative = /ควรปรับปรุง|ไม่ดี|ขาดทุน|ติดลบ|ลดลง|เสี่ยง|ระวัง/.test(p1)
+        
+        if (isPositive) return `<strong class="font-black text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20">${p1}</strong>`
+        if (isNegative) return `<strong class="font-black text-rose-700 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-md border border-rose-500/20">${p1}</strong>`
+        return `<strong class="font-black text-primary-600 dark:text-primary-500">${p1}</strong>`
+      })
       
-      // แปลงรายการ * text เป็น bullet
-      if (l.trim().startsWith('* ')) {
-        result.push(`<div class="flex gap-2 ml-2 my-0.5"><span>•</span><span>${l.trim().substring(2)}</span></div>`)
+      // แปลงรายการต่างๆ (Bullet points)
+      const bulletMatch = l.match(/^[\s]*([-*•]|(\d+\.))[\s]+(.*)/)
+      if (bulletMatch) {
+        const content = bulletMatch[3]
+        const prefix = bulletMatch[1]
+        result.push(`<div class="flex gap-2 ml-2 my-1.5"><span class="text-primary-500 font-black">${prefix}</span><span class="flex-1">${content}</span></div>`)
       } else {
-        result.push(`<div class="mb-1">${l}</div>`)
+        // ใส่สีให้คำสำคัญที่ไม่ได้อยู่ในตัวหนาด้วย (เน้นให้เด่นกว่าเดิม)
+        let coloredLine = l
+          .replace(/(ดีเยี่ยม|ยอดเยี่ยม|กำไร|เพิ่มขึ้น)/g, '<span class="text-emerald-600 dark:text-emerald-400 font-bold">$1</span>')
+          .replace(/(ควรปรับปรุง|ไม่ดี|ขาดทุน|ติดลบ|ลดลง|เร่งด่วน)/g, '<span class="text-rose-600 dark:text-rose-400 font-bold bg-rose-500/5 px-1 rounded">$1</span>')
+        
+        result.push(`<div class="mb-2 min-h-[1.2em]">${coloredLine}</div>`)
       }
     }
   }
@@ -1545,5 +1929,37 @@ onMounted(() => {
 .ai-message-content {
   word-break: break-word;
   line-height: 1.6;
+}
+
+/* Status Badge Animations */
+.status-badge-animated {
+  position: relative;
+  overflow: hidden;
+}
+
+.status-improvement {
+  animation: status-pulse-red 2s infinite;
+  box-shadow: 0 0 15px rgba(244, 63, 94, 0.3);
+}
+
+.status-excellent {
+  animation: status-glow-green 3s infinite;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+}
+
+.status-stable {
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+
+@keyframes status-pulse-red {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); }
+  70% { transform: scale(1.03); box-shadow: 0 0 0 10px rgba(244, 63, 94, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+}
+
+@keyframes status-glow-green {
+  0% { box-shadow: 0 0 5px rgba(16, 185, 129, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.5); }
+  100% { box-shadow: 0 0 5px rgba(16, 185, 129, 0.2); }
 }
 </style>

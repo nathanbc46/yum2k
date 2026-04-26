@@ -336,6 +336,25 @@ export interface Expense extends BaseEntity {
 }
 
 // ---------------------------------------------------------------------------
+// AI Chat: ข้อมูลการแชตกับ AI
+// ---------------------------------------------------------------------------
+
+/** ข้อมูลห้องสนทนา AI */
+export interface AIConversation extends BaseEntity {
+  title: string              // หัวข้อแชต (เช่น "วิเคราะห์กำไรเมษายน")
+  source: string             // ที่มา (เช่น "admin-reports")
+  lastMessage?: string       // ข้อความล่าสุด (เพื่อแสดงในรายการ)
+}
+
+/** ข้อมูลการสนทนากับ AI */
+export interface AIChat extends BaseEntity {
+  conversationUuid: string   // ผูกกับ AIConversation.uuid
+  role: 'user' | 'model'     // บทบาท: ผู้ใช้ หรือ AI
+  content: string            // เนื้อหาข้อความ
+  chart?: any                // ข้อมูลกราฟ (ถ้ามี)
+}
+
+// ---------------------------------------------------------------------------
 // App Settings: การตั้งค่าระบบ
 // ---------------------------------------------------------------------------
 

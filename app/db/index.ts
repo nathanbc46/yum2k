@@ -15,6 +15,8 @@ import type {
   AppSetting,
   StockAuditLog,
   Expense,
+  AIChat,
+  AIConversation,
 } from '~/types'
 
 // ---------------------------------------------------------------------------
@@ -36,6 +38,8 @@ class Yum2KDatabase extends Dexie {
   syncQueue!: EntityTable<SyncQueueItem, 'id'>
   stockAuditLogs!: EntityTable<StockAuditLog, 'id'>
   expenses!: EntityTable<Expense, 'id'>
+  aiConversations!: EntityTable<AIConversation, 'id'>
+  aiChats!: EntityTable<AIChat, 'id'>
 
   // AppSettings ใช้ key เป็น Primary Key แทน id
   appSettings!: Dexie.Table<AppSetting, string>
@@ -133,6 +137,8 @@ class Yum2KDatabase extends Dexie {
        * - syncStatus: สถานะ Sync (Index)
        */
       expenses: '++id, &uuid, category, expenseDate, syncStatus, isDeleted',
+      aiConversations: '++id, &uuid, source, title, createdAt, updatedAt',
+      aiChats: '++id, &uuid, conversationUuid, role, createdAt',
     })
   }
 }
@@ -152,7 +158,7 @@ export const db = new Yum2KDatabase()
  * Hook: ตั้งค่า createdAt และ updatedAt อัตโนมัติเมื่อเพิ่มข้อมูลใหม่
  * รองรับ: users, categories, products, orders, syncQueue
  */
-const tablesWithTimestamps = ['users', 'categories', 'products', 'orders', 'syncQueue', 'stockAuditLogs', 'expenses']
+const tablesWithTimestamps = ['users', 'categories', 'products', 'orders', 'syncQueue', 'stockAuditLogs', 'expenses', 'aiConversations', 'aiChats']
 
 tablesWithTimestamps.forEach((tableName) => {
   const table = db.table(tableName)

@@ -531,18 +531,18 @@ function openAiModal(tab: 'insight' | 'chat') {
 const aiData = computed(() => ({
   revenue: summary.value.revenue,
   cost: summary.value.cost,
-  productProfitGP: summary.value.profit, // กำไรขั้นต้น (ยอดขาย - ต้นทุนสินค้า) สำหรับวิเคราะห์สินค้า
-  netProfit: summary.value.revenue - (summary.value.totalExpenses || 0), // กำไรสุทธิ (ยอดขาย - รายจ่ายรวมเฉลี่ย) สำหรับวิเคราะห์ภาพรวม
-  totalExpenses: summary.value.totalExpenses, // ยอดปันส่วนตามวันที่มีการขาย
-  actualTotalExpenses: rawTotalExpenses.value, // ยอดจ่ายจริงรวมทั้งหมดในช่วงเวลา
+  productProfitGP: summary.value.profit, 
+  allocatedExpenseForPeriod: summary.value.totalExpenses || 0, // ยอดปันส่วนรวมที่คำนวณไว้แล้วใน loadData
+  netProfitForPeriod: summary.value.revenue - (summary.value.totalExpenses || 0),
+  netProfit: summary.value.revenue - (summary.value.totalExpenses || 0), // เพิ่มกลับเข้าไปเพื่อแก้ Type Error
   monthlyAverageExpenses: monthlyAvgs.value,
   orderCount: summary.value.orderCount,
   topProducts: topProducts.value,
   categoryStats: categorySales.value,
   hourlyStats: [], // ในหน้าภาพรวมรายเดือนจะเน้นแนวโน้มรายวันมากกว่ารายชั่วโมง
   dateRange: { 
-    start: startDate.value.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }), 
-    end: endDate.value.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) 
+    start: startDate.value.toISOString(), 
+    end: endDate.value.toISOString() 
   },
   // ข้อมูลเชิงลึกเพิ่มเติม
   salesByDayHour: orderHeatmap.value,
@@ -556,8 +556,8 @@ const aiData = computed(() => ({
     return {
       date: d.date,
       revenue: d.revenue,
-      productProfitGP: d.profit, // เดิมคือ GP
-      netProfit: d.revenue - avgExp // กำไรหลังหักรายจ่ายเฉลี่ย
+      productProfitGP: d.profit, // กำไรรายสินค้า (GP)
+      netProfit: d.revenue - avgExp // กำไรสุทธิ = รายได้ - รายจ่ายเฉลี่ยรายวัน
     }
   }), 
   dailyProductStats: dailyProductStats.value // ข้อมูลสินค้าแยกรายวัน
@@ -917,7 +917,10 @@ async function loadData() {
       totalExpenses: expenseSummary.totalExpenses
     }
 
-    monthlyAvgs.value = {}
+    // เก็บข้อมูลรายจ่ายเฉลี่ยรายเดือนเพื่อส่งให้ AI (ใช้คีย์ YYYY-MM เพื่อให้เชื่อมกับ dailyHistory ได้)
+    const yearMonth = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`
+    const daysInMonth = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate()
+    monthlyAvgs.value = { [yearMonth]: (expenseSummary.totalExpenses || 0) / daysInMonth }
 
     // คำนวณ Order Heatmap (Day × Hour)
     const matrix: Record<number, Record<number, number>> = {}

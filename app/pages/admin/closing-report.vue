@@ -500,15 +500,16 @@ const aiData = computed(() => {
     revenue: stats.value.revenue,
     cost: stats.value.cost,
     productProfitGP: stats.value.profit, // กำไรสินค้า (GP)
-    netProfit: stats.value.revenue - dailyAvgExpense.value, // กำไรสุทธิ (หักรายจ่ายเฉลี่ย)
+    allocatedExpenseForPeriod: dailyAvgExpense.value, // รายจ่ายปันส่วนสำหรับวันนี้
+    netProfitForPeriod: stats.value.revenue - dailyAvgExpense.value, // กำไรสุทธิ (รายได้ - รายจ่าย)
+    netProfit: stats.value.revenue - dailyAvgExpense.value,
     dailyAvgExpense: dailyAvgExpense.value,
-    actualTotalExpenses: monthTotalExpenses.value, // ส่งรายจ่ายรวมของเดือนให้ AI ด้วย
     orderCount: todayOrders.value.length,
     topProducts: computedTopProducts.value,
     hourlyStats: hourlyStats.value.map(h => ({ hour: h.hour, count: h.count, revenue: h.revenue })),
     dateRange: {
-      start: new Date(selectedDate.value).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }),
-      end: new Date(selectedDate.value).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+      start: new Date(selectedDate.value).toISOString(),
+      end: new Date(selectedDate.value).toISOString()
     },
     categoryStats: activeCategorySegments.value.map(seg => {
       // คำนวณยอดรวมของแต่ละหมวดหมู่จาก hourlyStats
@@ -521,7 +522,14 @@ const aiData = computed(() => {
     // ข้อมูลเชิงลึกใหม่ตามที่ขอ
     salesByDayHour: sByH,
     productByDay: Object.entries(pByD).map(([name, days]) => ({ name, days })),
-    productByHour: Object.entries(pByH).map(([name, hours]) => ({ name, hours }))
+    productByHour: Object.entries(pByH).map(([name, hours]) => ({ name, hours })),
+    monthlyAverageExpenses: { [expenseMonthLabel.value]: dailyAvgExpense.value },
+    dailyHistory: [{
+      date: selectedDate.value,
+      revenue: stats.value.revenue,
+      productProfitGP: stats.value.profit,
+      netProfit: stats.value.revenue - dailyAvgExpense.value
+    }]
   }
 })
 
