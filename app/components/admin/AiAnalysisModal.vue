@@ -1909,15 +1909,6 @@ async function copyToClipboard(text: string) {
   }
 }
 
-/** ฟังก์ชันแชร์ไปที่ LINE - เลิกใช้งาน เปลี่ยนไปใช้ handleGeneralShare แทน */
-async function shareToLine(text: string) {
-  handleGeneralShare(text)
-}
-
-/** ฟังก์ชันแชร์ไปที่ Messenger - เลิกใช้งาน เปลี่ยนไปใช้ handleGeneralShare แทน */
-async function shareToMessenger(text: string) {
-  handleGeneralShare(text)
-}
 
 /** ระบบอ่านออกเสียง (Text-to-Speech) - ปรับจูนให้นุ่มนวลขึ้น */
 function toggleSpeak(text: string) {
