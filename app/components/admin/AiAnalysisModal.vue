@@ -295,51 +295,79 @@
 
             <!-- Tab: Chat -->
             <div v-else class="flex h-full overflow-hidden relative -m-6">
-              <!-- Chat Sidebar (Sessions) -->
-              <div v-if="showChatSidebar" 
-                class="w-64 border-r shrink-0 flex flex-col transition-all duration-300"
+              <!-- Chat Sidebar (Gemini Style) -->
+              <div 
+                :class="[
+                  'border-r shrink-0 flex flex-col transition-all duration-300 relative overflow-hidden',
+                  showChatSidebar ? 'w-64' : 'w-16'
+                ]"
                 :style="{ backgroundColor: isDark ? '#0a0f1d' : '#fcfdfe', borderColor: isDark ? '#1f2937' : '#f1f5f9' }"
               >
-                <div class="p-4 border-b shrink-0 flex items-center gap-2" :style="{ borderColor: isDark ? '#1f2937' : '#f1f5f9' }">
+                <!-- Hamburger Button at the top of Sidebar -->
+                <div class="p-3 flex items-center shrink-0">
+                  <button 
+                    @click="showChatSidebar = !showChatSidebar"
+                    class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:bg-surface-800/50"
+                    :style="{ color: isDark ? '#94a3b8' : '#64748b' }"
+                    :title="showChatSidebar ? 'ซ่อนเมนู' : 'แสดงเมนู'"
+                  >
+                    <Menu class="w-5 h-5" />
+                  </button>
+                </div>
+
+                <!-- New Chat Button -->
+                <div class="px-3 pb-2 shrink-0">
                   <button 
                     @click="startNewChat"
-                    class="flex-1 py-2 bg-primary-600/10 hover:bg-primary-600/20 text-primary-500 text-[10px] font-black rounded-xl border border-primary-500/20 transition-all flex items-center justify-center gap-1.5"
+                    :class="[
+                      'bg-primary-600/10 hover:bg-primary-600/20 text-primary-500 font-black rounded-xl border border-primary-500/20 transition-all flex items-center justify-center gap-2 overflow-hidden',
+                      showChatSidebar ? 'w-full py-2.5 px-4 text-[11px]' : 'w-10 h-10 p-0'
+                    ]"
                   >
-                    <Plus class="w-3 h-3" />
-                    <span>แชตใหม่</span>
+                    <Plus class="w-4 h-4 shrink-0" />
+                    <span v-if="showChatSidebar" class="truncate">แชตใหม่</span>
                   </button>
                 </div>
                 
-                <div class="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
-                  <div v-if="conversations.length === 0" class="py-10 text-center opacity-30">
+                <!-- Conversation List -->
+                <div class="flex-1 overflow-y-auto px-2 space-y-1 scrollbar-hide">
+                  <div v-if="conversations.length === 0 && showChatSidebar" class="py-10 text-center opacity-30 animate-in fade-in">
                     <p class="text-[10px] font-bold">ยังไม่มีประวัติแชต</p>
                   </div>
+                  
                   <button 
                     v-for="conv in conversations" 
                     :key="conv.uuid"
                     @click="selectConversation(conv.uuid)"
-                    class="w-full p-3 rounded-xl text-left transition-all group relative overflow-hidden"
-                    :class="[currentConversationUuid === conv.uuid ? 'shadow-sm' : 'hover:bg-surface-800/30']"
+                    class="w-full rounded-xl text-left transition-all group relative overflow-hidden flex items-center"
+                    :class="[
+                      currentConversationUuid === conv.uuid ? 'shadow-sm' : 'hover:bg-surface-800/30',
+                      showChatSidebar ? 'p-3 gap-3' : 'p-3 justify-center'
+                    ]"
                     :style="{ 
                       backgroundColor: currentConversationUuid === conv.uuid ? (isDark ? '#1f2937' : '#f1f5f9') : 'transparent',
                     }"
                   >
                     <div v-if="currentConversationUuid === conv.uuid" class="absolute left-0 top-0 bottom-0 w-1 bg-primary-500"></div>
-                    <p class="text-[11px] font-black truncate pr-8" :style="{ color: currentConversationUuid === conv.uuid ? '#f97316' : (isDark ? '#f1f5f9' : '#1e293b') }">
-                      {{ conv.title }}
-                    </p>
-                    <p class="text-[9px] truncate mt-1 opacity-50 pr-8" :style="{ color: isDark ? '#94a3b8' : '#64748b' }">
-                      {{ conv.lastMessage }}
-                    </p>
-                    <p class="text-[8px] mt-1.5 opacity-30 text-right">
-                      {{ new Date(conv.updatedAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) }}
-                    </p>
+                    
+                    <!-- Icon if collapsed -->
+                    <div v-if="!showChatSidebar" class="shrink-0 text-sm opacity-50">💭</div>
 
-                    <!-- Delete Button (Visible on Hover/Active) -->
+                    <!-- Content if expanded -->
+                    <div v-if="showChatSidebar" class="flex-1 min-w-0">
+                      <p class="text-[11px] font-black truncate pr-6" :style="{ color: currentConversationUuid === conv.uuid ? '#f97316' : (isDark ? '#f1f5f9' : '#1e293b') }">
+                        {{ conv.title }}
+                      </p>
+                      <p class="text-[9px] truncate mt-0.5 opacity-50 pr-6" :style="{ color: isDark ? '#94a3b8' : '#64748b' }">
+                        {{ conv.lastMessage }}
+                      </p>
+                    </div>
+
+                    <!-- Delete Button (Visible for Touch/Hover) -->
                     <button 
+                      v-if="showChatSidebar"
                       @click.stop="confirmDelete(conv.uuid)"
-                      class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white text-red-500 bg-red-500/10 z-20"
-                      title="ลบการสนทนา"
+                      class="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg flex items-center justify-center transition-all opacity-20 group-hover:opacity-100 hover:bg-red-500 hover:text-white text-red-500 bg-red-500/10 z-20"
                     >
                       <Trash2 class="w-3.5 h-3.5" />
                     </button>
@@ -348,19 +376,10 @@
               </div>
 
               <!-- Main Chat Area -->
-              <div class="flex-1 flex flex-col overflow-hidden pt-6 pb-0 px-4 sm:px-6 relative">
-                <!-- Sidebar Toggle Button (Gemini Style) -->
-                <button 
-                  @click="showChatSidebar = !showChatSidebar"
-                  class="absolute top-4 left-4 z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:bg-surface-800/50"
-                  :style="{ color: isDark ? '#94a3b8' : '#64748b' }"
-                  :title="showChatSidebar ? 'ซ่อนเมนู' : 'แสดงเมนู'"
-                >
-                  <Menu class="w-5 h-5" />
-                </button>
+              <div class="flex-1 flex flex-col overflow-hidden pt-2 pb-0 px-4 sm:px-6 relative">
 
                 <!-- Chat History -->
-                <div ref="chatContainer" @scroll="handleScroll" class="flex-1 space-y-4 overflow-y-auto pb-4 pr-2 scrollbar-thin mt-8">
+                <div ref="chatContainer" @scroll="handleScroll" class="flex-1 space-y-4 overflow-y-auto pb-4 pr-2 scrollbar-thin">
                   <div v-if="chatHistory.length === 0" class="h-full flex flex-col items-center justify-center text-center text-surface-500 space-y-3">
                     <div class="text-4xl animate-bounce">💭</div>
                     <p class="text-sm font-bold opacity-70">สงสัยตรงไหน ถาม AI เพิ่มเติมได้เลยค่ะ!</p>
@@ -406,8 +425,35 @@
                         <p class="text-center text-[10px] font-bold mt-2" :style="{ color: isDark ? '#94a3b8' : '#64748b' }">{{ msg.chart.title }}</p>
                       </div>
 
-                      <!-- Speaker Icon for AI Response -->
-                      <div v-if="msg.role === 'model'" class="mt-2 flex justify-end border-t border-surface-700/30 pt-1">
+                      <!-- Action Bar for AI Response (Share & TTS) -->
+                      <div v-if="msg.role === 'model'" class="mt-2 flex justify-end items-center gap-2 border-t border-surface-700/30 pt-2">
+                        <span class="text-[9px] text-surface-500 mr-auto opacity-40 font-bold uppercase tracking-tighter">AI Actions</span>
+                        
+                        <!-- General Share -->
+                        <button 
+                          @click="handleGeneralShare(msg.content)"
+                          class="p-1.5 rounded-lg hover:bg-primary-500/10 text-primary-500 transition-all group/btn"
+                          title="แชร์สรุป"
+                        >
+                          <div class="flex items-center gap-1">
+                            <span class="text-[10px] font-black hidden group-hover/btn:block animate-in fade-in slide-in-from-right-1">แชร์</span>
+                            <Share2 class="w-3.5 h-3.5" />
+                          </div>
+                        </button>
+
+                        <!-- Copy to Clipboard -->
+                        <button 
+                          @click="copyToClipboard(msg.content)"
+                          class="p-1.5 rounded-lg hover:bg-surface-700/50 text-surface-400 transition-all group/btn"
+                          title="คัดลอกข้อความ"
+                        >
+                          <div class="flex items-center gap-1">
+                            <span class="text-[10px] font-black hidden group-hover/btn:block animate-in fade-in slide-in-from-right-1">คัดลอก</span>
+                            <Copy class="w-3.5 h-3.5" />
+                          </div>
+                        </button>
+
+                        <!-- Speaker Icon -->
                         <button 
                           @click="toggleSpeak(msg.content)"
                           class="p-1.5 rounded-lg hover:bg-white/5 text-surface-400 hover:text-primary-400 transition-all"
@@ -523,11 +569,6 @@
             </div>
           </Transition>
 
-          <!-- Footer Actions -->
-          <div v-if="activeTab === 'insight'" class="p-6 bg-surface-950/50 border-t border-surface-800 flex gap-3 shrink-0">
-            <button @click="close" class="flex-1 py-4 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-2xl transition-all">ปิดหน้าต่าง</button>
-            <button @click="reAnalyze" class="flex-1 py-4 bg-primary-600 hover:bg-primary-500 text-white font-black rounded-2xl transition-all shadow-lg shadow-primary-900/40">🔄 วิเคราะห์อีกครั้ง</button>
-          </div>
         </div>
       </div>
     </Transition>
@@ -536,7 +577,7 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, computed, onMounted } from 'vue'
-import { Maximize2, Minimize2, ChevronUp, ChevronDown, Menu, Trash2, Plus, ArrowDown } from 'lucide-vue-next'
+import { Maximize2, Minimize2, ChevronUp, ChevronDown, Menu, Trash2, Plus, ArrowDown, MessageCircle, Send, Share2, Copy } from 'lucide-vue-next'
 import { useSettings } from '~/composables/useSettings'
 import { useToast } from '~/composables/useToast'
 import { useTheme } from '~/composables/useTheme'
@@ -611,7 +652,7 @@ const conversations = ref<AIConversation[]>([])
 const currentConversationUuid = ref<string | null>(null)
 const chatHistory = ref<{ role: 'user' | 'model', content: string, chart?: any }[]>([])
 const userInput = ref('')
-const showChatSidebar = ref(true)
+const showChatSidebar = ref(false)
 const chatContainer = ref<HTMLElement | null>(null)
 const showRawPrompt = ref(false)
 const lastPrompt = ref('')
@@ -652,11 +693,11 @@ async function loadConversations() {
       .reverse()
       .sortBy('updatedAt')
     
-    // ถ้ายังไม่มีห้องปัจจุบัน ให้เลือกห้องล่าสุด
-    const firstConv = conversations.value[0]
-    if (!currentConversationUuid.value && firstConv) {
-      await selectConversation(firstConv.uuid)
-    }
+    // ไม่ต้องเลือกห้องล่าสุดตามคำขอผู้ใช้ ให้เปิดมาเป็น "แชตใหม่" เสมอ
+    // const firstConv = conversations.value[0]
+    // if (!currentConversationUuid.value && firstConv) {
+    //   await selectConversation(firstConv.uuid)
+    // }
   } catch (e) {
     console.error('[AI] Failed to load conversations:', e)
   }
@@ -1209,13 +1250,43 @@ function generatePrompt() {
     5. Provide 4 specific insights with icons based on the deep data provided.
     6. The "action" field should be a short, actionable tip.
 
-    Return ONLY raw JSON:
-      "executiveSummary": "overview in Thai",
-      "score": number,
-      "insights": [
-        { "icon": "emoji", "title": "Thai title", "description": "Thai analysis", "action": "Thai tip" }
-      ],
-      "chart": { "type": "pie"|"bar"|"line", "title": "...", "labels": ["..."], "series": [10] } (Optional)
+    Return ONLY raw JSON structure as requested by system rules.
+    }
+  `
+}
+
+/** ชุดคำสั่งระบบมาตรฐานสำหรับสรุปผลประกอบการ (4 มิติ) */
+function getSystemInstruction() {
+  return `คุณคือที่ปรึกษาและเพื่อนคู่คิดอัจฉริยะของร้านยำ Yum2K ที่รอบรู้ คุยสนุก และใจดีมาก 
+    อธิบายข้อมูลเชิงลึกให้เข้าใจง่ายที่สุด เหมือนพี่สอนน้อง หรือเพื่อนคุยกัน 
+    ใช้ภาษาที่เป็นกันเอง อารมณ์ดี และต้องให้กำลังใจเจ้าของร้านเสมอ 
+    พูดจาไพเราะแบบผู้หญิง ใช้คำลงท้ายว่า "ค่ะ/นะคะ" เสมอ
+    
+    กฎเหล็กสำหรับการวิเคราะห์ (ต้องทำตามทุกข้อ):
+    1. ให้คุณสวมบทบาทที่ปรึกษาธุรกิจ ประเมินสถานะของร้าน (status) อย่างอิสระ:
+       - **excellent**: ยอดขายพุ่ง กำไรดี หรือแนวโน้มดีมาก
+       - **stable**: ปกติ ทรงตัว หรือมีทั้งจุดดี/จุดด้อยปนกัน
+       - **improvement**: มีจุดที่ต้องระวังชัดเจน เช่น กำไรหดตัว
+    2. ในบทสรุป "executiveSummary" ต้องมีโครงสร้าง 4 ส่วน + ฟันธง + คำแนะนำ ดังนี้:
+       - **ส่วนที่ 1: สรุปการเงิน**: รายได้รวม, รายจ่ายปันส่วน, และกำไรสุทธิ
+       - **ส่วนที่ 2: มิติเวลา**: ช่วงเวลาที่ขายดีที่สุด และแนวโน้มรายสัปดาห์
+       - **ส่วนที่ 3: มิติสินค้า**: สินค้าดาวเด่น และหมวดหมู่ที่ทำเงิน
+       - **ส่วนที่ 4: มิติความถี่/ความเร็ว**: วิเคราะห์ความถี่ในการขาย (Sales Velocity)
+       - **ฟันธงผลประกอบการ**: ต้องใช้คำฟันธงที่ตรงกับ status เสมอ เช่น **ยอดเยี่ยม**, **ทรงตัว** หรือ **ควรปรับปรุง**
+       - **คำแนะนำ 3 ข้อ**: แจกแจงสิ่งที่ร้านควรทำทันทีเพื่อให้ดีขึ้น
+    3. รูปแบบ Markdown (สำคัญมาก):
+       - **ต้องใช้ตัวหนา **...** ครอบคำฟันธงสถานะเสมอ** เพื่อให้ระบบแสดงผลเป็นป้ายสี
+       - ใช้ตัวหนา **...** สำหรับตัวเลขสำคัญ
+       - ใช้รายการแบบตัวเลข (1. 2.) หรือขีดกลาง (-)
+    4. ห้ามทำคณิตศาสตร์รายจ่ายเอง ให้ใช้ตัวเลข 'Allocated Expenses' และ 'Net Profit' ที่ให้ไว้เท่านั้น
+    
+    Return ONLY raw JSON structure:
+    {
+      "executiveSummary": "บทสรุปตามโครงสร้างด้านบน",
+      "score": 0-100,
+      "status": "excellent"|"stable"|"improvement",
+      "insights": [{ "icon": "emoji", "title": "...", "description": "...", "action": "..." }],
+      "chart": { "type": "...", "title": "...", "labels": [], "series": [] }
     }
   `
 }
@@ -1230,38 +1301,7 @@ async function analyzeWithGemini(apiKey: string) {
   let modelNameFull = modelToUse.startsWith('models/') ? modelToUse : `models/${modelToUse}`
   let url = `https://generativelanguage.googleapis.com/v1beta/${modelNameFull}:generateContent?key=${apiKey}`
   
-  const systemInstruction = `คุณคือที่ปรึกษาและเพื่อนคู่คิดอัจฉริยะของร้านยำ Yum2K ที่รอบรู้ คุยสนุก และใจดีมาก 
-                อธิบายข้อมูลเชิงลึกให้เข้าใจง่ายที่สุด เหมือนพี่สอนน้อง หรือเพื่อนคุยกัน 
-                ใช้ภาษาที่เป็นกันเอง อารมณ์ดี และต้องให้กำลังใจเจ้าของร้านเสมอ 
-                พูดจาไพเราะแบบผู้หญิง ใช้คำลงท้ายว่า "ค่ะ/นะคะ" เสมอ
-                
-                ข้อมูลสำคัญของร้าน:
-                - ร้าน Yum2K เป็นร้านที่ขาย "เมนูยำ" เท่านั้น (ไม่มีเครื่องดื่ม น้ำสมุนไพร หรือของหวาน)
-                - ห้ามแนะนำโปรโมชั่นหรือการขายพ่วง (Upsell) ที่เกี่ยวข้องกับสินค้าอื่นที่ไม่ใช่เมนูยำ
-                
-                กฎเหล็กสำหรับการวิเคราะห์:
-                1. ให้คุณสวมบทบาทที่ปรึกษาธุรกิจ ประเมินสถานะของร้าน (status) จากข้อมูลทั้งหมดอย่างอิสระ:
-                   - เลือก **excellent** เมื่อเห็นว่าร้านมีศักยภาพสูง ยอดขายดี หรือมีแนวโน้มเติบโตชัดเจน
-                   - เลือก **stable** เมื่อร้านอยู่ในสภาวะปกติ ทรงตัว หรือมีทั้งจุดดีและจุดที่ต้องระวังปนกัน
-                   - เลือก **improvement** เมื่อเห็นสัญญาณที่ต้องระวัง เช่น กำไรลดลงอย่างต่อเนื่อง หรือมีความเสี่ยงทางธุรกิจ
-                2. ในบทสรุป "executiveSummary" ต้องใช้คำฟันธงที่ตรงกับ "status" ที่คุณเลือกเสมอ (เช่น ถ้าเลือก excellent ควรใช้คำว่า **ยอดเยี่ยม** หรือ **ดีเยี่ยม**)
-                3. ในส่วน "executiveSummary" และการตอบแชท ต้องใช้รูปแบบ Markdown:
-                   - **ต้องใช้ตัวหนา **...** ครอบคำฟันธงสถานะเสมอ** เพื่อให้ระบบแสดงผลเป็นป้ายสี
-                   - ใช้ตัวหนา **...** สำหรับตัวเลขกำไร หรือจุดที่ต้องการเน้นพิเศษ
-                   - ใช้การขึ้นบรรทัดใหม่เมื่อจบใจความสำคัญ
-                   - ใช้รายการแบบตัวเลข (1. 2.) หรือขีดกลาง (-) เมื่อให้คำแนะนำหรือแจกแจงหัวข้อ
-                4. ระบุให้ชัดเจนตั้งแต่ประโยคแรกๆ ว่าผลประกอบการในช่วงนี้เป็นอย่างไร เพราะอะไร
-                5. ระบุ "ช่วงเวลาที่ขายดีที่สุด", "สินค้าดาวเด่น" และ "หมวดหมู่ที่ทำเงินสูงสุด" ลงในบทสรุปนี้ให้ชัดเจน
-                6. ต้องให้คำแนะนำที่นำไปทำได้จริง (Actionable Advice) อย่างน้อย 2-3 ข้อในบทสรุปนี้
-                7. กำไรสุทธิ (Net Profit) = [รายได้รวม] - [รายจ่ายปันส่วนรวม] (ห้ามหักต้นทุนสินค้าซ้ำซ้อนในยอดนี้)
-                8. กำไรรายสินค้า (GP) = [รายได้รวม] - [ต้นทุนสินค้า]
-                5. ห้ามทำคณิตศาสตร์เรื่องรายจ่ายเอง ให้ใช้ตัวเลข 'Allocated Expenses (Strict)' และ 'Net Profit (Final)' ที่ระบุไว้ในข้อมูลเท่านั้น
-                6. หากกำไรติดลบ ให้เน้นให้กำลังใจและชี้เป้าเมนูที่กำไรสินค้า (GP) สูง เพื่อให้ร้านมีรายได้เพิ่มขึ้นในอนาคตคครับ
-                
-                กฎทางเทคนิค:
-                1. ต้องตอบกลับในรูปแบบ JSON ตามโครงสร้างที่กำหนดเท่านั้น
-                2. ห้ามวาดแผนภูมิด้วยตัวอักษร (ASCII Chart) ใน executiveSummary เด็ดขาด
-                3. หากต้องการแสดงแผนภูมิ ให้ใส่ข้อมูลในฟิลด์ "chart" ของ JSON เท่านั้น`
+  const systemInstruction = getSystemInstruction()
 
   let response = await fetch(url, {
     method: 'POST',
@@ -1347,8 +1387,8 @@ async function analyzeWithGroq(apiKey: string) {
     body: JSON.stringify({
       model: modelName,
       messages: [
-        { role: "system", content: "คุณคือที่ปรึกษาและเพื่อนคู่คิดอัจฉริยะของร้านยำ Yum2K ที่อารมณ์ดี เป็นกันเอง รอบรู้ และอธิบายเรื่องยากให้เข้าใจง่าย ให้กำลังใจเจ้าของร้านเสมอ พูดจาไพเราะแบบผู้หญิง (ค่ะ/นะคะ)" },
-        { role: "user", content: prompt }
+        { role: "system", content: getSystemInstruction() },
+        { role: "user", content: `ช่วยวิเคราะห์สรุปผลประกอบการ 4 มิติ จากข้อมูลนี้: ${prompt}` }
       ],
       response_format: { type: "json_object" },
       temperature: 0.3
@@ -1409,11 +1449,9 @@ async function analyzeWithOpenRouter(apiKey: string) {
           messages: [
             { 
               role: "system", 
-              content: `คุณคือที่ปรึกษาธุรกิจร้านยำ Yum2K ที่เก่งและอารมณ์ดี (ตอบเป็นภาษาไทย "ค่ะ/นะคะ" เท่านั้น)
-                        หากเจ้าของร้านขอให้สรุปข้อมูลเป็นกราฟ คุณต้องตอบกลับเป็นข้อความอธิบายปกติก่อน และตบท้ายด้วย JSON Block ตามรูปแบบนี้:
-                        { "chart": { "type": "pie"|"bar"|"line", "title": "หัวข้อ", "labels": ["A", "B"], "series": [10, 20] } }` 
+              content: getSystemInstruction()
             },
-            { role: "user", content: prompt }
+            { role: "user", content: `ข้อมูลร้านคือ: ${prompt}` }
           ],
           response_format: { type: "json_object" },
           temperature: 0.1
@@ -1820,11 +1858,65 @@ async function analyzeWithHeuristics() {
   const profit = revenue - expensesNum
   currentProvider.value = 'Offline'
   score.value = revenue > 0 ? (profit > 0 ? 75 : 40) : 0
-  executiveSummary.value = `[โหมด Offline] สวัสดีค่ะ! ฉันวิเคราะห์เบื้องต้นพบว่ายอดขายอยู่ที่ ฿${revenue.toLocaleString()} และกำไรคือ ฿${profit.toLocaleString()} นะคะ สู้ๆ นะคะ! (ส่วนเรื่องอากาศ ลองเช็กผ่านเน็ตอีกทีนะคะ ตอนนี้ฉันยังดึงข้อมูลไม่ได้ค่ะ)`
+  executiveSummary.value = `**ฟันธง: ทรงตัว (โหมด Offline)**
+
+  **ส่วนที่ 1: การเงิน**
+  - รายได้รวม: **฿${revenue.toLocaleString()}**
+  - รายจ่ายรวม: **฿${expensesNum.toLocaleString()}**
+  - กำไรสุทธิ: **฿${profit.toLocaleString()}**
+
+  **ส่วนที่ 2: สินค้าดาวเด่น**
+  - "${topProducts[0]?.productName || 'ไม่มีข้อมูล'}" ทำยอดได้ดีที่สุด
+
+  **คำแนะนำ:**
+  1. เชื่อมต่ออินเทอร์เน็ตเพื่อให้ AI วิเคราะห์เชิงลึก 4 มิติได้นะคะ
+  2. รักษาระดับยอดขายสินค้าหลักให้คงที่
+  3. สู้ๆ ค่ะ เป็นกำลังใจให้เจ้าของร้านเสมอนะคะ!`
   insights.value = [
     { icon: '💰', title: 'กำไรสุทธิ', description: `กำไรหลังหักค่าใช้จ่ายอยู่ที่ ฿${profit.toLocaleString()}`, action: 'รักษาระดับกำไรให้คงที่' },
     { icon: '⭐', title: 'สินค้าหลัก', description: `"${topProducts[0]?.productName || 'สินค้า'}" ทำยอดได้ดีที่สุด`, action: 'รักษาคุณภาพมาตรฐาน' }
   ]
+}
+
+/** ฟังก์ชันแชร์ทั่วไป (Native Share) */
+async function handleGeneralShare(text: string) {
+  const cleanText = text.replace(/<[^>]*>/g, '').replace(/\*\*/g, '').trim()
+  
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'สรุปการวิเคราะห์ AI - Yum2K',
+        text: cleanText
+      })
+      return
+    } catch (e) {
+      console.log('[Share] Cancelled')
+    }
+  }
+
+  // Fallback if no native share
+  copyToClipboard(text)
+}
+
+/** คัดลอกเนื้อหาลง Clipboard */
+async function copyToClipboard(text: string) {
+  const cleanText = text.replace(/<[^>]*>/g, '').replace(/\*\*/g, '').trim()
+  try {
+    await navigator.clipboard.writeText(cleanText)
+    toast.success('คัดลอกข้อความสรุปลงคลิปบอร์ดแล้วค่ะ')
+  } catch (err) {
+    toast.error('ไม่สามารถคัดลอกข้อความได้')
+  }
+}
+
+/** ฟังก์ชันแชร์ไปที่ LINE - เลิกใช้งาน เปลี่ยนไปใช้ handleGeneralShare แทน */
+async function shareToLine(text: string) {
+  handleGeneralShare(text)
+}
+
+/** ฟังก์ชันแชร์ไปที่ Messenger - เลิกใช้งาน เปลี่ยนไปใช้ handleGeneralShare แทน */
+async function shareToMessenger(text: string) {
+  handleGeneralShare(text)
 }
 
 /** ระบบอ่านออกเสียง (Text-to-Speech) - ปรับจูนให้นุ่มนวลขึ้น */
