@@ -1267,17 +1267,18 @@ function getSystemInstruction() {
        - **excellent**: ยอดขายพุ่ง กำไรดี หรือแนวโน้มดีมาก
        - **stable**: ปกติ ทรงตัว หรือมีทั้งจุดดี/จุดด้อยปนกัน
        - **improvement**: มีจุดที่ต้องระวังชัดเจน เช่น กำไรหดตัว
-    2. ในบทสรุป "executiveSummary" ต้องมีโครงสร้าง 4 ส่วน + ฟันธง + คำแนะนำ ดังนี้:
-       - **ส่วนที่ 1: สรุปการเงิน**: รายได้รวม, รายจ่ายปันส่วน, และกำไรสุทธิ
-       - **ส่วนที่ 2: มิติเวลา**: ช่วงเวลาที่ขายดีที่สุด และแนวโน้มรายสัปดาห์
-       - **ส่วนที่ 3: มิติสินค้า**: สินค้าดาวเด่น และหมวดหมู่ที่ทำเงิน
-       - **ส่วนที่ 4: มิติความถี่/ความเร็ว**: วิเคราะห์ความถี่ในการขาย (Sales Velocity)
-       - **ฟันธงผลประกอบการ**: ต้องใช้คำฟันธงที่ตรงกับ status เสมอ เช่น **ยอดเยี่ยม**, **ทรงตัว** หรือ **ควรปรับปรุง**
-       - **คำแนะนำ 3 ข้อ**: แจกแจงสิ่งที่ร้านควรทำทันทีเพื่อให้ดีขึ้น
+    2. ในบทสรุป "executiveSummary" ต้องมีโครงสร้าง 4 ส่วน + ฟันธง + คำแนะนำ และ **ต้องใช้ \n\n เพื่อขึ้นบรรทัดใหม่** แยกแต่ละส่วนให้ชัดเจน ดังนี้:
+       - 💰 **ส่วนที่ 1: สรุปการเงิน**: รายได้รวม, รายจ่ายปันส่วน, และกำไรสุทธิ
+       - ⏰ **ส่วนที่ 2: มิติเวลา**: ช่วงเวลาที่ขายดีที่สุด และแนวโน้มรายสัปดาห์
+       - 📦 **ส่วนที่ 3: มิติสินค้า**: สินค้าดาวเด่น และหมวดหมู่ที่ทำเงิน
+       - ⚡ **ส่วนที่ 4: มิติความเร็ว**: วิเคราะห์ความถี่ในการขาย (Sales Velocity)
+       - 📌 **ฟันธงผลประกอบการ**: ต้องใช้คำฟันธงที่ตรงกับ status เสมอ เช่น **ยอดเยี่ยม**, **ทรงตัว** หรือ **ควรปรับปรุง**
+       - 💡 **คำแนะนำ 3 ข้อ**: แจกแจงสิ่งที่ร้านควรทำทันทีเพื่อให้ดีขึ้น
     3. รูปแบบ Markdown (สำคัญมาก):
+       - ห้ามเขียนติดกันเป็นพรืด **ต้องใช้ \\n\\n คั่นระหว่างแต่ละส่วน (ส่วนที่ 1, 2, 3...) เสมอ**
        - **ต้องใช้ตัวหนา **...** ครอบคำฟันธงสถานะเสมอ** เพื่อให้ระบบแสดงผลเป็นป้ายสี
        - ใช้ตัวหนา **...** สำหรับตัวเลขสำคัญ
-       - ใช้รายการแบบตัวเลข (1. 2.) หรือขีดกลาง (-)
+       - ใช้รายการแบบตัวเลข (1. 2.) หรือขีดกลาง (-) และใช้ \\n ในการเว้นบรรทัด
     4. ห้ามทำคณิตศาสตร์รายจ่ายเอง ให้ใช้ตัวเลข 'Allocated Expenses' และ 'Net Profit' ที่ให้ไว้เท่านั้น
     
     Return ONLY raw JSON structure:
@@ -1910,7 +1911,7 @@ async function copyToClipboard(text: string) {
 }
 
 
-/** ระบบอ่านออกเสียง (Text-to-Speech) - ปรับจูนให้นุ่มนวลขึ้น */
+/** ระบบอ่านออกเสียง (Text-to-Speech) - ใช้ Web Speech API เครื่อง (แก้ปัญหา Google โดนบล็อก) */
 function toggleSpeak(text: string) {
   if (speakingText.value === text) {
     window.speechSynthesis.cancel()
@@ -1919,38 +1920,46 @@ function toggleSpeak(text: string) {
   }
 
   window.speechSynthesis.cancel()
+  speakingText.value = text
   
-  // ทำความสะอาดข้อความให้ลื่นหูที่สุด
+  // ทำความสะอาดข้อความ
   const cleanText = text
     .replace(/<[^>]*>/g, '') // ลบ HTML
     .replace(/\*\*/g, '')    // ลบตัวหนา
-    .replace(/฿/g, 'บาท')     // เปลี่ยนสัญลักษณ์เงินเป็นคำอ่าน
+    .replace(/฿/g, 'บาท')     
     .replace(/\%/g, 'เปอร์เซ็นต์') 
-    .replace(/\n/g, ' ')     // เปลี่ยนบรรทัดใหม่เป็นช่องว่างสั้นๆ
-    .replace(/\s+/g, ' ')    // ลบช่องว่างที่ซ้ำซ้อน
+    .replace(/\n/g, ', ') // ใช้ลูกน้ำเพื่อเว้นจังหวะหายใจ
+    .replace(/\s+/g, ' ')
     .trim()
 
   const utterance = new SpeechSynthesisUtterance(cleanText)
   
-  // ค้นหาเสียงผู้หญิงที่ "นุ่มนวล" (เน้น Google Thai หรือเสียงที่มีระบุว่าเป็น Female)
+  // ดึงเสียงที่มีในเครื่อง
   const voices = window.speechSynthesis.getVoices()
   const thaiVoices = voices.filter(v => v.lang.includes('th'))
   
-  // ลำดับความพรีเมียม: Google Thai > Natural Female > Narisa (Apple) > Standard Female
-  const femaleVoice = thaiVoices.find(v => v.name.includes('Google')) || 
-                      thaiVoices.find(v => v.name.includes('Female')) ||
-                      thaiVoices.find(v => v.name.includes('Narisa')) ||
-                      thaiVoices.find(v => v.name.includes('Premium')) ||
+  // พยายามหาเสียงผู้หญิงเป็นอันดับแรก
+  const femaleVoice = thaiVoices.find(v => v.name.toLowerCase().includes('premwadee')) || 
+                      thaiVoices.find(v => v.name.toLowerCase().includes('narisa')) ||
+                      thaiVoices.find(v => v.name.toLowerCase().includes('google')) ||
+                      thaiVoices.find(v => v.name.toLowerCase().includes('female')) ||
                       thaiVoices[0]
 
   if (femaleVoice) {
     utterance.voice = femaleVoice
+    
+    // หากเครื่องมีแต่เสียงผู้ชาย (Pattara) ให้ปรับจูนเสียงให้นุ่มและช้าลงนิดนึง
+    if (femaleVoice.name.toLowerCase().includes('pattara')) {
+      utterance.pitch = 1.15 // ปรับเสียงให้สูงขึ้นนิดนึงเพื่อลดความแข็ง
+      utterance.rate = 0.95  // พูดช้าลงนิดนึง
+    } else {
+      utterance.pitch = 1.0
+      utterance.rate = 1.0
+    }
+  } else {
+    utterance.pitch = 1.0
+    utterance.rate = 1.0
   }
-  
-  // ปรับจูนเสียงให้มีความเป็นผู้หญิงและนุ่มนวล
-  utterance.rate = 0.98 // ความเร็วเกือบปกติเพื่อให้ฟังดูเป็นธรรมชาติ
-  utterance.pitch = 1.15 // ปรับระดับเสียงให้สูงขึ้นเล็กน้อยเพื่อให้ดูสดใสและมีความเป็นผู้หญิง
-  utterance.volume = 1.0
   
   utterance.onstart = () => { speakingText.value = text }
   utterance.onend = () => { speakingText.value = '' }
@@ -1958,6 +1967,7 @@ function toggleSpeak(text: string) {
 
   window.speechSynthesis.speak(utterance)
 }
+
 
 onMounted(() => {
   if (props.includeWeather) {
