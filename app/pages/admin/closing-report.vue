@@ -416,11 +416,13 @@ import { useProfitability } from '~/composables/useProfitability'
 import AdminAiAnalysisModal from '~/components/admin/AiAnalysisModal.vue'
 import type { Order, Category, Product } from '~/types'
 import { db } from '~/db'
+import { useMasterDataSync } from '~/composables/useMasterDataSync'
 
 definePageMeta({ layout: 'admin' })
 
 const { getTopProducts } = useReports()
 const { getSummary: getExpenseSummary } = useProfitability()
+const { lastPullTimestamp } = useMasterDataSync()
 
 function formatDate(d: Date) {
   // วิธีที่ชัวร์ที่สุดสำหรับระบบที่อาจเป็น พ.ศ. หรือ ค.ศ.
@@ -792,6 +794,7 @@ function doPrint() {
   win.document.close()
 }
 
+watch(lastPullTimestamp, () => loadData())
 onMounted(loadData)
 </script>
 

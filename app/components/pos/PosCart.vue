@@ -125,15 +125,18 @@
         class="relative flex flex-col gap-2 transition-all p-3"
       >
         <!-- Background & Clickable Layer (หัวใจสำคัญของ Effect) -->
-        <div 
+        <div
           @click.stop="item.product.addonGroups?.length ? posStore.setSelectedCartItemIndex(posStore.selectedCartItemIndex === idx ? null : idx) : null"
-          class="absolute inset-0 z-0 bg-surface-800 rounded-xl border transition-all"
+          class="absolute inset-0 z-0 bg-surface-800 rounded-xl border transition-all border-l-[3px]"
           :class="[
-            posStore.selectedCartItemIndex === idx 
-              ? 'border-primary-500 ring-2 ring-primary-500/20 bg-surface-700' 
+            posStore.selectedCartItemIndex === idx
+              ? 'border-primary-500 ring-2 ring-primary-500/20 bg-surface-700'
               : 'border-surface-700 hover:border-surface-600',
             item.product.addonGroups?.length ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default'
           ]"
+          :style="item.product.category?.color
+            ? { borderLeftColor: item.product.category.color }
+            : {}"
         />
 
         <div class="relative z-10 pointer-events-none flex flex-col gap-2">

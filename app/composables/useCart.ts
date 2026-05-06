@@ -371,6 +371,12 @@ export function useCart() {
       const { checkAfterCheckout } = useStockAlert()
       checkAfterCheckout(snapshot)
 
+      // 10. แจ้งเตือน LINE OA (fire-and-forget)
+      if (savedOrder) {
+        const { notifyNewOrder } = useLineNotify()
+        notifyNewOrder(savedOrder).catch(() => {})
+      }
+
       return savedOrder ?? null
     }
     catch (error) {

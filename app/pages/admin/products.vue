@@ -117,7 +117,25 @@
         <div class="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
       </div>
 
-      <!-- Empty -->
+      <!-- Empty: ไม่มีสินค้าเลยในเครื่อง → แนะนำให้ Pull -->
+      <div v-else-if="products.length === 0" class="flex flex-col items-center justify-center py-20 gap-5">
+        <span class="text-6xl opacity-20">📦</span>
+        <div class="text-center">
+          <p class="text-surface-300 font-semibold">ยังไม่มีข้อมูลสินค้าในเครื่อง</p>
+          <p class="text-surface-500 text-sm mt-1">ดึงข้อมูลสินค้าและหมวดหมู่จาก Cloud เพื่อเริ่มใช้งาน</p>
+        </div>
+        <button
+          @click="pullFromCloud"
+          :disabled="!isOnline || isSyncingMaster"
+          class="flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-all active:scale-95"
+        >
+          <span v-if="isSyncingMaster" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          <span>{{ isSyncingMaster ? 'กำลัง Pull...' : '☁️ Pull ข้อมูลจาก Cloud' }}</span>
+        </button>
+        <p v-if="!isOnline" class="text-surface-600 text-xs">ต้องเชื่อมต่ออินเทอร์เน็ตก่อน</p>
+      </div>
+
+      <!-- Empty: filter กรองออกหมด -->
       <div v-else-if="filteredProducts.length === 0" class="flex flex-col items-center justify-center py-20 text-surface-500 gap-4">
         <span class="text-5xl opacity-30">📦</span>
         <p>ไม่พบสินค้าที่ตรงกับเงื่อนไข</p>
@@ -390,7 +408,7 @@ definePageMeta({ layout: 'admin' })
 
 const { fetchAll: fetchProducts, toggleProductActive, deleteProduct, restoreProduct, reorderProducts } = useProducts()
 const { fetchAll: fetchCategories } = useCategories()
-const { lastPullTimestamp } = useMasterDataSync()
+const { lastPullTimestamp, pullAll, isSyncingMaster } = useMasterDataSync()
 const toast = useToast()
 const { isOnline } = useSync()
 const { exportProducts, prepareImportData, executeImport, downloadTemplate } = useProductExcel()
@@ -498,6 +516,16 @@ async function loadData() {
     ])
   } finally {
     isLoading.value = false
+  }
+}
+
+async function pullFromCloud() {
+  try {
+    const result = await pullAll(true)
+    await loadData()
+    toast.success(`ดึงข้อมูลสำเร็จ: ${result.categories} หมวดหมู่, ${result.products} สินค้า`)
+  } catch (err: any) {
+    toast.error(err?.message ?? 'ดึงข้อมูลจาก Cloud ไม่สำเร็จ')
   }
 }
 

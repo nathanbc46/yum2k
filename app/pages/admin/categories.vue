@@ -25,9 +25,21 @@
       </div>
 
       <!-- Empty -->
-      <div v-else-if="categories.length === 0" class="flex flex-col items-center justify-center py-20 text-surface-500 gap-4">
-        <span class="text-5xl opacity-30">🗂️</span>
-        <p>ยังไม่มีหมวดหมู่ กดปุ่ม "เพิ่มหมวดหมู่" เพื่อเริ่มต้น</p>
+      <div v-else-if="categories.length === 0" class="flex flex-col items-center justify-center py-20 gap-5">
+        <span class="text-6xl opacity-20">🗂️</span>
+        <div class="text-center">
+          <p class="text-surface-300 font-semibold">ยังไม่มีข้อมูลหมวดหมู่ในเครื่อง</p>
+          <p class="text-surface-500 text-sm mt-1">ดึงข้อมูลจาก Cloud หรือสร้างหมวดหมู่ใหม่ด้วยตนเอง</p>
+        </div>
+        <button
+          @click="pullFromCloud"
+          :disabled="!isOnline || isSyncingMaster"
+          class="flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-all active:scale-95"
+        >
+          <span v-if="isSyncingMaster" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          <span>{{ isSyncingMaster ? 'กำลัง Pull...' : '☁️ Pull ข้อมูลจาก Cloud' }}</span>
+        </button>
+        <p v-if="!isOnline" class="text-surface-600 text-xs">ต้องเชื่อมต่ออินเทอร์เน็ตก่อน</p>
       </div>
 
       <!-- Table -->
@@ -160,7 +172,7 @@ import type { Category } from '~/types'
 definePageMeta({ layout: 'admin' })
 
 const { fetchAll, toggleCategoryActive, deleteCategory, reorderCategories } = useCategories()
-const { lastPullTimestamp } = useMasterDataSync()
+const { lastPullTimestamp, pullAll, isSyncingMaster } = useMasterDataSync()
 const { isOnline } = useSync()
 const toast = useToast()
 const { confirm } = useConfirm()
@@ -176,6 +188,16 @@ async function loadData() {
     categories.value = await fetchAll()
   } finally {
     isLoading.value = false
+  }
+}
+
+async function pullFromCloud() {
+  try {
+    const result = await pullAll(true)
+    await loadData()
+    toast.success(`ดึงข้อมูลสำเร็จ: ${result.categories} หมวดหมู่, ${result.products} สินค้า`)
+  } catch (err: any) {
+    toast.error(err?.message ?? 'ดึงข้อมูลจาก Cloud ไม่สำเร็จ')
   }
 }
 

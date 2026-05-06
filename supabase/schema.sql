@@ -223,3 +223,35 @@ CREATE POLICY "Public Access" ON orders FOR ALL TO public USING (true);
 CREATE POLICY "Public Access" ON order_items FOR ALL TO public USING (true);
 CREATE POLICY "Public Access" ON stock_audit_logs FOR ALL TO public USING (true);
 CREATE POLICY "Public Access" ON expenses FOR ALL TO public USING (true);
+
+-- ==========================================
+-- 10. ตาราง Bank Transfers (LINE Webhook)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS bank_transfers (
+  id          BIGSERIAL PRIMARY KEY,
+  amount      DECIMAL(12, 2) NOT NULL,
+  bank_name   TEXT,
+  note        TEXT,
+  raw_message TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE bank_transfers ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "authenticated_can_read_bank_transfers" ON bank_transfers
+  FOR SELECT TO authenticated USING (true);
+ALTER PUBLICATION supabase_realtime ADD TABLE bank_transfers;
+
+-- ==========================================
+-- 11. ตาราง Daily Summaries (ป้องกันส่ง LINE ซ้ำ)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS daily_summaries (
+  id          BIGSERIAL PRIMARY KEY,
+  sent_date   DATE UNIQUE NOT NULL,
+  order_count INT DEFAULT 0,
+  revenue     DECIMAL(12, 2) DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE daily_summaries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_only" ON daily_summaries
+  FOR ALL TO service_role USING (true) WITH CHECK (true);

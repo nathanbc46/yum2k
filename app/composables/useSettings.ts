@@ -26,6 +26,11 @@ export interface ReceiptSettings {
   groqModel?: string        // รุ่นโมเดล Groq (Default: llama-3.3-70b-versatile)
   openRouterApiKey?: string // OpenRouter API Key (ศูนย์รวม AI ฟรี) สำหรับความยั่งยืน
   openRouterModels?: string // รุ่นโมเดล OpenRouter (คั่นด้วยคอมมา)
+  // LINE Notifications
+  lineNewOrder?: boolean        // แจ้งเตือนออร์เดอร์ใหม่ (default: true)
+  lineLowStock?: boolean        // แจ้งเตือนสต็อกใกล้หมด (default: true)
+  lineDailySummary?: boolean    // ส่งสรุปยอดรายวัน (default: true)
+  lineDailySummaryHour?: number // ชั่วโมงที่ส่งสรุป 0-23 (default: 22)
 }
 
 // ---------------------------------------------------------------------------
@@ -48,6 +53,10 @@ export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
   groqModel: 'llama-3.3-70b-versatile',
   openRouterApiKey: '',
   openRouterModels: 'inclusionai/ling-2.6-1t:free,z-ai/glm-4.5-air:free,openai/gpt-oss-120b:free',
+  lineNewOrder: true,
+  lineLowStock: true,
+  lineDailySummary: true,
+  lineDailySummaryHour: 22,
 }
 
 const RECEIPT_SETTINGS_KEY = 'receipt_settings'

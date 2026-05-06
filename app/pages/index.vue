@@ -39,6 +39,7 @@
       </div>
 
       <PosAddonSelection />
+      <PosBankAlert />
     </template>
   </AppErrorBoundary>
 </template>
@@ -50,13 +51,25 @@ import PosCart from '~/components/pos/PosCart.vue'
 import PosReceipt from '~/components/pos/PosReceipt.vue'
 import PosAddonSelection from '~/components/pos/PosAddonSelection.vue'
 import PosKitchen from '~/components/pos/PosKitchen.vue'
+import PosBankAlert from '~/components/pos/PosBankAlert.vue'
 import AppErrorBoundary from '~/components/ui/AppErrorBoundary.vue'
 import { usePosStore } from '~/stores/pos'
+import { useBankTransferAlert } from '~/composables/useBankTransferAlert'
+import { useLineDailySummary } from '~/composables/useLineDailySummary'
 
 const posStore = usePosStore()
+const { startListening, stopListening } = useBankTransferAlert()
+const { start: startDailySummary, stop: stopDailySummary } = useLineDailySummary()
 
 onMounted(async () => {
   await posStore.loadData()
+  startListening()
+  startDailySummary()
+})
+
+onUnmounted(() => {
+  stopListening()
+  stopDailySummary()
 })
 
 definePageMeta({ layout: false })

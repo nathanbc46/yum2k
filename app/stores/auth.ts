@@ -99,6 +99,25 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const { checkRemoteUsersExist, pullAll, pushUsers } = useMasterDataSync()
 
+      // ตรวจสอบ Supabase session ก่อน — ถ้ายังไม่มีให้ Sign In ทันที
+      // (device-auth plugin ทำงานใน background อาจยังไม่เสร็จตอนนี้)
+      const supabase = useSupabaseClient<any>()
+      const config = useRuntimeConfig()
+      const { data: { session: existingSession } } = await withTimeout(supabase.auth.getSession(), 5_000)
+      const tokenValid = existingSession?.expires_at && (existingSession.expires_at * 1000) > Date.now() + 60_000
+      if (!tokenValid) {
+        const email = config.public.supabaseDeviceEmail as string | undefined
+        const password = config.public.supabaseDevicePassword as string | undefined
+        if (email && password) {
+          const { error: authErr } = await withTimeout(supabase.auth.signInWithPassword({ email, password }), 15_000)
+          if (authErr) {
+            console.error('❌ Device auth ล้มเหลวระหว่าง initUserSystem:', authErr.message)
+            return { status: 'need_online', message: 'ไม่สามารถยืนยันตัวตนกับ Cloud ได้ กรุณาตรวจสอบการเชื่อมต่อ' }
+          }
+          console.log('✅ Device auth สำเร็จใน initUserSystem')
+        }
+      }
+
       // checkRemoteUsersExist มี withTimeout(30s) ข้างใน แต่เราใส่ fallback ชั้นนอกเพิ่มด้วย
       let hasCloudUsers = false
       try {

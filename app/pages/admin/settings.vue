@@ -212,6 +212,94 @@
             </div>
           </div>
 
+          <!-- LINE Notifications -->
+          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
+            <div class="flex items-center gap-2 mb-4">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="24" height="24" rx="6" fill="#06C755"/>
+                <path d="M20 10.64C20 6.97 16.42 4 12 4S4 6.97 4 10.64c0 3.28 2.91 6.03 6.84 6.55.27.06.63.18.72.41.08.21.05.53.03.74l-.12.7c-.04.21-.16.82.72.45.88-.37 4.74-2.79 6.47-4.77C20.44 13.22 20 11.97 20 10.64z" fill="white"/>
+              </svg>
+              <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest">LINE แจ้งเตือน</h2>
+            </div>
+            <p class="text-[11px] text-surface-500 mb-4 leading-relaxed">
+              ต้องตั้งค่า <code class="bg-surface-800 px-1 rounded text-primary-400">NUXT_LINE_CHANNEL_ACCESS_TOKEN</code> ใน .env ก่อนจึงจะรับข้อความได้
+            </p>
+            <div class="space-y-3">
+              <!-- ออร์เดอร์ใหม่ -->
+              <div class="flex items-center justify-between bg-surface-950 rounded-xl px-4 py-3 border border-surface-800">
+                <div>
+                  <div class="text-sm font-semibold text-surface-50">มีออร์เดอร์ใหม่</div>
+                  <div class="text-xs text-surface-500">ส่งข้อความทุกครั้งที่มีการสั่งซื้อ</div>
+                </div>
+                <button
+                  type="button"
+                  @click="form.lineNewOrder = !form.lineNewOrder"
+                  class="relative w-12 h-[26px] rounded-full transition-all duration-300 shrink-0 p-[3px] flex items-center"
+                  :class="form.lineNewOrder ? 'bg-primary-500' : 'bg-surface-700'"
+                >
+                  <div class="w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-300"
+                    :class="form.lineNewOrder ? 'translate-x-[22px]' : 'translate-x-0'" />
+                </button>
+              </div>
+
+              <!-- สต็อกใกล้หมด -->
+              <div class="flex items-center justify-between bg-surface-950 rounded-xl px-4 py-3 border border-surface-800">
+                <div>
+                  <div class="text-sm font-semibold text-surface-50">สต็อกใกล้หมด</div>
+                  <div class="text-xs text-surface-500">แจ้งเตือนเมื่อสินค้าถึงขีดเตือน</div>
+                </div>
+                <button
+                  type="button"
+                  @click="form.lineLowStock = !form.lineLowStock"
+                  class="relative w-12 h-[26px] rounded-full transition-all duration-300 shrink-0 p-[3px] flex items-center"
+                  :class="form.lineLowStock ? 'bg-primary-500' : 'bg-surface-700'"
+                >
+                  <div class="w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-300"
+                    :class="form.lineLowStock ? 'translate-x-[22px]' : 'translate-x-0'" />
+                </button>
+              </div>
+
+              <!-- สรุปยอดรายวัน -->
+              <div class="bg-surface-950 rounded-xl border border-surface-800 overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <div class="text-sm font-semibold text-surface-50">สรุปยอดรายวัน</div>
+                    <div class="text-xs text-surface-500">ส่งสรุปยอดขายเข้า LINE ตามเวลาที่กำหนด</div>
+                  </div>
+                  <button
+                    type="button"
+                    @click="form.lineDailySummary = !form.lineDailySummary"
+                    class="relative w-12 h-[26px] rounded-full transition-all duration-300 shrink-0 p-[3px] flex items-center"
+                    :class="form.lineDailySummary ? 'bg-primary-500' : 'bg-surface-700'"
+                  >
+                    <div class="w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-300"
+                      :class="form.lineDailySummary ? 'translate-x-[22px]' : 'translate-x-0'" />
+                  </button>
+                </div>
+                <!-- Time picker (แสดงเมื่อเปิด) -->
+                <Transition name="expand">
+                  <div v-if="form.lineDailySummary" class="px-4 pb-4 border-t border-surface-800 pt-3">
+                    <label class="form-label !mb-2">เวลาที่ส่ง</label>
+                    <div class="flex items-center gap-2">
+                      <select
+                        v-model.number="form.lineDailySummaryHour"
+                        class="form-input !w-auto"
+                      >
+                        <option v-for="h in summaryHourOptions" :key="h.value" :value="h.value">
+                          {{ h.label }}
+                        </option>
+                      </select>
+                      <span class="text-xs text-surface-500">น. (เวลาไทย)</span>
+                    </div>
+                    <p class="text-[10px] text-surface-500 mt-2">
+                      POS ต้องเปิดอยู่ ณ เวลาที่กำหนดจึงจะส่งได้
+                    </p>
+                  </div>
+                </Transition>
+              </div>
+            </div>
+          </div>
+
           <!-- ส่วนจัดการข้อมูล (Sync Management) -->
           <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
             <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-4">การจัดการข้อมูล Cloud</h2>
@@ -326,6 +414,15 @@ const form = reactive<ReceiptSettings>({
   groqModel: '',
   openRouterApiKey: '',
   openRouterModels: '',
+  lineNewOrder: true,
+  lineLowStock: true,
+  lineDailySummary: true,
+  lineDailySummaryHour: 22,
+})
+
+const summaryHourOptions = Array.from({ length: 8 }, (_, i) => {
+  const h = 16 + i // 16–23
+  return { value: h, label: `${h.toString().padStart(2, '0')}:00` }
 })
 
 onMounted(async () => {
@@ -405,5 +502,17 @@ async function handleForcePush() {
 }
 .form-input:focus {
   border-color: var(--color-primary-500, #8b5cf6);
+}
+.expand-enter-active, .expand-leave-active {
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+.expand-enter-from, .expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+.expand-enter-to, .expand-leave-from {
+  opacity: 1;
+  max-height: 120px;
 }
 </style>

@@ -33,6 +33,10 @@ export function useStockAlert() {
       `• ${s.name}: เหลือ ${s.currentStock} ${s.threshold > 0 ? `(ต่ำกว่าขั้นต่ำ ${s.threshold})` : '(หมดแล้ว)'}`
     )
     toast.warning(['⚠️ สินค้าใกล้หมด/หมดแล้ว:', ...lines].join('\n'), 8000)
+
+    // แจ้งเตือน LINE OA (fire-and-forget)
+    const { notifyLowStock } = useLineNotify()
+    notifyLowStock(low).catch(() => {})
   }
 
   /**

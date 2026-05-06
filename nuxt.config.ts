@@ -101,6 +101,9 @@ export default defineNuxtConfig({
 
   // Runtime Config
   runtimeConfig: {
+    // Private (server-only)
+    lineChannelSecret: process.env.NUXT_LINE_CHANNEL_SECRET,
+    lineChannelAccessToken: process.env.NUXT_LINE_CHANNEL_ACCESS_TOKEN,
     public: {
       supabase: {
         url: process.env.NUXT_PUBLIC_SUPABASE_URL,

@@ -72,7 +72,7 @@
       <!-- ===== TAB 1: ภาพรวม ===== -->
       <div v-if="activeTab === 'overview'" class="p-6 space-y-6">
         <!-- Summary Cards -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <div class="bg-gradient-to-br from-blue-600/20 to-white dark:to-surface-900 border border-blue-600/40 p-5 rounded-2xl shadow-sm">
             <div class="text-[10px] uppercase tracking-widest text-blue-700 dark:text-blue-400 mb-1 font-bold">ยอดขายรวม</div>
             <div class="text-3xl font-black text-blue-700 dark:text-blue-400">฿{{ summary.revenue.toLocaleString() }}</div>
@@ -142,6 +142,18 @@
             <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">กำไรสินค้า (GP)</div>
             <div class="text-2xl font-black text-surface-50">฿{{ summary.profit.toLocaleString() }}</div>
             <div class="text-[10px] text-surface-600 mt-2">ยอดขาย - ต้นทุนสินค้า</div>
+          </div>
+
+          <!-- Card 5: เฉลี่ยต่อบิล -->
+          <div class="bg-surface-900 p-5 rounded-2xl border border-surface-800">
+            <div class="text-[10px] uppercase tracking-widest text-surface-500 mb-1">เฉลี่ยต่อบิล</div>
+            <div class="text-2xl font-black text-surface-50">฿{{ avgPerBill.toLocaleString() }}</div>
+            <div class="text-[10px] text-surface-500 mt-2 font-medium">
+              ฿{{ summary.revenue.toLocaleString() }} / {{ summary.orderCount }} บิล
+            </div>
+            <div class="text-[10px] text-surface-600 mt-0.5">
+              เฉลี่ย {{ avgItemsPerBill }} รายการ/บิล
+            </div>
           </div>
         </div>
 
@@ -464,6 +476,7 @@ import { useProfitability } from '~/composables/useProfitability'
 import type { Category, Product } from '~/types'
 import { db } from '~/db'
 import { Expand, X } from 'lucide-vue-next'
+import { useMasterDataSync } from '~/composables/useMasterDataSync'
 
 definePageMeta({ layout: 'admin' })
 
@@ -473,6 +486,7 @@ const {
 } = useReports()
 
 const { getSummary: getExpenseSummary } = useProfitability()
+const { lastPullTimestamp } = useMasterDataSync()
 
 // --- Tabs ---
 const tabs = [
@@ -570,7 +584,9 @@ const filteredProductOptions = computed(() =>
 )
 
 // --- Report Data ---
-const summary = ref<DailySummary & { totalExpenses?: number }>({ revenue: 0, cost: 0, profit: 0, orderCount: 0, totalExpenses: 0 })
+const summary = ref<DailySummary & { totalExpenses?: number; itemCount?: number }>({ revenue: 0, cost: 0, profit: 0, orderCount: 0, itemCount: 0, totalExpenses: 0 })
+const avgPerBill = computed(() => summary.value.orderCount > 0 ? Math.round(summary.value.revenue / summary.value.orderCount) : 0)
+const avgItemsPerBill = computed(() => summary.value.orderCount > 0 ? ((summary.value.itemCount ?? 0) / summary.value.orderCount).toFixed(1) : '0')
 const topProducts = ref<TopProductMetric[]>([])
 const dailyHistory = ref<{ date: string; revenue: number; profit: number }[]>([])
 const categorySales = ref<{ categoryName: string; value: number }[]>([])
@@ -894,9 +910,14 @@ async function loadData() {
       : allOrders
 
     // คำนวณ Summary จาก filtered orders
-    let revenue = 0, cost = 0, profit = 0
-    for (const o of filteredOrders) { revenue += o.totalAmount; cost += o.totalCost; profit += o.profitAmount }
-    
+    let revenue = 0, cost = 0, profit = 0, itemCount = 0
+    for (const o of filteredOrders) {
+      revenue += o.totalAmount
+      cost += o.totalCost
+      profit += o.profitAmount
+      itemCount += (o.items || []).reduce((s: number, i: any) => s + i.quantity, 0)
+    }
+
     // ดึงข้อมูลรายจ่ายรวมในช่วงเวลา
     const formatDate = (d: Date) => {
       let year = d.getFullYear()
@@ -909,11 +930,12 @@ async function loadData() {
     const endStr = formatDate(end)
     const expenseSummary: any = await getExpenseSummary(startStr, endStr)
 
-    summary.value = { 
-      revenue, 
-      cost, 
-      profit, 
+    summary.value = {
+      revenue,
+      cost,
+      profit,
       orderCount: filteredOrders.length,
+      itemCount,
       totalExpenses: expenseSummary.totalExpenses
     }
 
@@ -1033,6 +1055,7 @@ async function loadData() {
   }
 }
 
+watch(lastPullTimestamp, () => loadData())
 onMounted(loadData)
 </script>
 

@@ -366,8 +366,8 @@ export function useMasterDataSync() {
     )
 
     if (error) {
-      console.error('❌ เช็ค Remote Users ล้มเหลว:', error)
-      return false
+      // throw แทน return false เพื่อให้ caller รู้ว่า "ไม่รู้ว่ามี user ไหม" ≠ "ไม่มี user"
+      throw new Error(`เช็ค Remote Users ล้มเหลว: ${error.message}`)
     }
     return (count || 0) > 0
   }
@@ -642,18 +642,40 @@ export function useMasterDataSync() {
     try {
       // 1. ตรวจสอบกลุ่มที่เป็น "Master Data" (แก้ไข/ลบ ได้จากหลายเครื่อง)
       const checkMasterUpdates = async (tableName: string, dbTableKey: 'categories' | 'products' | 'users', nameField = 'name') => {
-        const { data: rawData } = await withTimeout(
+        // Step A: count comparison — จับ fresh device (local=0, remote>0)
+        const localTotal = await (db as any)[dbTableKey].count()
+        const { count: remoteTotal, error: countError } = await withTimeout(
+          supabase.from(tableName).select('*', { count: 'exact', head: true })
+        )
+        if (countError) {
+          console.warn(`⚠️ checkMasterUpdates count (${tableName}):`, countError.message)
+          return { count: 0, names: [] }
+        }
+        if (localTotal === 0 && (remoteTotal || 0) > 0) {
+          const { data: nameData } = await withTimeout(
+            supabase.from(tableName).select(nameField).order('updated_at', { ascending: false }).limit(5)
+          )
+          return {
+            count: remoteTotal || 0,
+            names: nameData ? (nameData as any[]).map((d: any) => d[nameField]) : []
+          }
+        }
+
+        // Step B: timestamp check — จับ items ที่มีอยู่แล้วแต่ถูกแก้ไขบน Cloud
+        const { data: rawData, error } = await withTimeout(
           supabase.from(tableName).select(`uuid, updated_at, ${nameField}`).gt('updated_at', timeLimit)
         )
-          
+        if (error) {
+          console.warn(`⚠️ checkMasterUpdates timestamps (${tableName}):`, error.message)
+          return { count: 0, names: [] }
+        }
         const data = rawData as any[] | null
-
         if (!data || data.length === 0) return { count: 0, names: [] }
-        
+
         const remoteUuids = data.map((r: any) => r.uuid)
         const localItems = await (db as any)[dbTableKey].where('uuid').anyOf(remoteUuids).toArray()
         const localMap = new Map<string, number>(localItems.map((item: any) => [
-          item.uuid, 
+          item.uuid,
           new Date(item.updatedAt || item.lastLoginAt || 0).getTime()
         ]))
 

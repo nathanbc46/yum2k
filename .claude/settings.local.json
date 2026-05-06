@@ -10,7 +10,10 @@
       "Bash(Get-Content \"d:\\\\yum2k\\\\vitest.config.ts\")",
       "Bash(Get-Content \"d:\\\\yum2k\\\\package.json\")",
       "Bash(Select-String \"vitest|test|happy|fake\")",
-      "Bash(node -e \"require\\('vitest'\\)\")"
+      "Bash(node -e \"require\\('vitest'\\)\")",
+      "Bash(Get-ChildItem -Path \"d:\\\\yum2k\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"d:\\\\yum2k\\\\db\" -File)"
     ]
   }
 }
