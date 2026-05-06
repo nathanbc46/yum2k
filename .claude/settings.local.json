@@ -9,7 +9,8 @@
       "Bash(xargs grep -l \"db\\\\.products\\\\|db\\\\.categories\\\\|db\\\\.orders\")",
       "Bash(Get-Content \"d:\\\\yum2k\\\\vitest.config.ts\")",
       "Bash(Get-Content \"d:\\\\yum2k\\\\package.json\")",
-      "Bash(Select-String \"vitest|test|happy|fake\")"
+      "Bash(Select-String \"vitest|test|happy|fake\")",
+      "Bash(node -e \"require\\('vitest'\\)\")"
     ]
   }
 }
