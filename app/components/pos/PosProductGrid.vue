@@ -48,32 +48,8 @@
             <div class="animate-pulse text-surface-500">กำลังโหลดสินค้า...</div>
           </div>
 
-          <!-- ยังไม่ได้เลือกหมวดหมู่ → แสดงการ์ดหมวดหมู่ + สินค้า Favorite -->
-          <div v-else-if="!store.activeCategoryId" class="flex flex-col gap-6">
-            <!-- หมวดหมู่ -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              <button
-                v-for="cat in store.displayedCategories"
-                :key="cat.id"
-                @click="store.setActiveCategory(cat.id!)"
-                class="relative flex flex-col items-center justify-center gap-3 rounded-2xl border-2 p-6 h-[140px] transition-all hover:scale-[1.03] active:scale-95 text-center"
-                :style="{
-                  borderColor: (cat.color || '#6366f1') + '60',
-                  backgroundColor: (cat.color || '#6366f1') + '18',
-                }"
-              >
-                <div v-if="hasSubcategories(cat.id)" class="absolute top-2 right-2 text-primary-400 opacity-70">
-                  <ChevronRight class="w-4 h-4 stroke-[3]" />
-                </div>
-                <div class="w-4 h-4 rounded-full shrink-0" :style="{ backgroundColor: cat.color || '#6366f1' }" />
-                <div class="font-black text-surface-50 text-base leading-tight line-clamp-2">{{ cat.name }}</div>
-                <div class="text-xs font-bold px-3 py-1 rounded-full" :style="{ color: cat.color || '#818cf8', backgroundColor: (cat.color || '#6366f1') + '25' }">
-                  {{ store.categoryProductCounts[cat.id!] ?? 0 }} รายการ
-                </div>
-              </button>
-            </div>
-
-            <!-- สินค้า Favorite -->
+          <!-- ยังไม่ได้เลือกหมวดหมู่ → แสดงเฉพาะสินค้า Favorite -->
+          <div v-else-if="!store.activeCategoryId">
             <div v-if="favoriteProducts.length > 0">
               <div class="flex items-center gap-2 mb-3">
                 <Heart :size="16" fill="currentColor" class="text-red-500" />
@@ -88,6 +64,10 @@
                   @add="handleAddProduct(product)"
                 />
               </div>
+            </div>
+            <div v-else class="flex flex-col items-center justify-center h-64 text-surface-600 gap-3">
+              <Heart :size="40" class="opacity-20" />
+              <p class="text-sm font-medium">กดไอคอน ❤️ ที่สินค้าเพื่อเพิ่มรายการโปรด</p>
             </div>
           </div>
 
