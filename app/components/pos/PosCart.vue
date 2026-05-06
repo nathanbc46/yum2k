@@ -119,98 +119,71 @@
         <p class="text-base font-medium">ยังไม่มีสินค้าในตะกร้า</p>
       </div>
 
-      <div 
-        v-for="(item, idx) in cartItems" 
+      <div
+        v-for="(item, idx) in cartItems"
         :key="`${item.product.id}_${idx}`"
-        class="relative flex flex-col gap-2 transition-all p-3"
+        class="relative transition-all"
+        :class="item.product.addonGroups?.length ? 'cursor-pointer active:scale-[0.99]' : ''"
+        @click.stop="item.product.addonGroups?.length ? posStore.setSelectedCartItemIndex(posStore.selectedCartItemIndex === idx ? null : idx) : null"
       >
-        <!-- Background & Clickable Layer (หัวใจสำคัญของ Effect) -->
+        <!-- Background Layer -->
         <div
-          @click.stop="item.product.addonGroups?.length ? posStore.setSelectedCartItemIndex(posStore.selectedCartItemIndex === idx ? null : idx) : null"
           class="absolute inset-0 z-0 bg-surface-800 rounded-xl border transition-all border-l-[3px]"
-          :class="[
-            posStore.selectedCartItemIndex === idx
-              ? 'border-primary-500 ring-2 ring-primary-500/20 bg-surface-700'
-              : 'border-surface-700 hover:border-surface-600',
-            item.product.addonGroups?.length ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default'
-          ]"
-          :style="item.product.category?.color
-            ? { borderLeftColor: item.product.category.color }
-            : {}"
+          :class="posStore.selectedCartItemIndex === idx
+            ? 'border-primary-500 ring-2 ring-primary-500/20 bg-surface-700'
+            : 'border-surface-700 hover:border-surface-600'"
+          :style="item.product.category?.color ? { borderLeftColor: item.product.category.color } : {}"
         />
 
-        <div class="relative z-10 pointer-events-none flex flex-col gap-2">
-          <!-- ชื่อกับราคา -->
-          <div class="flex justify-between items-start gap-2 pr-12">
-            <div class="flex-1">
-              <div class="font-bold text-sm leading-tight text-surface-50">
-                {{ item.product.name }}
-              </div>
-              <!-- แสดง Add-ons ที่เลือก -->
-              <div v-if="item.addons && item.addons.length > 0" class="flex flex-wrap gap-1 mt-1">
-                <span
-                  v-for="addon in item.addons"
-                  :key="addon.id"
-                  class="text-[10px] px-1.5 py-0.5 rounded-full font-bold border transition-colors bg-primary-900/40 text-primary-300 border-primary-700/30 [.light-mode_&]:bg-primary-100 [.light-mode_&]:text-primary-600 [.light-mode_&]:border-primary-300"
-                >
-                  {{ addon.name }}{{ addon.price > 0 ? ` +${addon.price}` : '' }}
-                </span>
-                <!-- ปุ่มแก้ไข (pointer-events-auto เพื่อให้กดได้) -->
-                <button 
-                  v-if="item.product.addonGroups && item.product.addonGroups.length > 0"
-                  @click.stop="editAddons(item)"
-                  class="text-[10px] bg-surface-900 text-surface-400 px-2 py-1 rounded-full border border-surface-700 transition-colors pointer-events-auto font-normal flex items-center gap-1 hover:border-primary-500/50 [.light-mode_&]:text-primary-600 [.light-mode_&]:bg-white [.light-mode_&]:border-primary-200"
-                  title="ตั้งค่าตัวเลือกเสริม"
-                >
-                  <Pencil :size="10" />
-                  <span>ตั้งค่า</span>
-                </button>
-              </div>
-              <!-- ปุ่มกรณีที่ยังไม่ได้เลือก Addon -->
-              <div v-else-if="item.product.addonGroups && item.product.addonGroups.length > 0" class="mt-1">
-                <button
-                  @click.stop="editAddons(item)"
-                  class="text-[10px] font-bold px-2 py-1 rounded-full border transition-all flex items-center gap-1 pointer-events-auto font-normal bg-primary-500/10 text-primary-400 border-primary-500/20 [.light-mode_&]:bg-primary-100 [.light-mode_&]:text-primary-600 [.light-mode_&]:border-primary-300"
-                >
-                  <span>+</span> เพิ่มตัวเลือก
-                </button>
-              </div>
-            </div>
-            <div class="font-black shrink-0 text-base text-primary-400 [.light-mode_&]:text-primary-600">฿{{ item.totalPrice }}</div>
-          </div>
-          
-          <!-- ตัวควบคุมจำนวน -->
-          <div class="flex justify-between items-center mt-1">
-            <div class="text-[10px] text-surface-500 font-medium">
-              ฿{{ item.unitPrice + item.addonsTotal }} / ชิ้น
-            </div>
-            <div class="flex items-center gap-3 bg-surface-950 rounded-xl p-1 border border-surface-700 pointer-events-auto">
-              <button 
-                @click.stop="updateQuantity(item.product.id!, item.quantity - 1)"
-                class="w-12 h-10 flex items-center justify-center bg-surface-800 rounded-lg text-surface-300 hover:text-white hover:bg-surface-700 active:scale-90 transition-all shadow-sm"
-                title="ลดจำนวน"
+        <!-- Single-line content -->
+        <div class="relative z-10 flex items-center gap-2 px-3 py-2.5 pr-11">
+          <!-- จำนวน badge -->
+          <span class="shrink-0 min-w-[22px] h-[22px] flex items-center justify-center rounded-md text-[11px] font-black"
+            :style="{ backgroundColor: (item.product.category?.color || '#6366f1') + '30', color: item.product.category?.color || '#818cf8' }">
+            {{ item.quantity }}
+          </span>
+
+          <!-- ชื่อสินค้า + addons -->
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-sm text-surface-50 truncate leading-tight">{{ item.product.name }}</div>
+            <!-- Addons row -->
+            <div v-if="item.addons && item.addons.length > 0" class="flex flex-wrap gap-1 mt-0.5 pointer-events-auto">
+              <span
+                v-for="addon in item.addons"
+                :key="addon.id"
+                class="text-[10px] px-1.5 py-0.5 rounded-full font-bold border bg-primary-900/40 text-primary-300 border-primary-700/30"
               >
-                <Minus :size="16" stroke-width="3" />
+                {{ addon.name }}{{ addon.price > 0 ? ` +${addon.price}` : '' }}
+              </span>
+              <button
+                v-if="item.product.addonGroups?.length"
+                @click.stop="editAddons(item)"
+                class="text-[10px] bg-surface-900 text-surface-400 px-1.5 py-0.5 rounded-full border border-surface-700 flex items-center gap-0.5 hover:border-primary-500/50"
+              >
+                <Pencil :size="9" /><span>แก้ไข</span>
               </button>
-              <span class="w-8 text-center font-bold text-lg text-primary-400 [.light-mode_&]:text-primary-600">{{ item.quantity }}</span>
-              <button 
-                @click.stop="updateQuantity(item.product.id!, item.quantity + 1)"
-                class="w-12 h-10 flex items-center justify-center bg-surface-800 rounded-lg text-surface-300 hover:text-white hover:bg-surface-700 active:scale-90 transition-all shadow-sm"
-                title="เพิ่มจำนวน"
+            </div>
+            <div v-else-if="item.product.addonGroups?.length" class="mt-0.5 pointer-events-auto">
+              <button
+                @click.stop="editAddons(item)"
+                class="text-[10px] px-1.5 py-0.5 rounded-full border flex items-center gap-0.5 bg-primary-500/10 text-primary-400 border-primary-500/20"
               >
-                <Plus :size="16" stroke-width="3" />
+                + เพิ่มตัวเลือก
               </button>
             </div>
           </div>
+
+          <!-- ราคารวม -->
+          <span class="font-black text-sm text-primary-400 shrink-0">฿{{ item.totalPrice }}</span>
         </div>
 
-        <!-- ปุ่มลบ (pointer-events-auto) -->
-        <button 
+        <!-- ปุ่มลบ -->
+        <button
           @click.stop="handleRemoveItem(idx)"
-          class="absolute top-1 right-1 z-20 w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500/40 hover:text-red-500 rounded-xl transition-all active:scale-90 border border-transparent pointer-events-auto [.light-mode_&]:bg-red-50 [.light-mode_&]:text-red-400 [.light-mode_&]:border-red-100"
+          class="absolute top-1 right-1 z-20 w-8 h-8 flex items-center justify-center bg-red-500/10 text-red-500/40 hover:text-red-500 rounded-lg transition-all active:scale-90 border border-transparent pointer-events-auto"
           title="ลบรายการ"
         >
-          <X :size="20" />
+          <X :size="16" />
         </button>
       </div>
     </div>

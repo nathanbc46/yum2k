@@ -118,28 +118,31 @@
 
           <!-- Action Buttons -->
           <div class="p-5 bg-surface-950/40 border-t border-surface-800 grid grid-cols-1 gap-3">
-            <button 
+            <button
               v-if="order.kitchenStatus === 'pending'"
               @click="updateStatus(order, 'preparing')"
-              class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-surface-950 font-black rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20"
+              :disabled="updatingIds.has(order.id!)"
+              class="w-full py-4 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-surface-950 font-black rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20"
             >
               <Flame :size="20" />
               <span>เริ่มปรุงอาหาร</span>
             </button>
-            
-            <button 
+
+            <button
               v-if="order.kitchenStatus === 'preparing'"
               @click="updateStatus(order, 'ready')"
-              class="w-full py-4 bg-green-500 hover:bg-green-400 text-surface-950 font-black rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-green-900/20"
+              :disabled="updatingIds.has(order.id!)"
+              class="w-full py-4 bg-green-500 hover:bg-green-400 disabled:opacity-60 text-surface-950 font-black rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-green-900/20"
             >
               <CheckCircle :size="20" />
               <span>ปรุงเสร็จแล้ว</span>
             </button>
 
-            <button 
+            <button
               v-if="order.kitchenStatus === 'ready'"
               @click="updateStatus(order, 'served')"
-              class="w-full py-4 bg-primary-600 hover:bg-primary-500 text-white font-black rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-primary-900/20"
+              :disabled="updatingIds.has(order.id!)"
+              class="w-full py-4 bg-primary-600 hover:bg-primary-500 disabled:opacity-60 text-white font-black rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-primary-900/20"
             >
               <Check :size="20" />
               <span>เสิร์ฟเรียบร้อย</span>
@@ -171,6 +174,7 @@ const posStore = usePosStore()
 const pendingOrders = ref<Order[]>([])
 const isLoading = ref(true)
 const now = ref(new Date())
+const updatingIds = ref(new Set<number>()) // ป้องกัน double-tap
 
 // ---------------------------------------------------------------------------
 // Real-time Sync with Dexie liveQuery
@@ -234,18 +238,33 @@ async function loadOrders() {
 }
 
 async function updateStatus(order: Order, newStatus: KitchenStatus) {
+  const id = order.id!
+  if (updatingIds.value.has(id)) return
+  updatingIds.value.add(id)
+
+  // Optimistic UI: อัป state ทันทีโดยไม่รอ DB
+  const idx = pendingOrders.value.findIndex(o => o.id === id)
+  if (idx !== -1) {
+    if (newStatus === 'served') {
+      pendingOrders.value.splice(idx, 1)
+    } else {
+      pendingOrders.value[idx] = { ...pendingOrders.value[idx], kitchenStatus: newStatus } as Order
+    }
+  }
+
   try {
-    await db.orders.update(order.id!, { 
+    await db.orders.update(id, {
       kitchenStatus: newStatus,
       updatedAt: new Date(),
-      syncStatus: 'pending' // เพื่อให้ซิงค์ขึ้น Cloud ด้วย
+      syncStatus: 'pending',
     })
-    
-    // หมายเหตุ: ไม่ต้องอัปเดต pendingOrders.value ด้วยตัวเอง
-    // เพราะ liveQuery ที่ประกาศไว้ใน onMounted จะตรวจพบการเปลี่ยนแปลงใน DB
-    // และทำการอัปเดต UI ให้เราโดยอัตโนมัติแบบ Real-time อยู่แล้วครับ
-  } catch (error) {
+  } catch {
+    // Rollback: โหลด DB ใหม่ถ้าเขียนล้มเหลว
+    const fresh = await db.orders.get(id)
+    if (fresh && idx !== -1) pendingOrders.value.splice(idx, 0, fresh)
     alert('ไม่สามารถอัปเดตสถานะได้')
+  } finally {
+    updatingIds.value.delete(id)
   }
 }
 
@@ -256,11 +275,6 @@ function getTimeElapsed(createdAt: Date) {
   return `${minutes} นาทีที่แล้ว`
 }
 
-// คอยดูการเปลี่ยนแปลงใน DB (เผื่อมีการสั่งจากหน้าขาย)
-// ในสถานการณ์จริงอาจใช้ Dexie liveQuery หรือ Watcher
-watch(() => db.orders, () => {
-  loadOrders()
-}, { deep: true })
 </script>
 
 <style scoped>

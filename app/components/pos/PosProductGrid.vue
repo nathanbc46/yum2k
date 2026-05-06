@@ -40,21 +40,62 @@
 
     <!-- Content Switcher -->
     <div class="flex-1 overflow-hidden">
-      <!-- 1. ปกติ: แสดงรายการสินค้า Grid -->
+      <!-- 1. ปกติ: แสดงรายการสินค้า หรือ หมวดหมู่ -->
       <div v-if="store.selectedCartItemIndex === null" class="h-full flex flex-col">
         <div class="flex-1 overflow-y-auto scrollbar-thin pb-20 pr-2">
           <!-- Loading State -->
           <div v-if="store.isLoading" class="flex items-center justify-center h-full">
             <div class="animate-pulse text-surface-500">กำลังโหลดสินค้า...</div>
           </div>
-          
-          <!-- Empty State -->
+
+          <!-- ยังไม่ได้เลือกหมวดหมู่ → แสดงการ์ดหมวดหมู่ + สินค้า Favorite -->
+          <div v-else-if="!store.activeCategoryId" class="flex flex-col gap-6">
+            <!-- หมวดหมู่ -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              <button
+                v-for="cat in store.displayedCategories"
+                :key="cat.id"
+                @click="store.setActiveCategory(cat.id!)"
+                class="relative flex flex-col items-center justify-center gap-3 rounded-2xl border-2 p-6 h-[140px] transition-all hover:scale-[1.03] active:scale-95 text-center"
+                :style="{
+                  borderColor: (cat.color || '#6366f1') + '60',
+                  backgroundColor: (cat.color || '#6366f1') + '18',
+                }"
+              >
+                <div v-if="hasSubcategories(cat.id)" class="absolute top-2 right-2 text-primary-400 opacity-70">
+                  <ChevronRight class="w-4 h-4 stroke-[3]" />
+                </div>
+                <div class="w-4 h-4 rounded-full shrink-0" :style="{ backgroundColor: cat.color || '#6366f1' }" />
+                <div class="font-black text-surface-50 text-base leading-tight line-clamp-2">{{ cat.name }}</div>
+                <div class="text-xs font-bold px-3 py-1 rounded-full" :style="{ color: cat.color || '#818cf8', backgroundColor: (cat.color || '#6366f1') + '25' }">
+                  {{ store.categoryProductCounts[cat.id!] ?? 0 }} รายการ
+                </div>
+              </button>
+            </div>
+
+            <!-- สินค้า Favorite -->
+            <div v-if="favoriteProducts.length > 0">
+              <div class="flex items-center gap-2 mb-3">
+                <Heart :size="16" fill="currentColor" class="text-red-500" />
+                <span class="text-sm font-black text-surface-300 uppercase tracking-wider">สินค้าโปรด</span>
+                <span class="text-xs text-surface-500 font-bold">({{ favoriteProducts.length }})</span>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <PosProductCard
+                  v-for="product in favoriteProducts"
+                  :key="product.id"
+                  :product="product"
+                  @add="handleAddProduct(product)"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- เลือกหมวดหมู่แล้ว → แสดงสินค้า -->
           <div v-else-if="store.filteredProducts.length === 0" class="flex flex-col items-center justify-center h-full text-surface-500 space-y-4">
             <span class="text-5xl opacity-40">🍽️</span>
             <p>ไม่พบสินค้าในหมวดหมู่นี้</p>
           </div>
-
-          <!-- สินค้า Grid -->
           <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             <PosProductCard
               v-for="product in store.filteredProducts"
@@ -102,8 +143,20 @@ import { usePosStore } from '~/stores/pos'
 import { useCart } from '~/composables/useCart'
 import type { Product, AddonOption } from '~/types'
 import PosAddonSelection from './PosAddonSelection.vue'
+import { ChevronRight, Heart } from 'lucide-vue-next'
+import { useFavorites } from '~/composables/useFavorites'
 
 const store = usePosStore()
+const { favoriteIds } = useFavorites()
+
+const hasSubcategories = (catId: number | undefined) => {
+  if (!catId) return false
+  return store.categories.some(c => c.parentId === catId)
+}
+
+const favoriteProducts = computed(() =>
+  store.products.filter(p => p.id != null && favoriteIds.value.has(p.id))
+)
 
 // ไม่ต้องเรียก loadData() ที่นี่ — index.vue จัดการโหลดข้อมูลแล้ว
 // การเรียกที่นี่ทำให้เกิด mount→unmount loop (isLoading ทำให้ v-else ปิด → unmount → mount อีก)
