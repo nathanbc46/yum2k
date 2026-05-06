@@ -1,32 +1,46 @@
 <template>
-  <div class="flex-1 min-h-0 overflow-hidden bg-surface-950 relative print:hidden">
-    <PosLayout v-if="posStore.viewMode === 'pos'">
-      <!-- ซ้าย: ตะกร้า -->
-      <template #cart>
-        <PosCart />
-      </template>
+  <AppErrorBoundary>
+    <!-- Loading State -->
+    <div v-if="posStore.isLoading" class="flex-1 flex flex-col items-center justify-center bg-surface-950 gap-4">
+      <div class="w-12 h-12 border-4 border-primary-500/20 border-t-primary-500 rounded-full animate-spin" />
+      <p class="text-surface-500 text-sm">กำลังโหลดข้อมูล...</p>
+    </div>
 
-      <!-- กลาง: สินค้าตามหมวดหมู่ -->
-      <template #grid>
-        <PosProductGrid />
-      </template>
+    <!-- Error State -->
+    <div v-else-if="posStore.loadError" class="flex-1 flex flex-col items-center justify-center bg-surface-950 p-8 gap-6">
+      <div class="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center text-4xl border border-red-500/20">
+        ⚠️
+      </div>
+      <div class="text-center">
+        <h2 class="text-xl font-black text-surface-50 mb-2">โหลดข้อมูลไม่สำเร็จ</h2>
+        <p class="text-surface-400 text-sm max-w-sm leading-relaxed">{{ posStore.loadError }}</p>
+      </div>
+      <button
+        @click="posStore.loadData()"
+        class="px-8 py-3 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-2xl transition-all active:scale-95"
+      >
+        ลองใหม่อีกครั้ง
+      </button>
+    </div>
 
-      <!-- ขวา: เมนูหมวดหมู่ -->
-      <template #categories>
-        <PosCategories />
-      </template>
-    </PosLayout>
+    <!-- Normal POS UI -->
+    <template v-else>
+      <div class="flex-1 min-h-0 overflow-hidden bg-surface-950 relative print:hidden">
+        <PosLayout v-if="posStore.viewMode === 'pos'">
+          <template #cart><PosCart /></template>
+          <template #grid><PosProductGrid /></template>
+          <template #categories><PosCategories /></template>
+        </PosLayout>
+        <PosKitchen v-else />
+      </div>
 
-    <PosKitchen v-else />
-  </div>
+      <div class="hidden print:block print:absolute print:inset-0 print:bg-white print:z-50">
+        <PosReceipt v-if="posStore.lastOrder" :order="posStore.lastOrder" />
+      </div>
 
-  <!-- ใบเสร็จสำหรับพิมพ์ (จะถูกซ่อนไว้ในหน้าจอปกติ และแสดงเฉพาะตอนสั่งพิมพ์) -->
-  <div class="hidden print:block print:absolute print:inset-0 print:bg-white print:z-50">
-    <PosReceipt v-if="posStore.lastOrder" :order="posStore.lastOrder" />
-  </div>
-
-  <!-- Modal สำหรับเลือก/แก้ไข Addons (Global Overlay) -->
-  <PosAddonSelection />
+      <PosAddonSelection />
+    </template>
+  </AppErrorBoundary>
 </template>
 
 <script setup lang="ts">
@@ -36,11 +50,11 @@ import PosCart from '~/components/pos/PosCart.vue'
 import PosReceipt from '~/components/pos/PosReceipt.vue'
 import PosAddonSelection from '~/components/pos/PosAddonSelection.vue'
 import PosKitchen from '~/components/pos/PosKitchen.vue'
+import AppErrorBoundary from '~/components/ui/AppErrorBoundary.vue'
 import { usePosStore } from '~/stores/pos'
 
 const posStore = usePosStore()
 
-// โหลดข้อมูลเมื่อเข้าหน้าจอขาย
 onMounted(async () => {
   await posStore.loadData()
 })

@@ -39,6 +39,7 @@ export async function seedDatabase(): Promise<void> {
         pin: adminPin,
         isActive: true,
         isDeleted: false,
+        requiresPinChange: true, // บังคับเปลี่ยน PIN หลังจาก Login ครั้งแรก
         createdAt: new Date(),
         updatedAt: new Date(),
       } as User)

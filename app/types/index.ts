@@ -77,10 +77,11 @@ export interface User extends BaseEntity {
   passwordHash: string   // รหัสผ่านที่ Hash แล้ว (bcrypt หรือ SHA-256)
   displayName: string    // ชื่อที่แสดงในระบบ
   role: UserRole         // บทบาท: admin หรือ staff
-  pin?: string           // PIN 4 หลัก สำหรับ Quick Login บน Tablet
-  avatarUrl?: string     // URL รูปโปรไฟล์
-  isActive: boolean      // สถานะบัญชี (เปิด/ปิดใช้งาน)
-  lastLoginAt?: Date     // เวลา Login ล่าสุด
+  pin?: string                 // PIN 4 หลัก สำหรับ Quick Login บน Tablet
+  avatarUrl?: string           // URL รูปโปรไฟล์
+  isActive: boolean            // สถานะบัญชี (เปิด/ปิดใช้งาน)
+  lastLoginAt?: Date           // เวลา Login ล่าสุด
+  requiresPinChange?: boolean  // บังคับเปลี่ยน PIN ในการ Login ครั้งถัดไป
 }
 
 // ---------------------------------------------------------------------------

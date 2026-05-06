@@ -173,7 +173,7 @@ export function useCategories() {
       await _syncCategoryToCloud(c)
     }
 
-    await db.transaction('rw', db.categories, async () => {
+    await db.transaction('rw?', db.categories, async () => {
       for (const c of toUpdate) {
           await db.categories.update(c.id!, c)
       }

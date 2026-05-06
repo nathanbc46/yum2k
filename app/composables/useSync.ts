@@ -20,13 +20,15 @@ const isSyncing = ref(false)
 const isOnline = ref(import.meta.client ? navigator.onLine : true)
 const pendingCount = ref(0)
 const pendingStockAuditCount = ref(0)
-const pendingExpenseCount = ref(0) // เพิ่มตัวนับรายจ่าย
+const pendingExpenseCount = ref(0)
 const lastSyncAt = ref<Date | null>(null)
 const syncIntervalId = ref<any>(null)
 
-// Countdown ร่วมกันกับ Background Heartbeat Sync (หน่วย: วินาที)
+// Countdown: ใช้ target timestamp แทน decrement ทุก 1 วินาที
 const HEARTBEAT_SECONDS = 5 * 60
+const HEARTBEAT_MS = HEARTBEAT_SECONDS * 1000
 const nextSyncCountdown = ref(HEARTBEAT_SECONDS)
+let _nextSyncAt = 0
 
 export function useSync() {
   const toast = useToast()
@@ -102,62 +104,89 @@ export function useSync() {
     }
 
     // ตรวจสอบ navigator.onLine โดยตรง (real-time) แทน cached isOnline ref
-    // เพื่อป้องกัน race condition ที่ isOnline=true แต่จริงๆ ยังไม่มีสัญญาณ
     if (!navigator.onLine || isSyncing.value) return summary
-    isOnline.value = navigator.onLine // sync ค่าให้ตรงกัน
+    isOnline.value = navigator.onLine
 
-    // 1. Sync Master Data (Delta Push Categories, Products, Stock Logs)
-    const masterRes = await masterSync.pushAll().catch(err => {
-      console.error('❌ Master Push Error:', err)
-      return { categories: 0, products: 0, stockLogs: 0 }
-    })
-
-    // 2. Sync Pending Orders
-    let query = db.orders.where('syncStatus').anyOf(['pending', 'failed'])
-    if (!force) {
-      query = query.filter(order => order.syncRetryCount < MAX_RETRY_COUNT)
-    }
-
-    const pendingOrders = await query.toArray()
-    summary.orders.total = pendingOrders.length
-
-    // 2.1 Sync Pending Expenses (รายจ่าย)
-    const pendingExpenses = await db.expenses
-      .where('syncStatus')
-      .anyOf(['pending', 'failed'])
-      .toArray()
-    
-    if (pendingExpenses.length > 0) {
-      isSyncing.value = true
-      for (const expense of pendingExpenses) {
-        const res = await syncSingleExpense(expense)
-        if (res.success) {
-          summary.expenses++
+    // ตรวจสอบ Supabase session ก่อน sync
+    // autoRefreshToken=false หมายความว่า token ไม่ refresh เอง → ต้อง re-auth เองเมื่อหมดอายุ
+    if (supabase) {
+      const { data: { session } } = await supabase.auth.getSession()
+      const tokenValid = session?.expires_at && (session.expires_at * 1000) > Date.now() + 60_000
+      if (!tokenValid) {
+        // token หมดอายุหรือใกล้หมด → re-auth ด้วย device credentials
+        const config = useRuntimeConfig()
+        const email = config.public.supabaseDeviceEmail as string | undefined
+        const password = config.public.supabaseDevicePassword as string | undefined
+        if (email && password) {
+          try {
+            const { error } = await withTimeout(
+              supabase.auth.signInWithPassword({ email, password }),
+              10_000
+            )
+            if (error) {
+              console.warn('⚠️ Session หมดอายุ — re-auth ล้มเหลว ข้าม sync:', error.message)
+              return summary
+            }
+            console.log('🔄 Session refresh สำเร็จ — ดำเนินการ sync ต่อ')
+          } catch (err: any) {
+            console.warn('⚠️ Session refresh timeout — ข้าม sync รอบนี้:', err?.message)
+            return summary
+          }
+        } else {
+          console.warn('⚠️ ไม่มี device credentials — ข้าม sync')
+          return summary
         }
       }
     }
 
-    if (pendingOrders.length > 0) {
-      isSyncing.value = true
+    isSyncing.value = true
+    try {
+      // 1. Sync Master Data (Delta Push Stock Logs)
+      const masterRes = await masterSync.pushAll().catch(err => {
+        console.error('❌ Master Push Error:', err)
+        return { categories: 0, products: 0, stockLogs: 0 }
+      })
+
+      // 2. Sync Pending Expenses (รายจ่าย)
+      const pendingExpenses = await db.expenses
+        .where('syncStatus')
+        .anyOf(['pending', 'failed'])
+        .toArray()
+
+      for (const expense of pendingExpenses) {
+        const res = await syncSingleExpense(expense)
+        if (res.success) summary.expenses++
+      }
+
+      // 3. Sync Pending Orders
+      let query = db.orders.where('syncStatus').anyOf(['pending', 'failed'])
+      if (!force) {
+        query = query.filter(order => order.syncRetryCount < MAX_RETRY_COUNT)
+      }
+      const pendingOrders = await query.toArray()
+      summary.orders.total = pendingOrders.length
+
       for (const order of pendingOrders) {
+        if (!isOnline.value) break
         const res = await syncSingleOrder(order)
         if (res.success) {
           summary.orders.success++
         } else {
           summary.orders.failed++
           if (res.error) summary.orders.errors.push(`Order [${order.orderNumber}]: ${res.error}`)
+          if (res.isNetworkError) break
         }
       }
+
+      // 4. Master Data Counts
+      summary.auditLogs.success = masterRes.stockLogs
+      summary.auditLogs.total = masterRes.stockLogs
+      summary.categories = masterRes.categories
+      summary.products = masterRes.products
+    } finally {
+      // รับประกันว่า isSyncing จะ reset เสมอ ไม่ว่าจะเกิด error หรือไม่
       isSyncing.value = false
     }
-
-    // 3. Sync Audit Logs
-    summary.auditLogs.success = masterRes.stockLogs
-    summary.auditLogs.total = masterRes.stockLogs
-    
-    // 4. Master Data Counts
-    summary.categories = masterRes.categories
-    summary.products = masterRes.products
 
     lastSyncAt.value = new Date()
     await refreshPendingCount()
@@ -186,47 +215,58 @@ export function useSync() {
     return summary
   }
 
-  async function syncSingleOrder(order: Order): Promise<{ success: boolean, error?: string }> {
+  function isNetworkError(error: any): boolean {
+    return error instanceof TypeError ||
+      error?.message?.includes('fetch') ||
+      error?.message?.includes('NetworkError') ||
+      error?.message?.includes('network')
+  }
+
+  async function syncSingleOrder(order: Order): Promise<{ success: boolean, isNetworkError?: boolean, error?: string }> {
     if (!supabase) return { success: false, error: 'Supabase Client not ready' }
 
     await db.orders.update(order.id!, { syncStatus: 'syncing' })
 
     try {
       const { items, id, createdAt, updatedAt, syncedAt, ...orderBaseInfo } = order
-      const { data: insertedOrder, error: orderError } = await supabase
-        .from('orders')
-        .upsert({
-          uuid: orderBaseInfo.uuid,
-          order_number: orderBaseInfo.orderNumber,
-          staff_uuid: orderBaseInfo.staffUuid || null, 
-          staff_name: orderBaseInfo.staffName,
-          subtotal: orderBaseInfo.subtotal,
-          discount_amount: orderBaseInfo.discountAmount,
-          tax_rate: orderBaseInfo.taxRate,
-          tax_amount: orderBaseInfo.taxAmount,
-          total_amount: orderBaseInfo.totalAmount,
-          total_cost: orderBaseInfo.totalCost,
-          profit_amount: orderBaseInfo.profitAmount,
-          payment_method: orderBaseInfo.paymentMethod,
-          amount_received: orderBaseInfo.amountReceived,
-          change_amount: orderBaseInfo.changeAmount,
-          status: orderBaseInfo.status,
-          kitchen_status: orderBaseInfo.kitchenStatus || 'pending',
-          note: orderBaseInfo.note,
-          delivery_ref: orderBaseInfo.deliveryRef,
-          cash_denominations: orderBaseInfo.cashDenominations,
-          is_deleted: orderBaseInfo.isDeleted,
-          created_at: new Date(createdAt).toISOString(),
-          updated_at: new Date(updatedAt).toISOString()
-        }, { onConflict: 'uuid' })
-        .select('id')
-        .single()
+      const { data: insertedOrder, error: orderError } = await withTimeout(
+        supabase
+          .from('orders')
+          .upsert({
+            uuid: orderBaseInfo.uuid,
+            order_number: orderBaseInfo.orderNumber,
+            staff_uuid: orderBaseInfo.staffUuid || null,
+            staff_name: orderBaseInfo.staffName,
+            subtotal: orderBaseInfo.subtotal,
+            discount_amount: orderBaseInfo.discountAmount,
+            tax_rate: orderBaseInfo.taxRate,
+            tax_amount: orderBaseInfo.taxAmount,
+            total_amount: orderBaseInfo.totalAmount,
+            total_cost: orderBaseInfo.totalCost,
+            profit_amount: orderBaseInfo.profitAmount,
+            payment_method: orderBaseInfo.paymentMethod,
+            amount_received: orderBaseInfo.amountReceived,
+            change_amount: orderBaseInfo.changeAmount,
+            status: orderBaseInfo.status,
+            kitchen_status: orderBaseInfo.kitchenStatus || 'pending',
+            note: orderBaseInfo.note,
+            delivery_ref: orderBaseInfo.deliveryRef,
+            cash_denominations: orderBaseInfo.cashDenominations,
+            is_deleted: orderBaseInfo.isDeleted,
+            created_at: new Date(createdAt).toISOString(),
+            updated_at: new Date(updatedAt).toISOString()
+          }, { onConflict: 'uuid' })
+          .select('id')
+          .single()
+      )
 
       if (orderError) throw orderError
 
       if (insertedOrder?.id) {
-         await supabase.from('order_items').delete().eq('order_id', insertedOrder.id)
-         const orderItemsData = order.items.map(item => ({
+        await withTimeout(
+          supabase.from('order_items').delete().eq('order_id', insertedOrder.id)
+        )
+        const orderItemsData = order.items.map(item => ({
           order_id: insertedOrder.id,
           product_uuid: item.productUuid,
           category_uuid: item.categoryUuid,
@@ -240,9 +280,11 @@ export function useSync() {
           addons: item.addons,
           addons_total: item.addonsTotal,
           inventory_deductions: item.inventoryDeductions
-         }))
-         const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData)
-         if (itemsError) throw itemsError
+        }))
+        const { error: itemsError } = await withTimeout(
+          supabase.from('order_items').insert(orderItemsData)
+        )
+        if (itemsError) throw itemsError
       }
 
       await db.orders.update(order.id!, {
@@ -252,24 +294,25 @@ export function useSync() {
       })
       return { success: true }
     } catch (error: any) {
+      const networkErr = isNetworkError(error)
+      if (networkErr) isOnline.value = false
       const newRetryCount = order.syncRetryCount + 1
       await db.orders.update(order.id!, {
         syncStatus: 'failed',
         syncRetryCount: newRetryCount,
         syncError: error.message,
       })
-      return { success: false, error: error.message }
+      return { success: false, isNetworkError: networkErr, error: error.message }
     }
   }
 
-  async function syncSingleExpense(expense: any): Promise<{ success: boolean, error?: string }> {
+  async function syncSingleExpense(expense: any): Promise<{ success: boolean, isNetworkError?: boolean, error?: string }> {
     if (!supabase) return { success: false, error: 'Supabase Client not ready' }
 
     try {
       const { id, createdAt, updatedAt, syncedAt, ...baseInfo } = expense
-      const { error } = await supabase
-        .from('expenses')
-        .upsert({
+      const { error } = await withTimeout(
+        supabase.from('expenses').upsert({
           uuid: baseInfo.uuid,
           category: baseInfo.category,
           amount: baseInfo.amount,
@@ -282,6 +325,7 @@ export function useSync() {
           created_at: new Date(createdAt).toISOString(),
           updated_at: new Date(updatedAt).toISOString()
         }, { onConflict: 'uuid' })
+      )
 
       if (error) throw error
 
@@ -291,8 +335,10 @@ export function useSync() {
       })
       return { success: true }
     } catch (error: any) {
+      const networkErr = isNetworkError(error)
+      if (networkErr) isOnline.value = false
       console.error('Sync expense error:', error)
-      return { success: false, error: error.message }
+      return { success: false, isNetworkError: networkErr, error: error.message }
     }
   }
 
@@ -518,19 +564,18 @@ export function useSync() {
     nextSyncCountdown,
     startHeartbeatSync: () => {
       if (syncIntervalId.value) return
-      // เรียก Sync ทันทีเมื่อเริ่ม (ไม่ await เพื่อไม่ block การตั้ง interval)
       if (isOnline.value) syncPendingOrders()
+      _nextSyncAt = Date.now() + HEARTBEAT_MS
       nextSyncCountdown.value = HEARTBEAT_SECONDS
-      // Countdown วิ่งทุก 1 วินาทีเสมอ ไม่มีการหยุด
-      // guard สำหรับ isSyncing อยู่เฉพาะตอนจะ trigger sync เท่านั้น (ไม่ใช่ตอน decrement)
+      // ใช้ timestamp-based countdown แทน decrement ทุก 1 วินาที → ลด interval fires 5x
       syncIntervalId.value = setInterval(() => {
-        if (nextSyncCountdown.value > 0) {
-          nextSyncCountdown.value--
-        } else {
-          nextSyncCountdown.value = HEARTBEAT_SECONDS
+        const remaining = Math.ceil((_nextSyncAt - Date.now()) / 1000)
+        nextSyncCountdown.value = Math.max(0, remaining)
+        if (remaining <= 0) {
+          _nextSyncAt = Date.now() + HEARTBEAT_MS
           if (isOnline.value && !isSyncing.value) syncPendingOrders()
         }
-      }, 1000)
+      }, 5000)
     },
     stopHeartbeatSync: () => {
       if (syncIntervalId.value) {

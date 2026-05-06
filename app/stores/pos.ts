@@ -10,6 +10,7 @@ export const usePosStore = defineStore('pos', () => {
   const categories = ref<Category[]>([])
   const products = ref<ProductWithCategory[]>([])
   const isLoading = ref<boolean>(false)
+  const loadError = ref<string | null>(null)
   const lastOrder = ref<Order | null>(null)
   const selectedCartItemIndex = ref<number | null>(null)
   const pendingOrdersCount = ref<number>(0)
@@ -107,14 +108,15 @@ export const usePosStore = defineStore('pos', () => {
   async function loadData() {
     if (isLoading.value) return
     isLoading.value = true
-    
+    loadError.value = null
+
     try {
       // 1. ระบบเริ่มต้นผู้ใช้งาน (เช็ค Local/Cloud/Seed)
       const authStore = useAuthStore()
       const userInit = await authStore.initUserSystem()
-      
+
       if (userInit.status !== 'ready') {
-        isLoading.value = false
+        loadError.value = userInit.message ?? 'ไม่สามารถเริ่มต้นระบบได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'
         return
       }
 
@@ -145,8 +147,9 @@ export const usePosStore = defineStore('pos', () => {
       // 4. โหลดจำนวนคิวค้างจ่าย
       await refreshPendingOrdersCount()
 
-    } catch (e) {
+    } catch (e: any) {
       console.error('❌ POS Store Error:', e)
+      loadError.value = e?.message || 'ไม่สามารถโหลดข้อมูลได้'
     } finally {
       isLoading.value = false
     }
@@ -222,6 +225,7 @@ export const usePosStore = defineStore('pos', () => {
     categories,
     products,
     isLoading,
+    loadError,
     lastOrder,
     selectedCartItemIndex,
     pendingOrdersCount,

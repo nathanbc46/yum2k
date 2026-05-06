@@ -29,6 +29,7 @@ export interface CartItem {
 
 // กุญแจสำหรับบันทึก Cart ลง AppSettings (Persist ระหว่าง Session)
 const CART_STORAGE_KEY = 'active_cart'
+let _persistTimer: ReturnType<typeof setTimeout> | null = null
 
 // --- State: ตะกร้าสินค้าใน RAM (Global Singleton) ---
 const cartItems = ref<CartItem[]>([])
@@ -78,6 +79,11 @@ export function useCart() {
   /** ตรวจสอบว่าตะกร้าว่างเปล่า */
   const isEmpty = computed(() => cartItems.value.length === 0)
 
+  function schedulePersist(): void {
+    if (_persistTimer) clearTimeout(_persistTimer)
+    _persistTimer = setTimeout(() => { persistCart() }, 300)
+  }
+
   // ---------------------------------------------------------------------------
   // Methods: จัดการตะกร้า
   // ---------------------------------------------------------------------------
@@ -125,7 +131,7 @@ export function useCart() {
       })
     }
 
-    await persistCart()
+    schedulePersist()
     return true
   }
 
@@ -150,7 +156,7 @@ export function useCart() {
 
     item.quantity = qty
     item.totalPrice = (item.unitPrice + item.addonsTotal) * qty - item.discount
-    await persistCart()
+    schedulePersist()
   }
 
   /**
@@ -195,7 +201,7 @@ export function useCart() {
       item.totalPrice = (item.unitPrice + item.addonsTotal) * item.quantity - item.discount
     }
 
-    await persistCart()
+    schedulePersist()
   }
 
   /**
@@ -210,7 +216,7 @@ export function useCart() {
       : cartItems.value.findIndex(i => i.product.id === productId)
     if (index !== -1) {
       cartItems.value.splice(index, 1)
-      await persistCart()
+      schedulePersist()
     }
   }
 
@@ -226,7 +232,7 @@ export function useCart() {
     cartItems.value = []
     note.value = ''
     discount.value = 0
-    await persistCart()
+    schedulePersist()
   }
 
   // ---------------------------------------------------------------------------
@@ -256,7 +262,7 @@ export function useCart() {
     isLoading.value = true
 
     try {
-      // 1. ตรวจสอบสต็อกรอบสุดท้ายก่อน Checkout
+      // 1. ตรวจสอบสต็อกรอบสุดท้ายก่อน Checkout (reads เท่านั้น)
       for (const item of cartItems.value) {
         const hasStock = await checkStock(item.product, item.quantity)
         if (!hasStock) {
@@ -265,100 +271,107 @@ export function useCart() {
         }
       }
 
-      // 2. สร้าง OrderItems พร้อมเชื่อมโยง UUID และตัดสต็อก
+      // เก็บ snapshot ก่อนล้างตะกร้า และเตรียมข้อมูลนอก transaction
+      const snapshot = [...cartItems.value]
       const posStore = usePosStore()
-      const orderItems: OrderItem[] = []
-
-      for (const item of cartItems.value) {
-        // ตัดสต็อกและหาค่าวินิจฉัยสต็อก
-        const deductions: InventoryDeduction[] = await deductStock(
-          item.product,
-          item.quantity,
-        )
-
-        // หา Category UUID
-        const category = posStore.categories.find(c => c.id === item.product.categoryId)
-        
-        orderItems.push({
-          productId: item.product.id!,
-          productUuid: item.product.uuid,
-          categoryId: item.product.categoryId,
-          categoryUuid: category?.uuid || '',
-          productName: item.product.name,
-          productSku: item.product.sku,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          costPrice: item.product.costPrice || (item.product.salePrice * 0.6),
-          discount: item.discount,
-          addons: item.addons,
-          addonsTotal: item.addonsTotal,
-          totalPrice: item.totalPrice,
-          inventoryDeductions: JSON.parse(JSON.stringify(deductions))
-        })
-      }
-
-      // 3. สร้างเลขออร์เดอร์
       const orderNumber = await generateOrderNumber()
-
-      // 4. บันทึก Order ลง IndexedDB
       const now = new Date()
-      // ปรับเปลี่ยนสถานะตามวิธีชำระเงิน
       const isUnpaid = paymentMethod === 'unpaid'
-      
-      const newOrder: Omit<Order, 'id'> = {
-        uuid: uuidv4(),
-        orderNumber,
-        staffId,
-        staffUuid,
-        staffName,
-        items: orderItems,
-        subtotal: subtotal.value,
-        discountAmount: discount.value,
-        taxRate: taxRate.value,
-        taxAmount: taxAmount.value,
-        totalAmount: totalAmount.value,
-        totalCost: totalCost.value,
-        profitAmount: profitAmount.value,
-        paymentMethod,
-        amountReceived: isUnpaid ? 0 : amountReceived,
-        changeAmount: isUnpaid ? 0 : amountReceived - totalAmount.value,
-        cashDenominations: paymentMethod === 'cash' ? cashDenominations : undefined,
-        status: isUnpaid ? 'pending' : 'completed',
-        note: note.value,
-        deliveryRef: deliveryRef.value,
-        syncStatus: 'pending',
-        syncRetryCount: 0,
-        isDeleted: false,
-        createdAt: now,
-        updatedAt: now,
-      }
 
-      const cleanedOrder = JSON.parse(JSON.stringify(newOrder))
-      cleanedOrder.createdAt = now // ใช้ค่า Date จริง
-      cleanedOrder.updatedAt = now
+      let savedOrder: Order | undefined
 
-      const orderId = await db.orders.add(cleanedOrder as Order)
-      const savedOrder = await db.orders.get(orderId)
-
-      // 5. อัปเดตยอดขายสะสม (totalSold) ของสินค้าแต่ละรายการ
-      for (const item of cartItems.value) {
-        const product = await db.products.get(item.product.id!)
-        if (product) {
-          await db.products.update(item.product.id!, {
-            totalSold: (product.totalSold || 0) + item.quantity
+      // รวม write ทั้งหมดใน transaction เดียว + relaxed durability ('rw?')
+      // ลดจาก 10+ transactions เหลือ 1 transaction, fsync ครั้งเดียว
+      await db.transaction('rw?', [db.orders, db.products, db.appSettings], async () => {
+        // 2. สร้าง OrderItems พร้อมตัดสต็อก
+        const orderItems: OrderItem[] = []
+        for (const item of snapshot) {
+          const deductions: InventoryDeduction[] = await deductStock(item.product, item.quantity)
+          const category = posStore.categories.find(c => c.id === item.product.categoryId)
+          orderItems.push({
+            productId: item.product.id!,
+            productUuid: item.product.uuid,
+            categoryId: item.product.categoryId,
+            categoryUuid: category?.uuid || '',
+            productName: item.product.name,
+            productSku: item.product.sku,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            costPrice: item.product.costPrice || (item.product.salePrice * 0.6),
+            discount: item.discount,
+            addons: item.addons,
+            addonsTotal: item.addonsTotal,
+            totalPrice: item.totalPrice,
+            inventoryDeductions: JSON.parse(JSON.stringify(deductions))
           })
         }
+
+        // 3. บันทึก Order
+        const newOrder: Omit<Order, 'id'> = {
+          uuid: uuidv4(),
+          orderNumber,
+          staffId,
+          staffUuid,
+          staffName,
+          items: orderItems,
+          subtotal: subtotal.value,
+          discountAmount: discount.value,
+          taxRate: taxRate.value,
+          taxAmount: taxAmount.value,
+          totalAmount: totalAmount.value,
+          totalCost: totalCost.value,
+          profitAmount: profitAmount.value,
+          paymentMethod,
+          amountReceived: isUnpaid ? 0 : amountReceived,
+          changeAmount: isUnpaid ? 0 : amountReceived - totalAmount.value,
+          cashDenominations: paymentMethod === 'cash' ? cashDenominations : undefined,
+          status: isUnpaid ? 'pending' : 'completed',
+          kitchenStatus: 'pending',
+          note: note.value,
+          deliveryRef: deliveryRef.value,
+          syncStatus: 'pending',
+          syncRetryCount: 0,
+          isDeleted: false,
+          createdAt: now,
+          updatedAt: now,
+        }
+        // strip Vue Proxy wrappers ออกก่อน add (IndexedDB Structured Clone ไม่รองรับ Proxy)
+        const cleanOrder = JSON.parse(JSON.stringify(newOrder))
+        cleanOrder.createdAt = now
+        cleanOrder.updatedAt = now
+        const orderId = await db.orders.add(cleanOrder as Order)
+        savedOrder = { ...cleanOrder, id: orderId } as Order
+
+        // 4. อัพ totalSold ทุก item พร้อมกัน ใช้ค่าจาก snapshot แทนการ get() ก่อน
+        await Promise.all(snapshot.map(item =>
+          db.products.update(item.product.id!, {
+            totalSold: (item.product.totalSold || 0) + item.quantity
+          })
+        ))
+
+        // 5. ล้างตะกร้าใน IndexedDB
+        await setSetting(CART_STORAGE_KEY, { items: [], note: '', discount: 0, deliveryRef: deliveryRef.value })
+      })
+
+      // 6. อัพ totalSold ใน store memory โดยไม่ต้อง loadData() ใหม่
+      for (const item of snapshot) {
+        const prod = posStore.products.find(p => p.id === item.product.id)
+        if (prod) prod.totalSold = (prod.totalSold || 0) + item.quantity
       }
 
-      // 6. อัปเดตจำนวนคิวค้างจ่ายใน Store
+      // 7. ล้างตะกร้าใน RAM
+      cartItems.value = []
+      note.value = ''
+      discount.value = 0
+
+      // 8. อัพจำนวน pending orders
       await posStore.refreshPendingOrdersCount()
-      // โหลดข้อมูลสินค้าใหม่เพื่อให้ยอดขายสะสมใน Store อัปเดต
-      await posStore.loadData()
 
-      // 6. ล้างตะกร้า
-      await clearCart()
+      // 9. แจ้งเตือนสินค้าใกล้หมด (background, ไม่บล็อก)
+      const { checkAfterCheckout } = useStockAlert()
+      checkAfterCheckout(snapshot)
 
-      return savedOrder as Order
+      return savedOrder ?? null
     }
     catch (error) {
       console.error('❌ Checkout ล้มเหลว:', error)
@@ -417,10 +430,14 @@ export function useCart() {
 
     if (!saved || !saved.items.length) return
 
-    // โหลดข้อมูลสินค้าจาก IndexedDB และสร้าง CartItems ขึ้นมาใหม่
+    // batch-fetch สินค้าทั้งหมดในครั้งเดียว แทน get() ทีละตัว
+    const ids = saved.items.map(i => i.productId)
+    const fetched = await db.products.where('id').anyOf(ids).toArray()
+    const productMap = new Map(fetched.map(p => [p.id!, p]))
+
     const restoredItems: CartItem[] = []
     for (const saved_item of saved.items) {
-      const product = await db.products.get(saved_item.productId)
+      const product = productMap.get(saved_item.productId)
       if (!product || product.isDeleted || !product.isActive) continue
 
       restoredItems.push({

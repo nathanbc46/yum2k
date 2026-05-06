@@ -101,9 +101,9 @@ export function useMasterDataSync() {
     const chunkSize = 100
     for (let i = 0; i < payload.length; i += chunkSize) {
       const chunk = payload.slice(i, i + chunkSize)
-      const { error } = await supabase
-        .from('stock_audit_logs')
-        .upsert(chunk, { onConflict: 'uuid' })
+      const { error } = await withTimeout(
+        supabase.from('stock_audit_logs').upsert(chunk, { onConflict: 'uuid' })
+      )
 
       if (error) {
         // อัปเดตสถานะล้มเหลวและเพิ่มจำนวนครั้งที่ลอง
@@ -152,7 +152,7 @@ export function useMasterDataSync() {
       updated_at:   u.updatedAt.toISOString(),
     }))
 
-    const { error } = await supabase.from('pos_users').upsert(payload, { onConflict: 'uuid' })
+    const { error } = await withTimeout(supabase.from('pos_users').upsert(payload, { onConflict: 'uuid' }))
     if (error) {
       console.error('❌ Push Users ล้มเหลว:', error)
       throw new Error(`ไม่สามารถส่งข้อมูลพนักงานขึ้น Cloud ได้: ${error.message}`)
@@ -178,8 +178,9 @@ export function useMasterDataSync() {
       query = query.gt('updated_at', lastPullAt.toISOString())
     }
 
-    const { data: remoteCats, error } = await query
-      .order('sort_order', { ascending: true })
+    const { data: remoteCats, error } = await withTimeout(
+      query.order('sort_order', { ascending: true })
+    )
 
     if (error) throw new Error(`Pull Categories ล้มเหลว: ${error.message}`)
     if (!remoteCats?.length) return 0
@@ -249,8 +250,9 @@ export function useMasterDataSync() {
       query = query.gt('updated_at', lastPullAt.toISOString())
     }
 
-    const { data: remoteProds, error } = await query
-      .order('sort_order', { ascending: true })
+    const { data: remoteProds, error } = await withTimeout(
+      query.order('sort_order', { ascending: true })
+    )
 
     if (error) throw new Error(`Pull Products ล้มเหลว: ${error.message}`)
     if (!remoteProds?.length) return 0
@@ -359,10 +361,9 @@ export function useMasterDataSync() {
    */
   async function checkRemoteUsersExist(): Promise<boolean> {
     const supabase = useSupabaseClient<any>()
-    const { count, error } = await supabase
-      .from('pos_users')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_deleted', false)
+    const { count, error } = await withTimeout(
+      supabase.from('pos_users').select('*', { count: 'exact', head: true }).eq('is_deleted', false)
+    )
 
     if (error) {
       console.error('❌ เช็ค Remote Users ล้มเหลว:', error)
@@ -384,7 +385,7 @@ export function useMasterDataSync() {
       query = query.gt('updated_at', lastPullAt.toISOString())
     }
 
-    const { data: remoteUsers, error } = await query
+    const { data: remoteUsers, error } = await withTimeout(query)
     if (error) throw new Error(`Pull Users ล้มเหลว: ${error.message}`)
     if (!remoteUsers?.length) return 0
 
@@ -456,9 +457,9 @@ export function useMasterDataSync() {
       query = query.gt('updated_at', lastUpdateLocal.toISOString())
     }
 
-    const { data: remoteLogs, error } = await query
-      .order('updated_at', { ascending: true }) // ดึงตัวที่เก่ากว่ามาใหม่กว่า
-      .limit(force ? 1000 : 200)
+    const { data: remoteLogs, error } = await withTimeout(
+      query.order('updated_at', { ascending: true }).limit(force ? 1000 : 200)
+    )
 
     if (error) throw new Error(`Pull Stock Logs ล้มเหลว: ${error.message}`)
     if (!remoteLogs?.length) return 0
@@ -641,10 +642,9 @@ export function useMasterDataSync() {
     try {
       // 1. ตรวจสอบกลุ่มที่เป็น "Master Data" (แก้ไข/ลบ ได้จากหลายเครื่อง)
       const checkMasterUpdates = async (tableName: string, dbTableKey: 'categories' | 'products' | 'users', nameField = 'name') => {
-        const { data: rawData } = await supabase
-          .from(tableName)
-          .select(`uuid, updated_at, ${nameField}`)
-          .gt('updated_at', timeLimit)
+        const { data: rawData } = await withTimeout(
+          supabase.from(tableName).select(`uuid, updated_at, ${nameField}`).gt('updated_at', timeLimit)
+        )
           
         const data = rawData as any[] | null
 
@@ -672,18 +672,20 @@ export function useMasterDataSync() {
 
       // 2. ตรวจสอบกลุ่มที่เป็น "Log / Transaction" 
       const checkAppendOnlyUpdates = async (tableName: string, dbTableKey: 'orders' | 'stockAuditLogs' | 'expenses', nameField = 'order_number') => {
-        const { count: remoteTotal } = await supabase
-          .from(tableName)
-          .select('*', { count: 'exact', head: true })
-        
+        const { count: remoteTotal } = await withTimeout(
+          supabase.from(tableName).select('*', { count: 'exact', head: true })
+        )
+
         const localTotal = await (db as any)[dbTableKey].count()
-        
+
         // เปรียบเทียบจำนวนทั้งหมด (ไม่สนใจ syncStatus) เพื่อป้องกันแจ้งเตือนซ้ำซ้อน
         // ในกรณีที่เครื่องเรากำลังจะส่ง (Pending) แต่ระบบดันมองว่าขาดหายไปจากยอดที่ซิงค์แล้ว
         const diff = (remoteTotal || 0) - localTotal
         if (diff > 0) {
           // ดึงรายการล่าสุดตามจำนวนที่ต่างกันเพื่อเอาชื่อมาโชว์ใน Tooltip
-          const { data } = await supabase.from(tableName).select(nameField).order('created_at', { ascending: false }).limit(diff)
+          const { data } = await withTimeout(
+            supabase.from(tableName).select(nameField).order('created_at', { ascending: false }).limit(diff)
+          )
           return { count: diff, names: data ? data.map((d: any) => d[nameField]) : [] }
         }
         return { count: 0, names: [] }

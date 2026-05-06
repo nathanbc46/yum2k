@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep -l \"db\\\\\\\\.users\\\\|db\\\\\\\\.products\\\\|db\\\\\\\\.orders\")",
+      "Bash(npx nuxi *)",
+      "Bash(gh pr *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\yum2k\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(xargs grep -l \"db\\\\.products\\\\|db\\\\.categories\\\\|db\\\\.orders\")",
+      "Bash(Get-Content \"d:\\\\yum2k\\\\vitest.config.ts\")",
+      "Bash(Get-Content \"d:\\\\yum2k\\\\package.json\")",
+      "Bash(Select-String \"vitest|test|happy|fake\")"
+    ]
+  }
+}

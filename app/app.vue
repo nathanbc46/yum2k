@@ -77,6 +77,7 @@ import { useSync } from '~/composables/useSync'
 import { usePosStore } from '~/stores/pos'
 import { useTheme } from '~/composables/useTheme'
 import { useToast } from '~/composables/useToast'
+import { useAuthStore } from '~/stores/auth'
 import PosReceipt from '~/components/pos/PosReceipt.vue'
 import PwaInstallPrompt from '~/components/admin/PwaInstallPrompt.vue'
 import ToastProvider from '~/components/ui/ToastProvider.vue'
@@ -89,6 +90,10 @@ const {
 } = useSync()
 const posStore = usePosStore()
 const { theme, toggleTheme } = useTheme()
+const authStore = useAuthStore()
+const { resetTimer, stop: stopSessionTimer } = useSessionTimeout()
+
+const SESSION_EVENTS = ['mousedown', 'touchstart', 'keydown'] as const
 const toast = useToast()
 const route = useRoute()
 
@@ -105,15 +110,25 @@ watch(pendingCount, (newVal, oldVal) => {
 
 let cleanupNetwork: (() => void) | null = null
 
+watch(() => authStore.isAuthenticated, (isAuth) => {
+  if (isAuth) resetTimer()
+  else stopSessionTimer()
+})
+
 onMounted(() => {
   cleanupNetwork = setupNetworkListener()
   refreshPendingCount()
   startHeartbeatSync()
+  // Session timeout
+  if (authStore.isAuthenticated) resetTimer()
+  SESSION_EVENTS.forEach(e => window.addEventListener(e, resetTimer, { passive: true }))
 })
 
 onUnmounted(() => {
   if (cleanupNetwork) cleanupNetwork()
   stopHeartbeatSync()
+  stopSessionTimer()
+  SESSION_EVENTS.forEach(e => window.removeEventListener(e, resetTimer))
 })
 </script>
 

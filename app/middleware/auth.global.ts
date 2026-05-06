@@ -15,7 +15,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
-  // 2. ข้ามการตรวจถ้ากำลังไปหน้า login
+  // 2. ข้ามการตรวจถ้ากำลังไปหน้า login หรือ change-pin
   if (to.path === '/login') {
     if (authStore.isAuthenticated) {
       return navigateTo('/') // ถ้า login แล้ว พยายามเข้าหน้า /login ให้เด้งไปหน้าแรก
@@ -28,7 +28,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo('/login')
   }
 
-  // 4. การจัดการสิทธิ์ (Role-Based Access)
+  // 4. บังคับเปลี่ยน PIN ถ้า requiresPinChange = true
+  if (authStore.currentUser?.requiresPinChange && to.path !== '/change-pin') {
+    return navigateTo('/change-pin')
+  }
+
+  // 5. การจัดการสิทธิ์ (Role-Based Access)
   // ถ้าพยายามเข้าหน้า /admin แต่ไม่ใช่ admin ให้เด้งกลับหน้าตั้งต้น
   if (to.path.startsWith('/admin')) {
     if (!authStore.isAdmin) {

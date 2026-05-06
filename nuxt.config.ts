@@ -46,7 +46,9 @@ export default defineNuxtConfig({
     },
     workbox: {
       navigateFallback: '/',
-      globPatterns: ['**/*.{js,css,html,png,svg,ico,webp,woff2}'], // ตัด json ออกเพื่อลด warning ใน dev
+      globPatterns: process.env.NODE_ENV === 'production'
+        ? ['**/*.{js,css,html,png,svg,ico,webp,woff2}']
+        : [], // dev: ไม่ pre-cache (Vite เสิร์ฟจาก memory, ไม่มีไฟล์จริงใน dev-sw-dist)
       maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
       cleanupOutdatedCaches: true,
       clientsClaim: true,
@@ -103,7 +105,9 @@ export default defineNuxtConfig({
       supabase: {
         url: process.env.NUXT_PUBLIC_SUPABASE_URL,
         key: process.env.NUXT_PUBLIC_SUPABASE_KEY,
-      }
+      },
+      supabaseDeviceEmail: process.env.NUXT_PUBLIC_SUPABASE_DEVICE_EMAIL,
+      supabaseDevicePassword: process.env.NUXT_PUBLIC_SUPABASE_DEVICE_PASSWORD,
     }
   },
 
@@ -122,6 +126,15 @@ export default defineNuxtConfig({
   // Supabase Config
   supabase: {
     redirect: false, // ปิดการบังคับ Login (เราจะใช้ Offline-first POS)
+    clientOptions: {
+      auth: {
+        // ปิด auto-refresh เพื่อป้องกัน getSession() ทำ network call ตอนเปิดแอป
+        // (token refresh จะจัดการเองใน supabase-device-auth plugin ซึ่งมี timeout)
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        persistSession: true,
+      },
+    },
   },
 
   // Vite Config: ใช้ Tailwind CSS v4 ผ่าน Vite plugin

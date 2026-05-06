@@ -323,7 +323,7 @@ export function useProducts() {
       await _syncProductToCloud(p)
     }
 
-    await db.transaction('rw', db.products, async () => {
+    await db.transaction('rw?', db.products, async () => {
       for (const p of toUpdate) {
         await db.products.update(p.id!, { sortOrder: p.sortOrder, updatedAt: p.updatedAt })
       }

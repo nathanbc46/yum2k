@@ -68,7 +68,7 @@ export const useAuthStore = defineStore('auth', () => {
       // Self-healing: ตรวจสอบว่ามี PIN ที่ยังไม่ได้ Hash หรือไม่ (ป้องกันกรณี Seed Data หรือ Sync ผิดพลาด)
       const allUsers = await db.users.toArray()
       const unhashed = allUsers.filter(u => u.pin && !isAlreadyHashed(u.pin))
-      
+
       if (unhashed.length > 0) {
         console.log(`🔧 ตรวจพบ PIN ที่ยังไม่เข้ารหัส ${unhashed.length} รายการ กำลังดำเนินการแก้ไข...`)
         for (const user of unhashed) {
@@ -77,7 +77,17 @@ export const useAuthStore = defineStore('auth', () => {
         }
         console.log('✅ แก้ไข PIN สำเร็จ')
       }
-      
+
+      // Self-healing: admin ที่ยังใช้ PIN เริ่มต้น (1234) ให้บังคับเปลี่ยน
+      const defaultPinHash = await hashSHA256('1234')
+      const adminWithDefaultPin = allUsers.find(
+        u => u.role === 'admin' && u.pin === defaultPinHash && u.requiresPinChange !== true
+      )
+      if (adminWithDefaultPin?.id) {
+        await db.users.update(adminWithDefaultPin.id, { requiresPinChange: true })
+        console.log('🔐 ตรวจพบ Admin ยังใช้ PIN เริ่มต้น — บังคับเปลี่ยน PIN')
+      }
+
       return { status: 'ready' }
     }
 
@@ -88,17 +98,25 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       const { checkRemoteUsersExist, pullAll, pushUsers } = useMasterDataSync()
-      const hasCloudUsers = await checkRemoteUsersExist()
+
+      // checkRemoteUsersExist มี withTimeout(30s) ข้างใน แต่เราใส่ fallback ชั้นนอกเพิ่มด้วย
+      let hasCloudUsers = false
+      try {
+        hasCloudUsers = await withTimeout(checkRemoteUsersExist(), 12_000)
+      } catch {
+        return { status: 'need_online', message: 'ไม่สามารถเชื่อมต่อ Cloud ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่' }
+      }
 
       if (hasCloudUsers) {
         console.log('☁️ ตรวจพบข้อมูลใน Cloud กำลังดึงข้อมูลทั้งหมด...')
-        await pullAll(true)
+        // ใส่ timeout รวม 60 วินาที เพื่อป้องกันค้างจาก 4 requests × 30s
+        await withTimeout(pullAll(true), 60_000)
         return { status: 'ready' }
       } else {
         console.log('🌱 ไม่พบผู้ใช้ใน Cloud กำลังสร้างข้อมูลเริ่มต้น (Seed Data)...')
         const { seedDatabase } = await import('~/db/seedData')
         await seedDatabase()
-        
+
         // --- ส่งข้อมูลที่ Seed เสร็จแล้วขึ้น Cloud ทันที เพื่อเป็น Master ---
         try {
           console.log('☁️ กำลังส่งข้อมูลผู้ใช้เริ่มต้นขึ้น Cloud...')
@@ -109,7 +127,7 @@ export const useAuthStore = defineStore('auth', () => {
         } catch (pushError) {
           console.warn('⚠️ Seed สำเร็จแต่ไม่สามารถส่งขึ้น Cloud ได้ (อาจจะออฟไลน์):', pushError)
         }
-        
+
         return { status: 'ready' }
       }
     } catch (error: any) {
@@ -131,6 +149,18 @@ export const useAuthStore = defineStore('auth', () => {
     }, 1500)
   }
 
+  async function changePin(newPin: string): Promise<void> {
+    const user = currentUser.value
+    if (!user?.id) throw new Error('No authenticated user')
+    const hashed = await hashSHA256(newPin)
+    await db.users.update(user.id, {
+      pin: hashed,
+      requiresPinChange: false,
+      updatedAt: new Date(),
+    })
+    currentUser.value = { ...user, pin: hashed, requiresPinChange: false }
+  }
+
   // ตรวจสอบสิทธิ์
   const isAuthenticated = computed(() => currentUser.value !== null)
   const isAdmin = computed(() => currentUser.value?.role === 'admin')
@@ -147,5 +177,6 @@ export const useAuthStore = defineStore('auth', () => {
     handleSecurityInvalidation,
     loginWithPin,
     logout,
+    changePin,
   }
 })

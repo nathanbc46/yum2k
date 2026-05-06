@@ -165,6 +165,7 @@ export function useReports() {
 
     const [categories, products] = await Promise.all([db.categories.toArray(), db.products.toArray()])
     const catIdToName = new Map(categories.map(c => [c.id!, c.name]))
+    const catUuidToName = new Map(categories.map(c => [c.uuid, c.name]))
     const productIdToCatId = new Map(products.map(p => [p.id!, p.categoryId]))
     const catMap = new Map<string, number>()
 
@@ -173,8 +174,7 @@ export function useReports() {
       for (const item of o.items) {
         let categoryName = 'อื่นๆ'
         if (item.categoryUuid) {
-          const cat = categories.find(c => c.uuid === item.categoryUuid)
-          if (cat) categoryName = cat.name
+          categoryName = catUuidToName.get(item.categoryUuid) ?? 'อื่นๆ'
         } else {
           const catId = item.categoryId || productIdToCatId.get(item.productId)
           categoryName = catIdToName.get(catId!) || 'อื่นๆ'

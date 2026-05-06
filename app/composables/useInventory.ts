@@ -16,23 +16,21 @@ export function useInventory() {
    * @returns true = มีสต็อกเพียงพอ
    */
   async function checkStock(product: Product, quantity: number): Promise<boolean> {
-    // สินค้าที่ไม่ Track สต็อก → ขายได้เสมอ
     if (!product.trackInventory) return true
-
-    // สินค้าปกติ (ไม่มี Mapping) → ตรวจสต็อกตัวเอง
     if (!product.inventoryMappings || product.inventoryMappings.length === 0) {
       return product.stockQuantity >= quantity
     }
 
-    // สินค้าแบบ Mapping → ตรวจสต็อกสินค้าหลักทุกตัว
+    // Batch fetch แทน N+1 loop
+    const sourceIds = product.inventoryMappings.map(m => m.sourceProductId)
+    const sources = await db.products.where('id').anyOf(sourceIds).toArray()
+    const sourceMap = new Map(sources.map(p => [p.id!, p]))
+
     for (const mapping of product.inventoryMappings) {
-      const sourceProduct = await db.products.get(mapping.sourceProductId)
+      const sourceProduct = sourceMap.get(mapping.sourceProductId)
       if (!sourceProduct) return false
       if (!sourceProduct.trackInventory) continue
-
-      // ต้องมีสต็อกเพียงพอสำหรับทุก Quantity ที่ขาย
-      const requiredQuantity = mapping.quantity * quantity
-      if (sourceProduct.stockQuantity < requiredQuantity) return false
+      if (sourceProduct.stockQuantity < mapping.quantity * quantity) return false
     }
 
     return true
@@ -60,6 +58,7 @@ export function useInventory() {
         })
         deductions.push({
           sourceProductId: product.id!,
+          sourceProductUuid: product.uuid,
           sourceProductName: product.name,
           quantityDeducted: quantity,
         })
@@ -69,7 +68,7 @@ export function useInventory() {
 
     // กรณี: สินค้าแบบ Mapping (Promotion / Bundle)
     // ตัดสต็อกตามสินค้าหลักทุกตัวใน inventoryMappings
-    await db.transaction('rw', db.products, async () => {
+    await db.transaction('rw?', db.products, async () => {
       for (const mapping of product.inventoryMappings!) {
         const sourceProduct = await db.products.get(mapping.sourceProductId)
         if (!sourceProduct || !sourceProduct.trackInventory) continue
@@ -84,6 +83,7 @@ export function useInventory() {
 
         deductions.push({
           sourceProductId: sourceProduct.id!,
+          sourceProductUuid: sourceProduct.uuid,
           sourceProductName: sourceProduct.name,
           quantityDeducted: totalDeduct,
         })
@@ -99,7 +99,7 @@ export function useInventory() {
    * @param orderItems - รายการสินค้าในออร์เดอร์ที่ถูกยกเลิก
    */
   async function restoreStock(orderItems: OrderItem[]): Promise<void> {
-    await db.transaction('rw', db.products, async () => {
+    await db.transaction('rw?', db.products, async () => {
       for (const item of orderItems) {
         // ป้องกัน Error กรณีออเดอร์เก่าไม่มีข้อมูล inventoryDeductions
         if (!item.inventoryDeductions) continue

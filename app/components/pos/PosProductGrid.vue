@@ -105,10 +105,8 @@ import PosAddonSelection from './PosAddonSelection.vue'
 
 const store = usePosStore()
 
-// โหลดข้อมูลเมื่อ Component Mount เริ่มทำงาน
-onMounted(() => {
-  store.loadData()
-})
+// ไม่ต้องเรียก loadData() ที่นี่ — index.vue จัดการโหลดข้อมูลแล้ว
+// การเรียกที่นี่ทำให้เกิด mount→unmount loop (isLoading ทำให้ v-else ปิด → unmount → mount อีก)
 
 const cart = useCart()
 
