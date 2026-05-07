@@ -626,7 +626,13 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits(['close'])
 
 const { receiptSettings, loadReceiptSettings } = useSettings()
+const aiConfig = useRuntimeConfig().public
 const toast = useToast()
+
+/** resolve key: user-saved key ก่อน, ถ้าว่างใช้ ENV default */
+function resolveKey(saved: string | undefined, envKey: string) {
+  return saved || envKey || ''
+}
 const { isDark } = useTheme()
 
 const activeTab = ref<'insight' | 'chat'>(props.initialTab || 'insight')
@@ -1063,9 +1069,9 @@ async function runAnalysis() {
     loadReceiptSettings(),
     props.includeWeather ? fetchWeather() : Promise.resolve()
   ])
-  const geminiKey = receiptSettings.value.geminiApiKey
-  const groqKey = receiptSettings.value.groqApiKey
-  const orKey = receiptSettings.value.openRouterApiKey
+  const geminiKey = resolveKey(receiptSettings.value.geminiApiKey, aiConfig.defaultGeminiKey as string)
+  const groqKey = resolveKey(receiptSettings.value.groqApiKey, aiConfig.defaultGroqKey as string)
+  const orKey = resolveKey(receiptSettings.value.openRouterApiKey, aiConfig.defaultOpenRouterKey as string)
 
   let step = 0
   const interval = setInterval(() => {
@@ -1516,7 +1522,7 @@ async function sendMessage() {
       loadReceiptSettings(),
       (props.includeWeather || isWeatherQuestion) ? fetchWeather() : Promise.resolve()
     ])
-    const apiKey = receiptSettings.value.geminiApiKey
+    const apiKey = resolveKey(receiptSettings.value.geminiApiKey, aiConfig.defaultGeminiKey as string)
     if (!apiKey) throw new Error('ไม่พบ API Key')
     const modelName = await getAvailableModel(apiKey)
     activeModelName.value = modelName.split('/').pop() || modelName
@@ -1573,7 +1579,7 @@ async function sendMessage() {
     if (!response.ok) {
       console.warn(`[AI-Chat] Gemini failed with status ${response.status}, trying fallback...`)
       
-      const orKey = receiptSettings.value.openRouterApiKey
+      const orKey = resolveKey(receiptSettings.value.openRouterApiKey, aiConfig.defaultOpenRouterKey as string)
       if (orKey) {
         try {
           console.warn('Switching to OpenRouter fallback...')
@@ -1584,7 +1590,7 @@ async function sendMessage() {
         }
       }
 
-      const groqKey = receiptSettings.value.groqApiKey
+      const groqKey = resolveKey(receiptSettings.value.groqApiKey, aiConfig.defaultGroqKey as string)
       if (groqKey?.startsWith('gsk_')) {
         try {
           console.warn('Switching to Groq fallback...')

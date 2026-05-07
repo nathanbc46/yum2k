@@ -16,6 +16,7 @@ async function isEnabled(key: 'lineNewOrder' | 'lineLowStock' | 'lineDailySummar
 
 export function useLineNotify() {
   async function notifyNewOrder(order: Order): Promise<void> {
+    if (!navigator.onLine) return
     if (!await isEnabled('lineNewOrder')) return
     await $fetch('/api/line-notify', {
       method: 'POST',
@@ -24,6 +25,7 @@ export function useLineNotify() {
   }
 
   async function notifyLowStock(items: LowStockItem[]): Promise<void> {
+    if (!navigator.onLine) return
     if (!items.length || !await isEnabled('lineLowStock')) return
     await $fetch('/api/line-notify', {
       method: 'POST',

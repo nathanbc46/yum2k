@@ -23,14 +23,16 @@ async function checkAndSend() {
   if (hour !== targetHour) return
   if (minute > 2) return             // อนุญาตช่วง HH:00–HH:02 เผื่อ interval miss
   if (dateStr === lastSentDate) return // ส่งวันละครั้ง
+  if (!navigator.onLine) return        // ไม่ส่งถ้า offline (ลองใหม่ tick ถัดไป)
 
   lastSentDate = dateStr
-  await $fetch('/api/line-daily-summary').catch(() => {})
+  await $fetch('/api/line-daily-summary').catch(() => { lastSentDate = '' })
 }
 
 export function useLineDailySummary() {
   function start() {
     if (!import.meta.client || intervalId) return
+    checkAndSend()
     intervalId = setInterval(checkAndSend, 60_000)
   }
 

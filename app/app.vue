@@ -78,16 +78,18 @@ import { usePosStore } from '~/stores/pos'
 import { useTheme } from '~/composables/useTheme'
 import { useToast } from '~/composables/useToast'
 import { useAuthStore } from '~/stores/auth'
+import { useLineDailySummary } from '~/composables/useLineDailySummary'
 import PosReceipt from '~/components/pos/PosReceipt.vue'
 import PwaInstallPrompt from '~/components/admin/PwaInstallPrompt.vue'
 import ToastProvider from '~/components/ui/ToastProvider.vue'
 import ConfirmModal from '~/components/ui/ConfirmModal.vue'
 
-const { 
+const {
   isOnline, isSyncing, pendingCount, pendingStockAuditCount,
   setupNetworkListener, syncPendingOrders, refreshPendingCount,
   startHeartbeatSync, stopHeartbeatSync, nextSyncCountdown
 } = useSync()
+const { start: startDailySummary, stop: stopDailySummary } = useLineDailySummary()
 const posStore = usePosStore()
 const { theme, toggleTheme } = useTheme()
 const authStore = useAuthStore()
@@ -119,6 +121,7 @@ onMounted(() => {
   cleanupNetwork = setupNetworkListener()
   refreshPendingCount()
   startHeartbeatSync()
+  startDailySummary()
   // Session timeout
   if (authStore.isAuthenticated) resetTimer()
   SESSION_EVENTS.forEach(e => window.addEventListener(e, resetTimer, { passive: true }))
@@ -127,6 +130,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (cleanupNetwork) cleanupNetwork()
   stopHeartbeatSync()
+  stopDailySummary()
   stopSessionTimer()
   SESSION_EVENTS.forEach(e => window.removeEventListener(e, resetTimer))
 })

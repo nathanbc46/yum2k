@@ -4,7 +4,7 @@
     @click="$emit('add', product)"
   >
     <!-- รูปภาพสินค้า (ลดความสูง 30%) -->
-    <div class="h-[90px] w-full bg-surface-900 relative overflow-hidden">
+    <div class="h-[72px] w-full bg-surface-900 relative overflow-hidden">
       <img
         v-if="product.imageUrl"
         :src="product.imageUrl"

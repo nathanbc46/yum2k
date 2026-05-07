@@ -111,6 +111,9 @@ export default defineNuxtConfig({
       },
       supabaseDeviceEmail: process.env.NUXT_PUBLIC_SUPABASE_DEVICE_EMAIL,
       supabaseDevicePassword: process.env.NUXT_PUBLIC_SUPABASE_DEVICE_PASSWORD,
+      defaultGeminiKey: process.env.NUXT_PUBLIC_DEFAULT_GEMINI_KEY || '',
+      defaultGroqKey: process.env.NUXT_PUBLIC_DEFAULT_GROQ_KEY || '',
+      defaultOpenRouterKey: process.env.NUXT_PUBLIC_DEFAULT_OPENROUTER_KEY || '',
     }
   },
 

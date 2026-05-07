@@ -55,21 +55,17 @@ import PosBankAlert from '~/components/pos/PosBankAlert.vue'
 import AppErrorBoundary from '~/components/ui/AppErrorBoundary.vue'
 import { usePosStore } from '~/stores/pos'
 import { useBankTransferAlert } from '~/composables/useBankTransferAlert'
-import { useLineDailySummary } from '~/composables/useLineDailySummary'
 
 const posStore = usePosStore()
 const { startListening, stopListening } = useBankTransferAlert()
-const { start: startDailySummary, stop: stopDailySummary } = useLineDailySummary()
 
 onMounted(async () => {
   await posStore.loadData()
   startListening()
-  startDailySummary()
 })
 
 onUnmounted(() => {
   stopListening()
-  stopDailySummary()
 })
 
 definePageMeta({ layout: false })

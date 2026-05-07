@@ -103,6 +103,9 @@
                   <div>
                     <label class="form-label !text-[10px]">API Key</label>
                     <input v-model="form.geminiApiKey" type="password" placeholder="AI_xxxxxxxx" class="form-input font-mono !text-[11px]" />
+                    <p v-if="!form.geminiApiKey && config.public.defaultGeminiKey" class="text-[10px] text-green-500 mt-1 flex items-center gap-1">
+                      <span>✓</span><span>ใช้ค่าเริ่มต้นจาก ENV</span>
+                    </p>
                   </div>
                   <div>
                     <label class="form-label !text-[10px]">Model Name</label>
@@ -124,6 +127,9 @@
                   <div>
                     <label class="form-label !text-[10px]">API Key</label>
                     <input v-model="form.openRouterApiKey" type="password" placeholder="sk-or-v1-xxxx..." class="form-input font-mono !text-[11px]" />
+                    <p v-if="!form.openRouterApiKey && config.public.defaultOpenRouterKey" class="text-[10px] text-green-500 mt-1 flex items-center gap-1">
+                      <span>✓</span><span>ใช้ค่าเริ่มต้นจาก ENV</span>
+                    </p>
                   </div>
                   <div>
                     <label class="form-label !text-[10px]">Models (คั่นด้วยคอมมา สำหรับระบบสำรองอัตโนมัติ)</label>
@@ -145,6 +151,9 @@
                   <div>
                     <label class="form-label !text-[10px]">API Key</label>
                     <input v-model="form.groqApiKey" type="password" placeholder="gsk_xxxxxxxx" class="form-input font-mono !text-[11px]" />
+                    <p v-if="!form.groqApiKey && config.public.defaultGroqKey" class="text-[10px] text-green-500 mt-1 flex items-center gap-1">
+                      <span>✓</span><span>ใช้ค่าเริ่มต้นจาก ENV</span>
+                    </p>
                   </div>
                   <div>
                     <label class="form-label !text-[10px]">Model Name</label>
@@ -278,22 +287,29 @@
                 </div>
                 <!-- Time picker (แสดงเมื่อเปิด) -->
                 <Transition name="expand">
-                  <div v-if="form.lineDailySummary" class="px-4 pb-4 border-t border-surface-800 pt-3">
-                    <label class="form-label !mb-2">เวลาที่ส่ง</label>
-                    <div class="flex items-center gap-2">
-                      <select
-                        v-model.number="form.lineDailySummaryHour"
-                        class="form-input !w-auto"
-                      >
-                        <option v-for="h in summaryHourOptions" :key="h.value" :value="h.value">
-                          {{ h.label }}
-                        </option>
-                      </select>
-                      <span class="text-xs text-surface-500">น. (เวลาไทย)</span>
+                  <div v-if="form.lineDailySummary" class="px-4 pb-4 border-t border-surface-800 pt-3 space-y-3">
+                    <div>
+                      <label class="form-label !mb-2">เวลาที่ส่ง</label>
+                      <div class="flex items-center gap-2">
+                        <select
+                          v-model.number="form.lineDailySummaryHour"
+                          class="form-input !w-auto"
+                        >
+                          <option v-for="h in summaryHourOptions" :key="h.value" :value="h.value">
+                            {{ h.label }}
+                          </option>
+                        </select>
+                        <span class="text-xs text-surface-500">น. (เวลาไทย)</span>
+                      </div>
                     </div>
-                    <p class="text-[10px] text-surface-500 mt-2">
-                      POS ต้องเปิดอยู่ ณ เวลาที่กำหนดจึงจะส่งได้
-                    </p>
+                    <button
+                      type="button"
+                      @click="handleTestLineSummary"
+                      :disabled="isTestingSummary"
+                      class="w-full py-2 text-xs font-bold rounded-lg border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20 disabled:opacity-50 transition-all"
+                    >
+                      {{ isTestingSummary ? '⏳ กำลังส่ง...' : '🧪 ทดสอบส่ง LINE สรุปยอดตอนนี้' }}
+                    </button>
                   </div>
                 </Transition>
               </div>
@@ -387,6 +403,7 @@ import { usePrinter } from '~/composables/usePrinter'
 
 definePageMeta({ layout: 'admin' })
 
+const config = useRuntimeConfig()
 const { receiptSettings, isSaving, loadReceiptSettings, saveReceiptSettings } = useSettings()
 const masterSync = useMasterDataSync()
 const { fetchRemoteOrders, syncPendingOrders, isOnline } = useSync()
@@ -414,8 +431,8 @@ const form = reactive<ReceiptSettings>({
   groqModel: '',
   openRouterApiKey: '',
   openRouterModels: '',
-  lineNewOrder: true,
-  lineLowStock: true,
+  lineNewOrder: false,
+  lineLowStock: false,
   lineDailySummary: true,
   lineDailySummaryHour: 22,
 })
@@ -451,6 +468,25 @@ async function handleSave() {
 }
 
 const isForcePushing = ref(false)
+const isTestingSummary = ref(false)
+
+async function handleTestLineSummary() {
+  isTestingSummary.value = true
+  try {
+    const res = await $fetch<{ status: string; reason?: string; orderCount?: number; revenue?: number }>('/api/line-daily-summary?force=true')
+    if (res.status === 'ok') {
+      toast.success(`ส่ง LINE สรุปยอดเรียบร้อย (${res.orderCount} บิล ฿${res.revenue?.toLocaleString('th-TH')})`)
+    } else if (res.status === 'skipped') {
+      toast.success(`ข้าม: ${res.reason === 'already_sent_today' ? 'ส่งไปแล้ววันนี้' : res.reason}`)
+    } else {
+      toast.error('ส่งไม่สำเร็จ: ' + (res.reason ?? 'unknown error'))
+    }
+  } catch (e: any) {
+    toast.error('เกิดข้อผิดพลาด: ' + e.message)
+  } finally {
+    isTestingSummary.value = false
+  }
+}
 
 async function handleForcePush() {
   const confirmed = await confirm({

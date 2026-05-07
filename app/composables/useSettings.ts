@@ -34,10 +34,10 @@ export interface ReceiptSettings {
 }
 
 // ---------------------------------------------------------------------------
-// ค่าเริ่มต้น
+// ค่าเริ่มต้นแบบ static (ไม่ขึ้นกับ env)
 // ---------------------------------------------------------------------------
-export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
-  deviceCode: 'D1',          // ค่าเริ่มต้นคือ D1
+const STATIC_DEFAULTS: ReceiptSettings = {
+  deviceCode: 'D1',
   shopName: 'Yum2K',
   shopTagline: 'ร้านยำรสเด็ด',
   shopPhone: '',
@@ -53,10 +53,25 @@ export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
   groqModel: 'llama-3.3-70b-versatile',
   openRouterApiKey: '',
   openRouterModels: 'inclusionai/ling-2.6-1t:free,z-ai/glm-4.5-air:free,openai/gpt-oss-120b:free',
-  lineNewOrder: true,
-  lineLowStock: true,
+  lineNewOrder: false,
+  lineLowStock: false,
   lineDailySummary: true,
   lineDailySummaryHour: 22,
+}
+
+// compat export สำหรับโค้ดเก่าที่ import DEFAULT_RECEIPT_SETTINGS โดยตรง
+export const DEFAULT_RECEIPT_SETTINGS = STATIC_DEFAULTS
+
+/** ดึงค่า default รวม env fallback keys (ใช้ได้เฉพาะ client-side) */
+function getDefaultSettings(): ReceiptSettings {
+  if (!import.meta.client) return { ...STATIC_DEFAULTS }
+  const config = useRuntimeConfig()
+  return {
+    ...STATIC_DEFAULTS,
+    geminiApiKey: (config.public.defaultGeminiKey as string) || '',
+    groqApiKey: (config.public.defaultGroqKey as string) || '',
+    openRouterApiKey: (config.public.defaultOpenRouterKey as string) || '',
+  }
 }
 
 const RECEIPT_SETTINGS_KEY = 'receipt_settings'
@@ -65,17 +80,16 @@ const RECEIPT_SETTINGS_KEY = 'receipt_settings'
 // Composable
 // ---------------------------------------------------------------------------
 export function useSettings() {
-  const receiptSettings = ref<ReceiptSettings>({ ...DEFAULT_RECEIPT_SETTINGS })
+  const receiptSettings = ref<ReceiptSettings>(getDefaultSettings())
   const isSaving = ref(false)
   const isLoading = ref(false)
 
-  /** โหลดค่าตั้งค่าจาก IndexedDB */
+  /** โหลดค่าตั้งค่าจาก IndexedDB (form แสดงเฉพาะ key ที่ user กรอก ไม่รวม env default) */
   async function loadReceiptSettings() {
     isLoading.value = true
     try {
-      const saved = await getSetting<ReceiptSettings>(RECEIPT_SETTINGS_KEY, DEFAULT_RECEIPT_SETTINGS)
-      // รวม field ใหม่ที่อาจไม่มีในข้อมูลเก่า (graceful merge)
-      receiptSettings.value = { ...DEFAULT_RECEIPT_SETTINGS, ...saved }
+      const saved = await getSetting<ReceiptSettings>(RECEIPT_SETTINGS_KEY, STATIC_DEFAULTS)
+      receiptSettings.value = { ...STATIC_DEFAULTS, ...saved }
     } finally {
       isLoading.value = false
     }

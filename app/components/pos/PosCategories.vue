@@ -8,25 +8,20 @@
         <button
           v-for="cat in store.displayedCategories"
           :key="cat.id"
-          class="btn-touch relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 p-3 h-[90px] transition-all hover:scale-[1.03] active:scale-95 text-center"
+          class="btn-touch relative flex flex-col items-center justify-center gap-1 rounded-2xl border-2 px-2 py-1.5 h-[72px] transition-all hover:scale-[1.03] active:scale-95 text-center"
           :style="{
             borderColor: (cat.color || '#6366f1') + '60',
             backgroundColor: (cat.color || '#6366f1') + '18',
           }"
           @click="store.setActiveCategory(cat.id!)"
         >
-          <!-- Subcategory indicator -->
           <div
             v-if="hasSubcategories(cat.id)"
-            class="absolute top-1.5 right-1.5 opacity-60"
+            class="absolute top-1 right-1 opacity-60"
             :style="{ color: cat.color || '#818cf8' }"
           >
-            <ChevronRight class="w-3.5 h-3.5 stroke-[3]" />
+            <ChevronRight class="w-3 h-3 stroke-[3]" />
           </div>
-          <div
-            class="w-3 h-3 rounded-full shrink-0"
-            :style="{ backgroundColor: cat.color || '#6366f1' }"
-          />
           <div class="font-black text-surface-50 text-xs leading-tight line-clamp-2">{{ cat.name }}</div>
           <div class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="{ color: cat.color || '#818cf8', backgroundColor: (cat.color || '#6366f1') + '25' }">
             {{ store.categoryProductCounts[cat.id!] ?? 0 }}
@@ -112,7 +107,7 @@
         <button
           v-for="cat in store.displayedCategories"
           :key="cat.id"
-          class="btn-touch relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 p-3 h-[90px] transition-all hover:scale-[1.03] active:scale-95 text-center"
+          class="btn-touch relative flex flex-col items-center justify-center gap-1 rounded-2xl border-2 px-2 py-1.5 h-[72px] transition-all hover:scale-[1.03] active:scale-95 text-center"
           :style="store.activeCategoryId === cat.id ? {
             borderColor: (cat.color || '#6366f1'),
             backgroundColor: (cat.color || '#6366f1'),
@@ -125,19 +120,14 @@
         >
           <div
             v-if="hasSubcategories(cat.id)"
-            class="absolute top-1.5 right-1.5"
+            class="absolute top-1 right-1"
             :class="store.activeCategoryId === cat.id ? 'text-white/80' : 'opacity-60'"
             :style="store.activeCategoryId !== cat.id ? { color: cat.color || '#818cf8' } : {}"
           >
-            <ChevronRight class="w-3.5 h-3.5 stroke-[3]" />
+            <ChevronRight class="w-3 h-3 stroke-[3]" />
           </div>
           <div
-            class="w-3 h-3 rounded-full shrink-0 border-2"
-            :class="store.activeCategoryId === cat.id ? 'border-white/50 bg-white' : 'border-transparent'"
-            :style="store.activeCategoryId !== cat.id ? { backgroundColor: cat.color || '#6366f1' } : {}"
-          />
-          <div
-            class="font-black text-xs leading-tight line-clamp-2"
+            class="font-black text-xs leading-tight line-clamp-2 w-full text-center"
             :class="store.activeCategoryId === cat.id ? 'text-white' : 'text-surface-50'"
           >{{ cat.name }}</div>
           <div
