@@ -7,6 +7,7 @@
 import { db } from '~/db'
 import type { Order, SyncStatus, OrderItem, InventoryDeduction } from '~/types'
 import { useMasterDataSync } from './useMasterDataSync'
+import { useDailyStockSnapshot } from './useDailyStockSnapshot'
 import { useToast } from './useToast'
 
 // จำนวนครั้งสูงสุดที่จะ Retry ก่อนหยุด
@@ -88,19 +89,21 @@ export function useSync() {
   /**
    * Sync Order ทั้งหมดที่รอดำเนินการขึ้น Server
    */
-  async function syncPendingOrders(force = false): Promise<{ 
+  async function syncPendingOrders(force = false): Promise<{
     orders: { total: number, success: number, failed: number, errors: string[] },
     auditLogs: { total: number, success: number, failed: number, errors: string[] },
     categories: number,
     products: number,
-    expenses: number
+    expenses: number,
+    stockSnapshots: number
   }> {
     const summary = {
       orders: { total: 0, success: 0, failed: 0, errors: [] as string[] },
       auditLogs: { total: 0, success: 0, failed: 0, errors: [] as string[] },
       categories: 0,
       products: 0,
-      expenses: 0
+      expenses: 0,
+      stockSnapshots: 0
     }
 
     // ตรวจสอบ navigator.onLine โดยตรง (real-time) แทน cached isOnline ref
@@ -147,7 +150,14 @@ export function useSync() {
         return { categories: 0, products: 0, stockLogs: 0 }
       })
 
-      // 2. Sync Pending Expenses (รายจ่าย)
+      // 2. Sync Daily Stock Snapshots (ถ่ายสต็อกสิ้นวัน)
+      const snapshotSync = useDailyStockSnapshot()
+      summary.stockSnapshots = await snapshotSync.pushSnapshots().catch(err => {
+        console.warn('⚠️ Stock Snapshot Push Error:', err)
+        return 0
+      })
+
+      // 3. Sync Pending Expenses (รายจ่าย)
       const pendingExpenses = await db.expenses
         .where('syncStatus')
         .anyOf(['pending', 'failed'])
@@ -158,7 +168,7 @@ export function useSync() {
         if (res.success) summary.expenses++
       }
 
-      // 3. Sync Pending Orders
+      // 4. Sync Pending Orders
       let query = db.orders.where('syncStatus').anyOf(['pending', 'failed'])
       if (!force) {
         query = query.filter(order => order.syncRetryCount < MAX_RETRY_COUNT)
@@ -178,7 +188,7 @@ export function useSync() {
         }
       }
 
-      // 4. Master Data Counts
+      // 5. Master Data Counts
       summary.auditLogs.success = masterRes.stockLogs
       summary.auditLogs.total = masterRes.stockLogs
       summary.categories = masterRes.categories
@@ -193,7 +203,7 @@ export function useSync() {
 
     // --- แจ้งเตือนการซิงค์เบื้องหลัง ---
     const totalMasterPushed = summary.categories + summary.products
-    const hasSuccessfulSync = summary.orders.success > 0 || summary.auditLogs.success > 0 || totalMasterPushed > 0
+    const hasSuccessfulSync = summary.orders.success > 0 || summary.auditLogs.success > 0 || totalMasterPushed > 0 || summary.stockSnapshots > 0
 
     if (!force && hasSuccessfulSync) {
       const msg = [
@@ -202,7 +212,8 @@ export function useSync() {
         summary.products > 0 ? `• สินค้า: ${summary.products} รายการ` : '',
         summary.orders.success > 0 ? `• ออร์เดอร์: ${summary.orders.success} รายการ` : '',
         summary.auditLogs.success > 0 ? `• ประวัติสต็อก: ${summary.auditLogs.success} รายการ` : '',
-        summary.expenses > 0 ? `• รายจ่าย: ${summary.expenses} รายการ` : ''
+        summary.expenses > 0 ? `• รายจ่าย: ${summary.expenses} รายการ` : '',
+        summary.stockSnapshots > 0 ? `• สต็อกสิ้นวัน: ${summary.stockSnapshots} รายการ` : ''
       ].filter(Boolean).join('\n')
       
       toast.success(msg, 4000)

@@ -399,3 +399,24 @@ export interface DailySummary {
   }
   expenses?: Expense[]       // รายการรายจ่ายย่อย (ถ้ามี)
 }
+
+// ---------------------------------------------------------------------------
+// DailyStockSnapshot: ภาพถ่ายสต็อกสิ้นวัน
+// ---------------------------------------------------------------------------
+
+/** ภาพถ่ายจำนวนสต็อกสินค้า ณ เวลาที่กดปุ่ม "บันทึกสต็อกประจำวัน" — 1 record ต่อ 1 สินค้า ต่อ 1 วัน */
+export interface DailyStockSnapshot extends BaseEntity {
+  snapshotDate: string       // วันที่ถ่ายสต็อก (YYYY-MM-DD)
+  productUuid: string        // UUID ของสินค้า
+  productId: number          // Local FK → products.id
+  productName: string        // ชื่อสินค้า ณ เวลาที่บันทึก
+  productSku?: string        // รหัสสินค้า ณ เวลาที่บันทึก
+  stockQuantity: number      // จำนวนสต็อก ณ เวลาที่กดปุ่ม
+  capturedByUuid: string     // UUID ของพนักงานที่กดปุ่ม
+  capturedByName: string     // ชื่อพนักงาน ณ เวลาที่บันทึก
+  capturedAt: Date           // วันเวลาที่กดปุ่มจริง
+  syncStatus: SyncStatus
+  syncedAt?: Date
+  syncError?: string
+  syncRetryCount: number
+}

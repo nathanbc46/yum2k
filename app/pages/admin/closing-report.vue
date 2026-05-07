@@ -261,6 +261,73 @@
           </table>
         </div>
       </div>
+
+      <!-- ===== สต็อกสิ้นวัน ===== -->
+      <div class="bg-surface-900 border border-surface-800 rounded-2xl p-5">
+        <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
+          <div>
+            <h2 class="text-sm font-bold">📦 สต็อกสิ้นวัน</h2>
+            <p class="text-xs text-surface-500 mt-0.5">บันทึกจำนวนสต็อกสินค้าทุกรายการ ณ เวลาที่กดปุ่ม</p>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span v-if="snapshotAlreadyExists"
+              class="text-xs px-2 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/20 whitespace-nowrap">
+              ⚠️ มีข้อมูลแล้ว (จะบันทึกทับ)
+            </span>
+            <button
+              @click="handleCaptureSnapshot"
+              :disabled="isCapturing || isSnapshotLoading"
+              class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]">
+              <span v-if="isCapturing" class="animate-spin">⌛</span>
+              <span v-else>📸</span>
+              {{ isCapturing ? 'กำลังบันทึก...' : 'บันทึกสต็อกประจำวัน' }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="snapshotSyncStatus === 'done'"
+          class="mb-3 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-400">
+          ✅ บันทึกและ Sync สำเร็จแล้ว
+        </div>
+        <div v-else-if="snapshotSyncStatus === 'error'"
+          class="mb-3 px-3 py-2 bg-danger/10 border border-danger/20 rounded-xl text-xs text-danger">
+          ❌ Sync ล้มเหลว — ข้อมูลอยู่ในเครื่องแล้ว จะลองใหม่ในรอบถัดไป
+        </div>
+
+        <div v-if="snapshotProducts.length > 0" class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead>
+              <tr class="text-surface-500 text-xs border-b border-surface-800">
+                <th class="py-2 pr-4 font-medium">สินค้า</th>
+                <th class="py-2 pr-4 font-medium whitespace-nowrap">รหัส</th>
+                <th class="py-2 pr-4 text-right font-medium whitespace-nowrap">จำนวนสต็อก</th>
+                <th class="py-2 text-right font-medium whitespace-nowrap">เวลาที่บันทึก</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-800/50">
+              <tr v-for="snap in snapshotProducts" :key="snap.uuid"
+                class="hover:bg-surface-800/30 transition-colors">
+                <td class="py-2 pr-4 font-medium">{{ snap.productName }}</td>
+                <td class="py-2 pr-4 text-surface-500 text-xs font-mono">{{ snap.productSku || '—' }}</td>
+                <td class="py-2 pr-4 text-right">
+                  <span :class="[
+                    'font-bold',
+                    snap.stockQuantity <= 0 ? 'text-danger' : snap.stockQuantity <= 10 ? 'text-warning' : 'text-success'
+                  ]">{{ snap.stockQuantity }}</span>
+                </td>
+                <td class="py-2 text-right text-surface-500 text-xs whitespace-nowrap">
+                  {{ new Date(snap.capturedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-else class="text-center text-surface-600 text-sm py-6">
+          ยังไม่มีข้อมูลสต็อกสำหรับวันนี้ — กดปุ่มด้านบนเพื่อบันทึก
+        </div>
+      </div>
+
     </div>
 
     <!-- ===== MODAL: Order Detail ===== -->
@@ -413,8 +480,9 @@
 <script setup lang="ts">
 import { useReports } from '~/composables/useReports'
 import { useProfitability } from '~/composables/useProfitability'
+import { useDailyStockSnapshot } from '~/composables/useDailyStockSnapshot'
 import AdminAiAnalysisModal from '~/components/admin/AiAnalysisModal.vue'
-import type { Order, Category, Product } from '~/types'
+import type { Order, Category, Product, DailyStockSnapshot } from '~/types'
 import { db } from '~/db'
 import { useMasterDataSync } from '~/composables/useMasterDataSync'
 
@@ -423,6 +491,44 @@ definePageMeta({ layout: 'admin' })
 const { getTopProducts } = useReports()
 const { getSummary: getExpenseSummary } = useProfitability()
 const { lastPullTimestamp } = useMasterDataSync()
+const { isCapturing, captureError, captureSnapshot, pushSnapshots, getSnapshotForDate, hasSnapshotForDate } = useDailyStockSnapshot()
+
+// --- Snapshot State ---
+const snapshotProducts = ref<DailyStockSnapshot[]>([])
+const snapshotAlreadyExists = ref(false)
+const isSnapshotLoading = ref(false)
+const snapshotSyncStatus = ref<'idle' | 'syncing' | 'done' | 'error'>('idle')
+
+async function loadSnapshotStatus() {
+  isSnapshotLoading.value = true
+  try {
+    const [exists, rows] = await Promise.all([
+      hasSnapshotForDate(selectedDate.value),
+      getSnapshotForDate(selectedDate.value),
+    ])
+    snapshotAlreadyExists.value = exists
+    snapshotProducts.value = rows
+  }
+  finally {
+    isSnapshotLoading.value = false
+  }
+}
+
+async function handleCaptureSnapshot() {
+  snapshotSyncStatus.value = 'idle'
+  try {
+    await captureSnapshot(selectedDate.value)
+    snapshotSyncStatus.value = 'syncing'
+    await pushSnapshots()
+    snapshotSyncStatus.value = 'done'
+  }
+  catch {
+    snapshotSyncStatus.value = 'error'
+  }
+  finally {
+    await loadSnapshotStatus()
+  }
+}
 
 function formatDate(d: Date) {
   // วิธีที่ชัวร์ที่สุดสำหรับระบบที่อาจเป็น พ.ศ. หรือ ค.ศ.
@@ -794,8 +900,9 @@ function doPrint() {
   win.document.close()
 }
 
-watch(lastPullTimestamp, () => loadData())
-onMounted(loadData)
+watch(selectedDate, loadSnapshotStatus)
+watch(lastPullTimestamp, () => { loadData(); loadSnapshotStatus() })
+onMounted(async () => { await loadData(); await loadSnapshotStatus() })
 </script>
 
 <style scoped>

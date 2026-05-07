@@ -5,7 +5,6 @@
 // =============================================================================
 
 import Dexie, { type EntityTable } from 'dexie'
-import { v4 as uuidv4 } from 'uuid'
 import type {
   User,
   Category,
@@ -17,12 +16,13 @@ import type {
   Expense,
   AIChat,
   AIConversation,
+  DailyStockSnapshot,
 } from '~/types'
 
 // ---------------------------------------------------------------------------
 // กำหนด Version ของ Database (เพิ่มทุกครั้งที่เปลี่ยน Schema)
 // ---------------------------------------------------------------------------
-const DB_VERSION = 6
+const DB_VERSION = 8
 const DB_NAME = 'Yum2K_POS_DB'
 
 // ---------------------------------------------------------------------------
@@ -40,6 +40,7 @@ class Yum2KDatabase extends Dexie {
   expenses!: EntityTable<Expense, 'id'>
   aiConversations!: EntityTable<AIConversation, 'id'>
   aiChats!: EntityTable<AIChat, 'id'>
+  dailyStockSnapshots!: EntityTable<DailyStockSnapshot, 'id'>
 
   // AppSettings ใช้ key เป็น Primary Key แทน id
   appSettings!: Dexie.Table<AppSetting, string>
@@ -47,6 +48,21 @@ class Yum2KDatabase extends Dexie {
   constructor() {
     super(DB_NAME)
 
+    // Version 7: schema เดิม (ต้องประกาศไว้เพื่อให้ Dexie upgrade path ถูกต้อง)
+    this.version(7).stores({
+      users: '++id, &uuid, &username, role, isActive, isDeleted, updatedAt',
+      categories: '++id, &uuid, name, parentId, parentUuid, isActive, sortOrder, isDeleted, updatedAt',
+      products: '++id, &uuid, categoryId, name, sku, isActive, sortOrder, totalSold, stockQuantity, mappingType, isDeleted, updatedAt',
+      orders: '++id, &uuid, &orderNumber, staffId, status, kitchenStatus, syncStatus, createdAt, updatedAt, paymentMethod, isDeleted',
+      syncQueue: '++id, &uuid, entityType, entityId, syncStatus, retryCount, isDeleted',
+      appSettings: '&key',
+      stockAuditLogs: '++id, &uuid, productId, staffId, syncStatus, createdAt, isDeleted',
+      expenses: '++id, &uuid, category, expenseDate, syncStatus, isDeleted',
+      aiConversations: '++id, &uuid, source, title, createdAt, updatedAt, isDeleted',
+      aiChats: '++id, &uuid, conversationUuid, role, createdAt, isDeleted',
+    })
+
+    // Version 8: เพิ่มตาราง dailyStockSnapshots
     this.version(DB_VERSION).stores({
       /**
        * users: ผู้ใช้งาน
@@ -100,7 +116,7 @@ class Yum2KDatabase extends Dexie {
        *
        * หมายเหตุ: items (OrderItem[]) เก็บเป็น JSON Array ทั้งก้อน
        */
-      orders: '++id, &uuid, &orderNumber, staffId, status, kitchenStatus, syncStatus, createdAt, paymentMethod, isDeleted',
+      orders: '++id, &uuid, &orderNumber, staffId, status, kitchenStatus, syncStatus, createdAt, updatedAt, paymentMethod, isDeleted',
 
       /**
        * syncQueue: คิวรอ Sync ขึ้น Server
@@ -137,8 +153,9 @@ class Yum2KDatabase extends Dexie {
        * - syncStatus: สถานะ Sync (Index)
        */
       expenses: '++id, &uuid, category, expenseDate, syncStatus, isDeleted',
-      aiConversations: '++id, &uuid, source, title, createdAt, updatedAt',
-      aiChats: '++id, &uuid, conversationUuid, role, createdAt',
+      aiConversations: '++id, &uuid, source, title, createdAt, updatedAt, isDeleted',
+      aiChats: '++id, &uuid, conversationUuid, role, createdAt, isDeleted',
+      dailyStockSnapshots: '++id, &uuid, [snapshotDate+productUuid], snapshotDate, productUuid, productId, syncStatus, capturedAt, isDeleted',
     })
   }
 }
@@ -158,7 +175,7 @@ export const db = new Yum2KDatabase()
  * Hook: ตั้งค่า createdAt และ updatedAt อัตโนมัติเมื่อเพิ่มข้อมูลใหม่
  * รองรับ: users, categories, products, orders, syncQueue
  */
-const tablesWithTimestamps = ['users', 'categories', 'products', 'orders', 'syncQueue', 'stockAuditLogs', 'expenses', 'aiConversations', 'aiChats']
+const tablesWithTimestamps = ['users', 'categories', 'products', 'orders', 'syncQueue', 'stockAuditLogs', 'expenses', 'aiConversations', 'aiChats', 'dailyStockSnapshots']
 
 tablesWithTimestamps.forEach((tableName) => {
   const table = db.table(tableName)
@@ -172,7 +189,7 @@ tablesWithTimestamps.forEach((tableName) => {
     if (tableName === 'orders') {
       obj.kitchenStatus = obj.kitchenStatus ?? 'pending'
     }
-    if (['orders', 'stockAuditLogs', 'expenses'].includes(tableName)) {
+    if (['orders', 'stockAuditLogs', 'expenses', 'dailyStockSnapshots'].includes(tableName)) {
       obj.syncStatus = obj.syncStatus ?? 'pending'
       obj.syncRetryCount = obj.syncRetryCount ?? 0
     }
