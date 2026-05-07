@@ -22,6 +22,7 @@ const isOnline = ref(import.meta.client ? navigator.onLine : true)
 const pendingCount = ref(0)
 const pendingStockAuditCount = ref(0)
 const pendingExpenseCount = ref(0)
+const pendingSnapshotCount = ref(0)
 const lastSyncAt = ref<Date | null>(null)
 const syncIntervalId = ref<any>(null)
 
@@ -80,6 +81,11 @@ export function useSync() {
       .count()
 
     pendingExpenseCount.value = await db.expenses
+      .where('syncStatus')
+      .anyOf(['pending', 'failed'])
+      .count()
+
+    pendingSnapshotCount.value = await db.dailyStockSnapshots
       .where('syncStatus')
       .anyOf(['pending', 'failed'])
       .count()
@@ -564,7 +570,8 @@ export function useSync() {
     isOnline,
     pendingCount,
     pendingStockAuditCount,
-    pendingExpenseCount, // ส่งตัวนับออกไปใช้งาน
+    pendingExpenseCount,
+    pendingSnapshotCount,
     lastSyncAt,
     setupNetworkListener,
     syncPendingOrders,

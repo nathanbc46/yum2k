@@ -13,6 +13,7 @@
 import { db, getSetting, setSetting } from '~/db'
 import type { Category, Product, User, UserRole, StockAuditLog } from '~/types'
 import { hashSHA256, isAlreadyHashed } from '~/utils/crypto'
+import { useDailyStockSnapshot } from './useDailyStockSnapshot'
 
 // --- Global State ---
 const isSyncingMaster = ref(false)
@@ -539,25 +540,29 @@ export function useMasterDataSync() {
     }
   }
 
-  async function pullAll(force = false): Promise<{ categories: number; products: number; users: number; stockLogs: number }> {
-    if (isSyncingMaster.value) return { categories: 0, products: 0, users: 0, stockLogs: 0 }
+  async function pullAll(force = false): Promise<{ categories: number; products: number; users: number; stockLogs: number; stockSnapshots: number }> {
+    if (isSyncingMaster.value) return { categories: 0, products: 0, users: 0, stockLogs: 0, stockSnapshots: 0 }
     isSyncingMaster.value = true
     masterSyncError.value = null
     const syncStartTime = new Date()
     try {
-      const categories = await pullCategories(force)
-      const products   = await pullProducts(force)
-      const users      = await pullUsers(force)
-      const stockLogs  = await pullStockAuditLogs(force)
+      const categories     = await pullCategories(force)
+      const products       = await pullProducts(force)
+      const users          = await pullUsers(force)
+      const stockLogs      = await pullStockAuditLogs(force)
+      const stockSnapshots = await useDailyStockSnapshot().pullSnapshots(force).catch(err => {
+        console.warn('⚠️ Pull Snapshots Error:', err)
+        return 0
+      })
       await updateLastPullAt(syncStartTime)
-      
+
       // อัปเดต Last Push At ด้วย เพื่อบอกว่าข้อมูลที่เพิ่งดึงมานี้ "ทันสมัยแล้ว"
       // ป้องกันการกด Push ทันทีแล้วมันดันกลับขึ้นไปเอง
       await updateLastPushAt(syncStartTime)
 
       lastMasterSyncAt.value = new Date()
       lastPullTimestamp.value = Date.now()
-      return { categories, products, users, stockLogs }
+      return { categories, products, users, stockLogs, stockSnapshots }
     } catch (e: any) {
       masterSyncError.value = e.message
       throw e
@@ -581,26 +586,30 @@ export function useMasterDataSync() {
     orders: number; orderNumbers: string[]
     stockLogs: number; stockLogDetails: string[]
     expenses: number; expenseDetails: string[]
+    stockSnapshots: number; stockSnapshotDetails: string[]
+    stuckCount: number
   }> {
-    const lastPushAt = await getLastPushAt()
     const MAX_RETRY = 5
 
-    // Orders: pending/failed ที่ยังไม่เกิน retry limit
-    const pendingOrders = await db.orders
-      .where('syncStatus').anyOf(['pending', 'failed'])
-      .filter(o => (o.syncRetryCount || 0) < MAX_RETRY)
-      .toArray()
-
-    // Stock Logs: pending/failed ที่ยังไม่เกิน retry limit
-    const pendingStocks = await db.stockAuditLogs
-      .where('syncStatus').anyOf(['pending', 'failed'])
-      .filter(l => (l.syncRetryCount || 0) < MAX_RETRY)
-      .toArray()
-
-    // Expenses: pending/failed
-    const pendingExpenses = await db.expenses
-      .where('syncStatus').anyOf(['pending', 'failed'])
-      .toArray()
+    const [pendingOrders, pendingStocks, pendingExpenses, pendingSnapshots,
+           stuckOrders, stuckStocks, stuckExpenses, stuckSnapshots] = await Promise.all([
+      db.orders.where('syncStatus').anyOf(['pending', 'failed'])
+        .filter(o => (o.syncRetryCount || 0) < MAX_RETRY).toArray(),
+      db.stockAuditLogs.where('syncStatus').anyOf(['pending', 'failed'])
+        .filter(l => (l.syncRetryCount || 0) < MAX_RETRY).toArray(),
+      db.expenses.where('syncStatus').anyOf(['pending', 'failed'])
+        .filter(e => (e.syncRetryCount || 0) < MAX_RETRY).toArray(),
+      db.dailyStockSnapshots.where('syncStatus').anyOf(['pending', 'failed'])
+        .filter(s => (s.syncRetryCount || 0) < MAX_RETRY).toArray(),
+      db.orders.where('syncStatus').equals('failed')
+        .filter(o => (o.syncRetryCount || 0) >= MAX_RETRY).count(),
+      db.stockAuditLogs.where('syncStatus').equals('failed')
+        .filter(l => (l.syncRetryCount || 0) >= MAX_RETRY).count(),
+      db.expenses.where('syncStatus').equals('failed')
+        .filter(e => (e.syncRetryCount || 0) >= MAX_RETRY).count(),
+      db.dailyStockSnapshots.where('syncStatus').equals('failed')
+        .filter(s => (s.syncRetryCount || 0) >= MAX_RETRY).count(),
+    ])
 
     return {
       categories: 0,
@@ -613,27 +622,64 @@ export function useMasterDataSync() {
       stockLogDetails: pendingStocks.map(l => `${l.productName} (${l.changeQuantity > 0 ? '+' : ''}${l.changeQuantity})`),
       expenses: pendingExpenses.length,
       expenseDetails: pendingExpenses.map(e => `${e.description} (฿${e.amount})`),
+      stockSnapshots: pendingSnapshots.length,
+      stockSnapshotDetails: pendingSnapshots.map(s => `${s.productName} (${s.snapshotDate})`),
+      stuckCount: stuckOrders + stuckStocks + stuckExpenses + stuckSnapshots,
     }
+  }
+
+  /**
+   * รีเซ็ตรายการที่ Sync ล้มเหลวเกิน MAX_RETRY กลับมาเป็น pending
+   * เพื่อให้ระบบลองส่งใหม่ในรอบถัดไป
+   */
+  async function resetStuckItems(): Promise<number> {
+    const MAX_RETRY = 5
+    const now = new Date()
+    let count = 0
+
+    const tables = [
+      db.orders as any,
+      db.stockAuditLogs as any,
+      db.expenses as any,
+      db.dailyStockSnapshots as any,
+    ]
+
+    for (const table of tables) {
+      const stuck = await table.where('syncStatus').equals('failed')
+        .filter((s: any) => (s.syncRetryCount || 0) >= MAX_RETRY)
+        .toArray()
+      for (const item of stuck) {
+        await table.update(item.id, {
+          syncStatus: 'pending',
+          syncRetryCount: 0,
+          syncError: undefined,
+          updatedAt: now,
+        })
+        count++
+      }
+    }
+    return count
   }
 
   /**
    * ดึงจำนวนรายการที่ตรวจสอบเจอการอัปเดตบน Cloud และรอซิงค์ลงมา (Pull)
    * โดนจะแค่ยิงเช็ค Count/UUID จาก Supabase ตรงๆ เพื่อประหยัด API Quota 
    */
-  async function getPendingPullCounts(): Promise<{ 
+  async function getPendingPullCounts(): Promise<{
     categories: number, categoryNames: string[],
     products: number, productNames: string[],
     users: number, userNames: string[],
     stockLogs: number, stockLogDetails: string[],
     orders: number, orderNumbers: string[],
-    expenses: number, expenseDetails: string[]
+    expenses: number, expenseDetails: string[],
+    stockSnapshots: number, stockSnapshotDetails: string[]
   }> {
     const supabase = useSupabaseClient<any>()
     const lastPullAt = await getLastPullAt()
-    const emptyResult = { 
-      categories: 0, categoryNames: [], products: 0, productNames: [], 
+    const emptyResult = {
+      categories: 0, categoryNames: [], products: 0, productNames: [],
       users: 0, userNames: [], stockLogs: 0, stockLogDetails: [], orders: 0, orderNumbers: [],
-      expenses: 0, expenseDetails: []
+      expenses: 0, expenseDetails: [], stockSnapshots: 0, stockSnapshotDetails: []
     }
     
     // หากไม่เคย Pull เลย ให้ใช้เวลาเริ่มต้น (1970) เพื่อให้เห็นว่ามีข้อมูลบน Cloud ที่ยังไม่มีในเครื่อง
@@ -713,22 +759,24 @@ export function useMasterDataSync() {
         return { count: 0, names: [] }
       }
 
-      const [catRes, prodRes, userRes, stockRes, orderRes, expenseRes] = await Promise.all([
+      const [catRes, prodRes, userRes, stockRes, orderRes, expenseRes, snapshotRes] = await Promise.all([
         checkMasterUpdates('categories', 'categories'),
         checkMasterUpdates('products', 'products'),
         checkMasterUpdates('pos_users', 'users', 'display_name'),
         checkAppendOnlyUpdates('stock_audit_logs', 'stockAuditLogs', 'product_name'),
         checkAppendOnlyUpdates('orders', 'orders', 'order_number'),
-        checkAppendOnlyUpdates('expenses', 'expenses', 'description')
+        checkAppendOnlyUpdates('expenses', 'expenses', 'description'),
+        checkMasterUpdates('daily_stock_snapshots', 'dailyStockSnapshots' as any, 'product_name'),
       ])
-      
-      return { 
+
+      return {
         categories: catRes.count, categoryNames: catRes.names,
         products: prodRes.count, productNames: prodRes.names,
         users: userRes.count, userNames: userRes.names,
         stockLogs: stockRes.count, stockLogDetails: stockRes.names,
         orders: orderRes.count, orderNumbers: orderRes.names,
-        expenses: expenseRes.count, expenseDetails: expenseRes.names
+        expenses: expenseRes.count, expenseDetails: expenseRes.names,
+        stockSnapshots: snapshotRes.count, stockSnapshotDetails: snapshotRes.names,
       }
     } catch(err) {
       console.warn('⚠️ getPendingPullCounts Error:', err)
@@ -757,5 +805,6 @@ export function useMasterDataSync() {
     getLastPullAt,
     updateLastPushAt,
     updateLastPullAt,
+    resetStuckItems,
   }
 }

@@ -4,11 +4,12 @@
 // =============================================================================
 
 import { v4 as uuidv4 } from 'uuid'
-import { db } from '~/db'
+import { db, getSetting, setSetting } from '~/db'
 import { useAuthStore } from '~/stores/auth'
 import type { DailyStockSnapshot } from '~/types'
 
 const MAX_RETRY_COUNT = 5
+const SETTING_KEY_SNAPSHOT_PULL = 'last_snapshot_pull_at'
 
 const isCapturing = ref(false)
 const captureError = ref<string | null>(null)
@@ -165,11 +166,89 @@ export function useDailyStockSnapshot() {
     return count > 0
   }
 
+  /**
+   * Pull snapshot จาก Supabase ลงเครื่อง
+   * ดึงเฉพาะ 90 วันย้อนหลัง และเปรียบเทียบ updatedAt ก่อน Merge
+   */
+  async function pullSnapshots(force = false): Promise<number> {
+    const supabase = useSupabaseClient<any>()
+
+    const lastPullStr = force ? null : await getSetting<string | null>(SETTING_KEY_SNAPSHOT_PULL, null)
+    const lastPullAt = lastPullStr ? new Date(lastPullStr) : null
+
+    // จำกัดช่วงเวลา 90 วันย้อนหลัง เพื่อป้องกัน payload ใหญ่เกินไป
+    const since = new Date()
+    since.setDate(since.getDate() - 90)
+    const sinceDateStr = since.toISOString().split('T')[0]
+
+    let query = supabase
+      .from('daily_stock_snapshots')
+      .select('*')
+      .gte('snapshot_date', sinceDateStr)
+      .order('snapshot_date', { ascending: false })
+
+    if (lastPullAt && !force) {
+      query = query.gt('updated_at', lastPullAt.toISOString())
+    }
+
+    const { data: remoteRows, error } = await withTimeout(
+      query.limit(force ? 2000 : 500)
+    )
+    if (error) throw new Error(`Pull Snapshots ล้มเหลว: ${error.message}`)
+    if (!remoteRows?.length) return 0
+
+    // Bulk-fetch local snapshots เพื่อเทียบ
+    const remoteUuids = remoteRows.map((r: any) => r.uuid)
+    const existingRows = await db.dailyStockSnapshots.where('uuid').anyOf(remoteUuids).toArray()
+    const existingByUuid = new Map(existingRows.map(r => [r.uuid, r]))
+
+    // สร้าง Map productUuid → local id เผื่อ resolve productId
+    const allProducts = await db.products.toArray()
+    const prodUuidToId = new Map(allProducts.map(p => [p.uuid, p.id!]))
+
+    let count = 0
+    for (const remote of remoteRows) {
+      const existing = existingByUuid.get(remote.uuid)
+      const remoteUpdatedAt = new Date(remote.updated_at)
+      if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) continue
+
+      const localSnapshot: Omit<DailyStockSnapshot, 'id'> = {
+        uuid:            remote.uuid,
+        snapshotDate:    remote.snapshot_date,
+        productUuid:     remote.product_uuid,
+        productId:       prodUuidToId.get(remote.product_uuid) ?? existing?.productId ?? 0,
+        productName:     remote.product_name,
+        productSku:      remote.product_sku ?? undefined,
+        stockQuantity:   Number(remote.stock_quantity),
+        capturedByUuid:  remote.captured_by_uuid ?? '',
+        capturedByName:  remote.captured_by_name ?? '',
+        capturedAt:      new Date(remote.captured_at),
+        syncStatus:      'synced',
+        syncedAt:        remoteUpdatedAt,
+        syncRetryCount:  0,
+        isDeleted:       remote.is_deleted ?? false,
+        createdAt:       new Date(remote.created_at),
+        updatedAt:       remoteUpdatedAt,
+      }
+
+      if (existing?.id) {
+        await db.dailyStockSnapshots.update(existing.id, localSnapshot)
+      } else {
+        await db.dailyStockSnapshots.add(localSnapshot as DailyStockSnapshot)
+      }
+      count++
+    }
+
+    await setSetting(SETTING_KEY_SNAPSHOT_PULL, new Date().toISOString())
+    return count
+  }
+
   return {
     isCapturing,
     captureError,
     captureSnapshot,
     pushSnapshots,
+    pullSnapshots,
     getSnapshotForDate,
     hasSnapshotForDate,
   }

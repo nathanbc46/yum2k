@@ -12,6 +12,8 @@ const pushCounts = ref({
   orders: 0, orderNumbers: [] as string[],
   stockLogs: 0, stockLogDetails: [] as string[],
   expenses: 0, expenseDetails: [] as string[],
+  stockSnapshots: 0, stockSnapshotDetails: [] as string[],
+  stuckCount: 0,
 })
 
 // 📥 Pull Data (Cloud -> Local)
@@ -21,14 +23,15 @@ const pullCounts = ref({
   users: 0, userNames: [] as string[],
   stockLogs: 0, stockLogDetails: [] as string[],
   orders: 0, orderNumbers: [] as string[],
-  expenses: 0, expenseDetails: [] as string[]
+  expenses: 0, expenseDetails: [] as string[],
+  stockSnapshots: 0, stockSnapshotDetails: [] as string[],
 })
 
 const isLoadingPush = ref(false)
 const isLoadingPull = ref(false)
 
-const totalPush = computed(() => pushCounts.value.orders + pushCounts.value.stockLogs + pushCounts.value.expenses)
-const totalPull = computed(() => pullCounts.value.categories + pullCounts.value.products + pullCounts.value.users + pullCounts.value.stockLogs + pullCounts.value.orders + pullCounts.value.expenses)
+const totalPush = computed(() => pushCounts.value.orders + pushCounts.value.stockLogs + pushCounts.value.expenses + pushCounts.value.stockSnapshots + pushCounts.value.stuckCount)
+const totalPull = computed(() => pullCounts.value.categories + pullCounts.value.products + pullCounts.value.users + pullCounts.value.stockLogs + pullCounts.value.orders + pullCounts.value.expenses + pullCounts.value.stockSnapshots)
 
 // แสดงผล MM:SS จาก Countdown ที่ใช้ร่วมกับ Heartbeat (ใช้สำหรับแค่ Push)
 const countdownLabel = computed(() => {
@@ -49,7 +52,22 @@ async function loadLocalCounts() {
   pushCounts.value = {
     orders: result.orders, orderNumbers: result.orderNumbers,
     stockLogs: result.stockLogs, stockLogDetails: result.stockLogDetails,
-    expenses: result.expenses, expenseDetails: result.expenseDetails
+    expenses: result.expenses, expenseDetails: result.expenseDetails,
+    stockSnapshots: result.stockSnapshots, stockSnapshotDetails: result.stockSnapshotDetails,
+    stuckCount: result.stuckCount,
+  }
+}
+
+const isResetting = ref(false)
+async function handleResetStuck() {
+  if (isResetting.value) return
+  isResetting.value = true
+  try {
+    const count = await masterSync.resetStuckItems()
+    await loadLocalCounts()
+    toast.success(`🔄 รีเซ็ตสำเร็จ ${count} รายการ — พร้อมส่งใหม่`, 3000)
+  } finally {
+    isResetting.value = false
   }
 }
 
@@ -72,6 +90,7 @@ async function handlePush() {
       res.orders.success > 0 ? `• ออร์เดอร์: ${res.orders.success} รายการ` : '',
       res.auditLogs.success > 0 ? `• ประวัติสต็อก: ${res.auditLogs.success} รายการ` : '',
       res.expenses > 0 ? `• รายจ่าย: ${res.expenses} รายการ` : '',
+      res.stockSnapshots > 0 ? `• สต็อกประจำวัน: ${res.stockSnapshots} รายการ` : '',
     ].filter(Boolean).join('\n')
     toast.success(msg, 5000)
   } finally {
@@ -96,7 +115,8 @@ async function handlePull() {
       resMaster.products > 0 ? `• รายการสินค้า: ${resMaster.products} รายการ` : '',
       resMaster.users > 0 ? `• พนักงาน: ${resMaster.users} รายการ` : '',
       resMaster.stockLogs > 0 ? `• ประวัติสต็อก: ${resMaster.stockLogs} รายการ` : '',
-      expenseCount > 0 ? `• รายจ่าย: ${expenseCount} รายการ` : ''
+      expenseCount > 0 ? `• รายจ่าย: ${expenseCount} รายการ` : '',
+      resMaster.stockSnapshots > 0 ? `• สต็อกประจำวัน: ${resMaster.stockSnapshots} รายการ` : '',
     ].filter(Boolean).join('\n')
     toast.success(msg, 7000)
     await loadRemoteCounts()
@@ -183,27 +203,59 @@ if (import.meta.client) {
                 <div v-for="detail in pushCounts.expenseDetails.slice(0, 5)" :key="detail" class="tooltip-item">{{ detail }}</div>
               </div>
             </div>
+
+            <div v-if="pushCounts.stockSnapshots > 0" class="tooltip-wrapper">
+              <span class="badge badge-snapshot">
+                📸 <span>สต็อกประจำวัน</span> <span class="font-black">{{ pushCounts.stockSnapshots }}</span>
+              </span>
+              <div class="tooltip-popup">
+                <div class="tooltip-title">📸 สต็อกประจำวันรอส่งขึ้น Cloud</div>
+                <div v-for="detail in pushCounts.stockSnapshotDetails.slice(0, 5)" :key="detail" class="tooltip-item">{{ detail }}</div>
+                <div v-if="pushCounts.stockSnapshotDetails.length > 5" class="tooltip-item text-xs mt-1 opacity-70">และอื่นๆ...</div>
+              </div>
+            </div>
+
+            <div v-if="pushCounts.stuckCount > 0" class="tooltip-wrapper">
+              <span class="badge badge-stuck">
+                ⚠️ <span>ค้างส่ง</span> <span class="font-black">{{ pushCounts.stuckCount }}</span>
+              </span>
+              <div class="tooltip-popup">
+                <div class="tooltip-title">⚠️ ส่งล้มเหลวเกิน 5 ครั้ง</div>
+                <div class="tooltip-item">กด "รีเซ็ต" เพื่อให้ระบบลองส่งใหม่</div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Right: Push Sync Button -->
-        <button
-          @click="handlePush"
-          :disabled="isLoadingPush || isSyncing || !isOnline"
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-          :class="isOnline ? 'bg-primary-600 hover:bg-primary-500 text-white shadow-sm' : 'bg-surface-700 text-surface-400'"
-        >
-          <span :class="{ 'animate-spin': isLoadingPush || isSyncing }">
-            {{ isLoadingPush || isSyncing ? '⏳' : '🚀' }}
-          </span>
-          <span v-if="isLoadingPush || isSyncing">กำลัง Sync...</span>
-          <template v-else>
-            <span>Sync ขึ้น Cloud</span>
-            <span class="ml-1 px-1.5 py-0.5 rounded-md bg-black/15 text-[10px] font-mono tabular-nums" :class="countdownClass">
-              {{ countdownLabel }}
+        <!-- Right: Reset + Push Sync Buttons -->
+        <div class="flex items-center gap-2 shrink-0">
+          <button
+            v-if="pushCounts.stuckCount > 0"
+            @click="handleResetStuck"
+            :disabled="isResetting"
+            class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/25"
+          >
+            <span :class="{ 'animate-spin': isResetting }">{{ isResetting ? '⏳' : '🔄' }}</span>
+            <span>รีเซ็ต</span>
+          </button>
+          <button
+            @click="handlePush"
+            :disabled="isLoadingPush || isSyncing || !isOnline"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            :class="isOnline ? 'bg-primary-600 hover:bg-primary-500 text-white shadow-sm' : 'bg-surface-700 text-surface-400'"
+          >
+            <span :class="{ 'animate-spin': isLoadingPush || isSyncing }">
+              {{ isLoadingPush || isSyncing ? '⏳' : '🚀' }}
             </span>
-          </template>
-        </button>
+            <span v-if="isLoadingPush || isSyncing">กำลัง Sync...</span>
+            <template v-else>
+              <span>Sync ขึ้น Cloud</span>
+              <span class="ml-1 px-1.5 py-0.5 rounded-md bg-black/15 text-[10px] font-mono tabular-nums" :class="countdownClass">
+                {{ countdownLabel }}
+              </span>
+            </template>
+          </button>
+        </div>
       </div>
     </Transition>
 
@@ -288,6 +340,17 @@ if (import.meta.client) {
                 <div v-for="detail in pullCounts.expenseDetails.slice(0, 5)" :key="detail" class="tooltip-item">- {{ detail }}</div>
               </div>
             </div>
+
+            <div v-if="pullCounts.stockSnapshots > 0" class="tooltip-wrapper">
+              <span class="badge badge-snapshot">
+                📸 <span>สต็อกประจำวัน</span> <span class="font-black">{{ pullCounts.stockSnapshots }}</span>
+              </span>
+              <div class="tooltip-popup">
+                <div class="tooltip-title">📸 สต็อกประจำวันมีอัปเดต ({{ pullCounts.stockSnapshots }})</div>
+                <div v-for="detail in pullCounts.stockSnapshotDetails.slice(0, 5)" :key="detail" class="tooltip-item">- {{ detail }}</div>
+                <div v-if="pullCounts.stockSnapshotDetails.length > 5" class="tooltip-item text-xs mt-1 opacity-70">และอื่นๆ...</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -360,7 +423,9 @@ if (import.meta.client) {
 .badge-cat   { background: rgb(245 158 11 / 0.1); color: rgb(180 110 0); border-color: rgb(245 158 11 / 0.25); }
 .badge-prod  { background: rgb(59 130 246 / 0.1); color: rgb(59 130 246); border-color: rgb(59 130 246 / 0.25); }
 .badge-stock { background: rgb(168 85 247 / 0.1); color: rgb(168 85 247); border-color: rgb(168 85 247 / 0.25); }
-.badge-expense { background: rgb(239 68 68 / 0.1); color: rgb(239 68 68); border-color: rgb(239 68 68 / 0.25); }
+.badge-expense   { background: rgb(239 68 68 / 0.1); color: rgb(239 68 68); border-color: rgb(239 68 68 / 0.25); }
+.badge-snapshot  { background: rgb(20 184 166 / 0.1); color: rgb(20 184 166); border-color: rgb(20 184 166 / 0.25); }
+.badge-stuck     { background: rgb(239 68 68 / 0.15); color: rgb(239 68 68); border-color: rgb(239 68 68 / 0.35); }
 
 /* dark mode overrides */
 :global(.dark) .badge-cat,
