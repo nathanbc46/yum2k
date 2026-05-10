@@ -51,9 +51,9 @@ export function usePrinter() {
     }
 
     // ESC @ - Initialize printer
-    pushBytes(0x1B, 0x40)
-    // ESC t n - เลือก code page ภาษาไทย (ค่าขึ้นกับยี่ห้อ printer: Epson=20, Xprinter=21, Win874=255)
-    const codePage = s.printerCodePage ?? 21
+    // ESC t n ก่อน — ตั้ง code page Thai (255) ทันที ไม่ส่ง ESC @ ก่อน
+    // ESC @ จะ reset printer กลับ factory default (Chinese GBK) ทำให้ ESC t ไม่มีผล
+    const codePage = s.printerCodePage ?? 255
     if (codePage > 0) pushBytes(0x1B, 0x74, codePage)
 
     // --- Header ---
@@ -277,7 +277,6 @@ export function usePrinter() {
     const buildTestBuffer = async (): Promise<Uint8Array> => {
       if (useImage) return buildImageEscPos(buildTestReceiptLines(s.shopName, s.paperSize), s.paperSize)
       const parts: Uint8Array[] = [
-        new Uint8Array([0x1B, 0x40]),
         codePageCmd,
         encodeThai(testLines),
         new Uint8Array([0x1D, 0x56, 0x42, 0x00])
