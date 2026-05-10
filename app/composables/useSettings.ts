@@ -17,6 +17,9 @@ export interface ReceiptSettings {
   shopAddress?: string      // ที่อยู่
   footerMessage?: string    // ข้อความท้ายใบเสร็จ
   paperSize: '58mm' | '80mm' // ขนาดกระดาษ Thermal Printer
+  printerMethod: 'wifi' | 'rawbt' | 'usb' | 'browser' // วิธีการพิมพ์
+  printerIp?: string   // IP ของ printer (สำหรับ WiFi method)
+  printerPort?: number // TCP port ของ printer (ปกติ 9100)
   showOrderNumber: boolean   // แสดงเลขที่บิล
   showStaffName: boolean     // แสดงชื่อพนักงาน
   showTaxInfo: boolean       // แสดงข้อมูลภาษี (VAT)
@@ -44,6 +47,9 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   shopAddress: '',
   footerMessage: 'ขอบคุณที่อุดหนุนครับ/ค่ะ',
   paperSize: '80mm',
+  printerMethod: 'wifi' as const,
+  printerIp: '',
+  printerPort: 9100,
   showOrderNumber: true,
   showStaffName: true,
   showTaxInfo: false,

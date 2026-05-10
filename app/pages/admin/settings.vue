@@ -9,9 +9,9 @@
   <div class="flex-1 overflow-y-auto p-6">
     <div class="max-w-3xl mx-auto space-y-6">
       
-      <!-- RawBT Status Alert -->
-      <div 
-        v-if="!isRawBTConnected"
+      <!-- RawBT Status Alert (แสดงเฉพาะเมื่อเลือกใช้ RawBT และยังไม่ได้เปิดแอป) -->
+      <div
+        v-if="form.printerMethod === 'rawbt' && !isRawBTConnected"
         class="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-4 animate-in slide-in-from-top duration-500"
       >
         <div class="w-10 h-10 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center shrink-0 text-xl">
@@ -20,12 +20,12 @@
         <div class="flex-1">
           <h3 class="text-sm font-bold text-red-400">ตรวจไม่พบแอป RawBT</h3>
           <p class="text-xs text-surface-400 mt-1 leading-relaxed">
-            ระบบพิมพ์แบบไร้เสียง (Silent Printing) จะไม่ทำงานหากไม่ได้เปิดแอป RawBT ทิ้งไว้ 
-            กรุณาติดตั้งแอปหรือเปิดแอปในเครื่องนี้เพื่อใช้งาน หากยังไม่มีสามารถดาวน์โหลดได้ที่ 
-            <a href="https://rawbt.ru/en/windows.html" target="_blank" class="text-primary-400 underline decoration-primary-400/30">Windows</a> หรือ 
+            ระบบพิมพ์แบบไร้เสียง (Silent Printing) จะไม่ทำงานหากไม่ได้เปิดแอป RawBT ทิ้งไว้
+            กรุณาติดตั้งแอปหรือเปิดแอปในเครื่องนี้เพื่อใช้งาน หากยังไม่มีสามารถดาวน์โหลดได้ที่
+            <a href="https://rawbt.ru/en/windows.html" target="_blank" class="text-primary-400 underline decoration-primary-400/30">Windows</a> หรือ
             <a href="https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter" target="_blank" class="text-primary-400 underline decoration-primary-400/30">Android (Play Store)</a>
           </p>
-          <button 
+          <button
             @click="checkPrinterStatus"
             class="mt-3 text-[10px] font-black uppercase tracking-widest bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/30 hover:bg-red-500/30 transition-all"
           >
@@ -221,6 +221,286 @@
             </div>
           </div>
 
+          <!-- ส่วนตั้งค่าเครื่องพิมพ์ -->
+          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
+            <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-4">เครื่องพิมพ์ใบเสร็จ</h2>
+            <div class="space-y-4">
+
+              <!-- เลือกวิธีการพิมพ์ -->
+              <div>
+                <label class="form-label">วิธีการพิมพ์</label>
+                <div class="space-y-2 mt-1">
+                  <label
+                    v-for="method in printerMethods"
+                    :key="method.value"
+                    class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all"
+                    :class="form.printerMethod === method.value
+                      ? 'border-primary-500 bg-primary-500/10'
+                      : 'border-surface-700 bg-surface-950 hover:border-surface-500'"
+                  >
+                    <input
+                      type="radio"
+                      :value="method.value"
+                      v-model="form.printerMethod"
+                      class="mt-0.5 accent-primary-500"
+                      @change="() => { checkPrinterStatus(); usbSecurityError = false }"
+                    />
+                    <div>
+                      <div class="text-sm font-semibold text-surface-50">{{ method.label }}</div>
+                      <div class="text-xs text-surface-400">{{ method.desc }}</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- WiFi: ตั้งค่า IP -->
+              <template v-if="form.printerMethod === 'wifi'">
+                <div class="space-y-3">
+                  <div class="grid grid-cols-3 gap-3">
+                    <div class="col-span-2">
+                      <label class="form-label">IP Address ของเครื่องพิมพ์</label>
+                      <input
+                        v-model="form.printerIp"
+                        type="text"
+                        placeholder="เช่น 192.168.1.100"
+                        class="form-input font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label class="form-label">TCP Port</label>
+                      <input
+                        v-model.number="form.printerPort"
+                        type="number"
+                        placeholder="9100"
+                        class="form-input font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Help: วิธีหา IP + กรณีไม่มี Router -->
+                  <div class="rounded-xl border border-surface-700 overflow-hidden">
+                    <!-- Toggle button -->
+                    <button
+                      type="button"
+                      @click="showLanHelp = !showLanHelp"
+                      class="w-full flex items-center gap-2 px-3 py-2.5 bg-surface-800 hover:bg-surface-750 transition-colors text-left"
+                    >
+                      <span class="text-base">💡</span>
+                      <span class="flex-1 text-xs font-semibold text-surface-300">วิธีหา IP และการเชื่อมต่อในแบบต่างๆ</span>
+                      <span class="text-surface-500 text-xs">{{ showLanHelp ? '▲' : '▼' }}</span>
+                    </button>
+
+                    <Transition name="expand">
+                      <div v-if="showLanHelp" class="px-4 py-3 space-y-4 bg-surface-950 border-t border-surface-700 text-xs text-surface-400">
+
+                        <!-- วิธีหา IP -->
+                        <div>
+                          <p class="font-bold text-surface-300 mb-1">🔍 วิธีหา IP ของ Xprinter</p>
+                          <p>กดปุ่ม Feed ค้างไว้ขณะเปิดเครื่อง → printer จะพิมพ์ self-test page ที่มี IP address</p>
+                        </div>
+
+                        <div class="border-t border-surface-800" />
+
+                        <!-- แบบมี Router -->
+                        <div>
+                          <p class="font-bold text-surface-300 mb-1">🌐 มี Router / Switch</p>
+                          <div class="font-mono bg-surface-900 rounded-lg p-2 text-[10px] leading-relaxed">
+                            Xprinter ──LAN──▶ Router ◀──WiFi── Tablet
+                          </div>
+                          <p class="mt-1">ใช้ IP ที่ Router assign ให้ printer ได้เลย (ดูจาก self-test page)</p>
+                        </div>
+
+                        <div class="border-t border-surface-800" />
+
+                        <!-- แบบไม่มี Router: LAN ตรง -->
+                        <div>
+                          <p class="font-bold text-amber-400 mb-1">🔌 ไม่มี Router — ต่อสาย LAN ตรงระหว่าง Tablet กับ Printer</p>
+                          <div class="font-mono bg-surface-900 rounded-lg p-2 text-[10px] leading-relaxed">
+                            Tablet ──USB-C Ethernet adapter──LAN──▶ Xprinter
+                          </div>
+                          <p class="mt-2 font-semibold text-surface-300">ต้องตั้ง Static IP เอง (ไม่มี DHCP):</p>
+                          <ol class="list-decimal list-inside mt-1 space-y-1 pl-1">
+                            <li>ตั้ง IP บน <strong class="text-surface-200">Xprinter</strong> เป็น <code class="bg-surface-800 px-1 rounded text-primary-400">192.168.0.100</code></li>
+                            <li>ตั้ง IP บน <strong class="text-surface-200">Tablet</strong> (Settings → Network → Ethernet → Static) เป็น <code class="bg-surface-800 px-1 rounded text-primary-400">192.168.0.1</code> / Subnet <code class="bg-surface-800 px-1 rounded text-primary-400">255.255.255.0</code></li>
+                            <li>กรอก IP printer ด้านบนเป็น <code class="bg-surface-800 px-1 rounded text-primary-400">192.168.0.100</code></li>
+                          </ol>
+                          <p class="mt-2 text-amber-400/80">⚠️ USB-C port ใช้ได้ทีละอย่าง — ใช้ USB-C Hub ที่มี PD charging + Ethernet ในตัวเดียว</p>
+                        </div>
+
+                      </div>
+                    </Transition>
+                  </div>
+                </div>
+              </template>
+
+              <!-- RawBT: คำแนะนำการติดตั้ง -->
+              <template v-if="form.printerMethod === 'rawbt'">
+                <div class="space-y-3">
+                  <!-- สถานะ RawBT -->
+                  <div class="flex items-center gap-3 p-3 bg-surface-950 rounded-xl border border-surface-800">
+                    <div class="flex-1">
+                      <div class="text-xs text-surface-400">สถานะ RawBT</div>
+                      <div class="text-sm font-semibold mt-0.5" :class="isRawBTConnected ? 'text-green-400' : 'text-red-400'">
+                        {{ isRawBTConnected ? 'เปิดอยู่และพร้อมใช้งาน' : 'ไม่พบแอป หรือยังไม่ได้เปิด' }}
+                      </div>
+                    </div>
+                    <div class="w-2.5 h-2.5 rounded-full shrink-0" :class="isRawBTConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'" />
+                  </div>
+
+                  <!-- Help RawBT -->
+                  <div class="rounded-xl border border-surface-700 overflow-hidden">
+                    <button
+                      type="button"
+                      @click="showRawbtHelp = !showRawbtHelp"
+                      class="w-full flex items-center gap-2 px-3 py-2.5 bg-surface-800 hover:bg-surface-750 transition-colors text-left"
+                    >
+                      <span class="text-base">💡</span>
+                      <span class="flex-1 text-xs font-semibold text-surface-300">วิธีติดตั้งและใช้งาน RawBT</span>
+                      <span class="text-surface-500 text-xs">{{ showRawbtHelp ? '▲' : '▼' }}</span>
+                    </button>
+                    <Transition name="expand">
+                      <div v-if="showRawbtHelp" class="px-4 py-3 space-y-4 bg-surface-950 border-t border-surface-700 text-xs text-surface-400">
+
+                        <div>
+                          <p class="font-bold text-surface-300 mb-1">📱 วิธีติดตั้ง</p>
+                          <ol class="list-decimal list-inside space-y-1 pl-1">
+                            <li>ดาวน์โหลด <strong class="text-surface-200">RawBT</strong> จาก Play Store บน Android Tablet</li>
+                            <li>เปิดแอป RawBT → เลือก <strong class="text-surface-200">Printer → USB</strong></li>
+                            <li>เสียบ Xprinter ผ่าน <strong class="text-surface-200">USB OTG</strong> แล้วกด Allow เมื่อ Android ถาม</li>
+                            <li>ทดสอบพิมพ์จากในแอป RawBT ให้ผ่านก่อน</li>
+                          </ol>
+                        </div>
+
+                        <div class="border-t border-surface-800" />
+
+                        <div>
+                          <p class="font-bold text-surface-300 mb-1">🔌 การเชื่อมต่อ</p>
+                          <div class="font-mono bg-surface-900 rounded-lg p-2 text-[10px] leading-relaxed">
+                            Tablet ──USB OTG adapter──▶ Xprinter
+                          </div>
+                          <p class="mt-1">RawBT รับ USB ระดับ System ได้ ไม่ติดปัญหา Android driver</p>
+                        </div>
+
+                        <div class="border-t border-surface-800" />
+
+                        <div>
+                          <p class="font-bold text-amber-400 mb-1">⚠️ ข้อควรระวัง</p>
+                          <ul class="list-disc list-inside space-y-1 pl-1">
+                            <li>ต้องเปิดแอป RawBT <strong class="text-surface-200">ทิ้งไว้เบื้องหลัง</strong> ตลอดเวลา</li>
+                            <li>ถ้าแอป RawBT ถูก Android kill ให้เปิดใหม่แล้วกดตรวจสอบสถานะ</li>
+                          </ul>
+                        </div>
+
+                      </div>
+                    </Transition>
+                  </div>
+
+                  <button
+                    type="button"
+                    @click="checkPrinterStatus"
+                    class="w-full py-2 text-xs font-bold rounded-xl border border-surface-600 bg-surface-800 text-surface-400 hover:bg-surface-700 transition-all"
+                  >
+                    🔄 ตรวจสอบสถานะ RawBT
+                  </button>
+                </div>
+              </template>
+
+              <!-- USB: ปุ่มเชื่อมต่อและสถานะ -->
+              <template v-if="form.printerMethod === 'usb'">
+                <div v-if="!isUSBSupported()" class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-400">
+                  ⚠️ Browser นี้ไม่รองรับ WebUSB กรุณาใช้ Chrome บน Android หรือ Desktop
+                </div>
+                <div v-else class="space-y-3">
+                  <!-- Security Error Alert -->
+                  <div v-if="usbSecurityError" class="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400 space-y-2">
+                    <p class="font-bold">⛔ Android ป้องกันการเข้าถึง USB Printer</p>
+                    <p>Android OS ครอง USB printer driver ไว้ก่อน ทำให้ WebUSB ไม่สามารถ open device ได้ นี่เป็น limitation ของ Android</p>
+                    <p class="font-semibold">วิธีแก้ไข เลือกวิธีใดวิธีหนึ่ง:</p>
+                    <ul class="list-disc list-inside space-y-1 pl-1">
+                      <li><strong>WiFi</strong> — เลือก "WiFi / Network" แล้วกรอก IP ของ printer (แนะนำ)</li>
+                      <li><strong>RawBT</strong> — ติดตั้งแอป RawBT จาก Play Store แล้วเลือก "RawBT App"</li>
+                    </ul>
+                  </div>
+                  <!-- สถานะ USB -->
+                  <div class="flex items-center gap-3 p-3 bg-surface-950 rounded-xl border border-surface-800">
+                    <div class="flex-1">
+                      <div class="text-xs text-surface-400">สถานะ</div>
+                      <div class="text-sm font-semibold mt-0.5" :class="usbDeviceName ? 'text-green-400' : 'text-surface-500'">
+                        {{ usbDeviceName ? `เชื่อมต่อแล้ว: ${usbDeviceName}` : 'ยังไม่ได้เชื่อมต่อ' }}
+                      </div>
+                    </div>
+                    <div class="w-2.5 h-2.5 rounded-full shrink-0" :class="usbDeviceName ? 'bg-green-500' : 'bg-surface-600'" />
+                  </div>
+                  <button
+                    type="button"
+                    @click="handleConnectUSB"
+                    :disabled="isConnectingUSB"
+                    class="w-full py-2.5 text-sm font-bold rounded-xl border transition-all"
+                    :class="usbDeviceName
+                      ? 'border-surface-600 bg-surface-800 text-surface-300 hover:bg-surface-700'
+                      : 'border-primary-500/50 bg-primary-500/10 text-primary-400 hover:bg-primary-500/20'"
+                  >
+                    {{ isConnectingUSB ? '⏳ กำลังเชื่อมต่อ...' : usbDeviceName ? '🔄 เปลี่ยนเครื่องพิมพ์' : '🔌 เชื่อมต่อเครื่องพิมพ์ USB' }}
+                  </button>
+
+                  <!-- Help USB -->
+                  <div class="rounded-xl border border-surface-700 overflow-hidden">
+                    <button
+                      type="button"
+                      @click="showUsbHelp = !showUsbHelp"
+                      class="w-full flex items-center gap-2 px-3 py-2.5 bg-surface-800 hover:bg-surface-750 transition-colors text-left"
+                    >
+                      <span class="text-base">💡</span>
+                      <span class="flex-1 text-xs font-semibold text-surface-300">วิธีใช้งาน WebUSB และข้อจำกัด</span>
+                      <span class="text-surface-500 text-xs">{{ showUsbHelp ? '▲' : '▼' }}</span>
+                    </button>
+                    <Transition name="expand">
+                      <div v-if="showUsbHelp" class="px-4 py-3 space-y-4 bg-surface-950 border-t border-surface-700 text-xs text-surface-400">
+
+                        <div>
+                          <p class="font-bold text-surface-300 mb-1">🔌 การเชื่อมต่อ</p>
+                          <div class="font-mono bg-surface-900 rounded-lg p-2 text-[10px] leading-relaxed">
+                            Tablet ──USB OTG adapter──▶ Xprinter
+                          </div>
+                        </div>
+
+                        <div class="border-t border-surface-800" />
+
+                        <div>
+                          <p class="font-bold text-surface-300 mb-1">📋 ขั้นตอนการใช้งาน</p>
+                          <ol class="list-decimal list-inside space-y-1 pl-1">
+                            <li>เสียบ Xprinter ผ่าน USB OTG ก่อน</li>
+                            <li>กดปุ่ม <strong class="text-surface-200">"เชื่อมต่อเครื่องพิมพ์ USB"</strong> → Chrome จะแสดง device picker</li>
+                            <li>เลือก Xprinter แล้วกด Connect (ทำครั้งเดียว)</li>
+                            <li>จากนั้น Chrome จำ device ไว้ — พิมพ์ได้เลยโดยไม่ต้องเลือกใหม่</li>
+                          </ol>
+                        </div>
+
+                        <div class="border-t border-surface-800" />
+
+                        <div>
+                          <p class="font-bold text-amber-400 mb-1">⚠️ ข้อจำกัดบน Android</p>
+                          <p>Android OS อาจครอง USB printer driver ไว้ก่อน ทำให้ได้รับ <code class="bg-surface-800 px-1 rounded text-red-400">SecurityError</code> ถ้าเจอปัญหานี้ให้เปลี่ยนใช้ <strong class="text-surface-200">WiFi</strong> หรือ <strong class="text-surface-200">RawBT</strong> แทน</p>
+                        </div>
+
+                      </div>
+                    </Transition>
+                  </div>
+                </div>
+              </template>
+
+              <!-- ทดสอบพิมพ์ (แสดงทุก method) -->
+              <button
+                type="button"
+                @click="handleTestPrint"
+                :disabled="isTestingPrint"
+                class="w-full py-2.5 text-sm font-bold rounded-xl border border-surface-600 bg-surface-800 text-surface-300 hover:bg-surface-700 transition-all disabled:opacity-50"
+              >
+                {{ isTestingPrint ? '⏳ กำลังพิมพ์...' : '🖨️ ทดสอบพิมพ์' }}
+              </button>
+            </div>
+          </div>
+
           <!-- LINE Notifications -->
           <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
             <div class="flex items-center gap-2 mb-4">
@@ -407,11 +687,18 @@ const config = useRuntimeConfig()
 const { receiptSettings, isSaving, loadReceiptSettings, saveReceiptSettings } = useSettings()
 const masterSync = useMasterDataSync()
 const { fetchRemoteOrders, syncPendingOrders, isOnline } = useSync()
-const { checkRawBTStatus } = usePrinter()
+const { checkRawBTStatus, connectUSBPrinter, getUSBPrinter, isUSBSupported, testPrint } = usePrinter()
 const { confirm } = useConfirm()
 const toast = useToast()
 
 const isRawBTConnected = ref(true)
+const usbDeviceName = ref<string>('')
+const isConnectingUSB = ref(false)
+const isTestingPrint = ref(false)
+const usbSecurityError = ref(false)
+const showLanHelp = ref(false)
+const showRawbtHelp = ref(false)
+const showUsbHelp = ref(false)
 
 // ใช้ reactive copy เพื่อแก้ไขก่อนบันทึก
 const form = reactive<ReceiptSettings>({
@@ -422,6 +709,9 @@ const form = reactive<ReceiptSettings>({
   shopAddress: '',
   footerMessage: 'ขอบคุณที่อุดหนุนครับ/ค่ะ',
   paperSize: '80mm',
+  printerMethod: 'wifi',
+  printerIp: '',
+  printerPort: 9100,
   showOrderNumber: true,
   showStaffName: true,
   showTaxInfo: false,
@@ -437,6 +727,29 @@ const form = reactive<ReceiptSettings>({
   lineDailySummaryHour: 22,
 })
 
+const printerMethods = [
+  {
+    value: 'wifi' as const,
+    label: 'WiFi / Network — แนะนำ',
+    desc: 'ส่ง ESC/POS ตรงไปยัง IP ของ printer ผ่าน TCP port 9100 ไม่ต้องแอปเพิ่ม'
+  },
+  {
+    value: 'rawbt' as const,
+    label: 'RawBT App (USB OTG)',
+    desc: 'ผ่านแอป RawBT ที่ต้องเปิดค้างไว้บนเครื่อง รองรับ USB OTG บน Android'
+  },
+  {
+    value: 'usb' as const,
+    label: 'USB (WebUSB)',
+    desc: 'WebUSB direct — อาจไม่รองรับบน Android เนื่องจาก OS ครอง USB driver ไว้'
+  },
+  {
+    value: 'browser' as const,
+    label: 'Browser Print Dialog',
+    desc: 'ใช้ระบบพิมพ์ของ browser (จะมีหน้าต่าง confirm)'
+  },
+]
+
 const summaryHourOptions = Array.from({ length: 8 }, (_, i) => {
   const h = 16 + i // 16–23
   return { value: h, label: `${h.toString().padStart(2, '0')}:00` }
@@ -450,6 +763,50 @@ onMounted(async () => {
 
 async function checkPrinterStatus() {
   isRawBTConnected.value = await checkRawBTStatus()
+  // เช็คสถานะ USB printer ที่ pair ไว้แล้ว
+  if (isUSBSupported()) {
+    const device = await getUSBPrinter()
+    usbDeviceName.value = device?.productName || (device ? 'USB Printer' : '')
+  }
+}
+
+async function handleConnectUSB() {
+  isConnectingUSB.value = true
+  try {
+    const device = await connectUSBPrinter()
+    if (device) {
+      usbDeviceName.value = device.productName || 'USB Printer'
+      toast.success(`เชื่อมต่อสำเร็จ: ${usbDeviceName.value}`)
+    } else {
+      toast.error('ยกเลิกการเชื่อมต่อ หรือไม่พบเครื่องพิมพ์')
+    }
+  } finally {
+    isConnectingUSB.value = false
+  }
+}
+
+async function handleTestPrint() {
+  isTestingPrint.value = true
+  await saveReceiptSettings({ ...form })
+  try {
+    const result = await testPrint()
+    if (result.success) {
+      toast.success('ส่งคำสั่งพิมพ์เรียบร้อยแล้ว')
+    } else if (result.errorType === 'security_error') {
+      usbSecurityError.value = true
+      toast.error('USB ถูก Android OS ครอง ไม่สามารถใช้ WebUSB ได้ ดูคำแนะนำด้านล่าง')
+    } else if (result.errorType === 'no_ip') {
+      toast.error('กรุณากรอก IP ของ printer ก่อน')
+    } else if (result.errorType === 'no_device') {
+      toast.error('ไม่พบ USB printer กรุณากด "เชื่อมต่อเครื่องพิมพ์ USB" ก่อน')
+    } else if (result.errorType === 'connection_error') {
+      toast.error('เชื่อมต่อ printer ไม่ได้ กรุณาตรวจสอบ IP และการเชื่อมต่อเครือข่าย')
+    } else {
+      toast.error('ไม่สามารถพิมพ์ได้ กรุณาตรวจสอบการเชื่อมต่อ')
+    }
+  } finally {
+    isTestingPrint.value = false
+  }
 }
 
 const toggleOptions = [
