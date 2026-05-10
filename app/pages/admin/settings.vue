@@ -528,16 +528,42 @@
                 </div>
               </template>
 
-              <!-- Code Page ภาษาไทย (แสดงเฉพาะ usb/wifi) -->
-              <div v-if="form.printerMethod === 'usb' || form.printerMethod === 'wifi'" class="space-y-1">
-                <label class="form-label">Code Page ภาษาไทย</label>
-                <select v-model.number="form.printerCodePage" class="form-input text-sm">
-                  <option :value="21">21 — Xprinter / HOIN / ทั่วไป (แนะนำ)</option>
-                  <option :value="20">20 — Epson TM series</option>
-                  <option :value="255">255 — Windows-874 (บางรุ่น)</option>
-                  <option :value="0">0 — ไม่ระบุ (ใช้ค่า default ของ printer)</option>
-                </select>
-                <p class="text-xs text-surface-500">ถ้าข้อความออกมาเป็นภาษาจีนหรือสัญลักษณ์แปลก ให้ลองเปลี่ยนค่านี้</p>
+              <!-- การแสดงผลภาษาไทย (แสดงเฉพาะ usb/wifi) -->
+              <div v-if="form.printerMethod === 'usb' || form.printerMethod === 'wifi'" class="space-y-3">
+                <!-- Image Mode Toggle -->
+                <div class="flex items-start justify-between gap-3 p-3 bg-surface-950 rounded-xl border border-surface-800">
+                  <div>
+                    <p class="text-sm font-semibold text-surface-200">โหมดภาพ (Image Mode)</p>
+                    <p class="text-xs text-surface-500 mt-0.5 leading-relaxed">
+                      render ข้อความเป็น bitmap ก่อนปริ้น — ใช้เมื่อข้อความออกมาเป็นภาษาจีน
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    @click="form.printerImageMode = !form.printerImageMode"
+                    :class="[
+                      'relative shrink-0 w-12 h-6 rounded-full transition-colors duration-200',
+                      form.printerImageMode ? 'bg-primary-500' : 'bg-surface-700'
+                    ]"
+                  >
+                    <span :class="[
+                      'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200',
+                      form.printerImageMode ? 'translate-x-6' : 'translate-x-0'
+                    ]" />
+                  </button>
+                </div>
+
+                <!-- Code Page (ซ่อนเมื่อใช้ Image Mode) -->
+                <div v-if="!form.printerImageMode" class="space-y-1">
+                  <label class="form-label">Code Page ภาษาไทย</label>
+                  <select v-model.number="form.printerCodePage" class="form-input text-sm">
+                    <option :value="21">21 — Xprinter / HOIN / ทั่วไป (แนะนำ)</option>
+                    <option :value="20">20 — Epson TM series</option>
+                    <option :value="255">255 — Windows-874 (บางรุ่น)</option>
+                    <option :value="0">0 — ไม่ระบุ (ใช้ค่า default ของ printer)</option>
+                  </select>
+                  <p class="text-xs text-surface-500">ถ้าข้อความออกมาเป็นภาษาจีน ให้เปิด Image Mode แทน</p>
+                </div>
               </div>
 
               <!-- ทดสอบพิมพ์ (แสดงทุก method) -->
@@ -765,6 +791,7 @@ const form = reactive<ReceiptSettings>({
   printerPort: 9100,
   printerBridgeUrl: '',
   printerCodePage: 21,
+  printerImageMode: false,
   showOrderNumber: true,
   showStaffName: true,
   showTaxInfo: false,

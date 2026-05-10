@@ -177,7 +177,9 @@ export function usePrinter() {
       return false
     }
     try {
-      const buffer = buildEscPosBuffer(order)
+      const buffer = s.printerImageMode
+        ? await buildImageEscPos(buildReceiptPlainText(order), s.paperSize)
+        : buildEscPosBuffer(order)
       const payload = { ip: s.printerIp, port: s.printerPort || 9100, data: uint8ToBase64(buffer) }
 
       // ถ้ากำหนด Bridge URL → ส่งตรงไปยัง local bridge แทน Vercel server route
@@ -204,7 +206,10 @@ export function usePrinter() {
         return false
       }
 
-      const buffer = buildEscPosBuffer(order)
+      const s = receiptSettings.value
+      const buffer = s.printerImageMode
+        ? await buildImageEscPos(buildReceiptPlainText(order), s.paperSize)
+        : buildEscPosBuffer(order)
 
       if (!device.opened) await device.open()
       if (device.configuration === null) await device.selectConfiguration(1)
@@ -262,25 +267,32 @@ export function usePrinter() {
     ].join('\n')
 
     const method = s.printerMethod ?? 'wifi'
+    const useImage = s.printerImageMode ?? false
     const codePage = s.printerCodePage ?? 21
     const codePageCmd = codePage > 0
       ? new Uint8Array([0x1B, 0x74, codePage])
       : new Uint8Array([])
 
+    // สร้าง buffer ตาม mode (image หรือ text)
+    const buildTestBuffer = async (): Promise<Uint8Array> => {
+      if (useImage) return buildImageEscPos(testLines, s.paperSize)
+      const parts: Uint8Array[] = [
+        new Uint8Array([0x1B, 0x40]),
+        codePageCmd,
+        encodeThai(testLines),
+        new Uint8Array([0x1D, 0x56, 0x42, 0x00])
+      ]
+      const total = parts.reduce((acc, p) => acc + p.length, 0)
+      const buf = new Uint8Array(total)
+      let off = 0
+      for (const p of parts) { buf.set(p, off); off += p.length }
+      return buf
+    }
+
     if (method === 'wifi') {
       if (!s.printerIp) return { success: false, errorType: 'no_ip' }
       try {
-        const parts: Uint8Array[] = [
-          new Uint8Array([0x1B, 0x40]),
-          codePageCmd,
-          encodeThai(testLines),
-          new Uint8Array([0x1D, 0x56, 0x42, 0x00])
-        ]
-        const total = parts.reduce((acc, p) => acc + p.length, 0)
-        const buf = new Uint8Array(total)
-        let off = 0
-        for (const p of parts) { buf.set(p, off); off += p.length }
-
+        const buf = await buildTestBuffer()
         const endpoint = s.printerBridgeUrl ? s.printerBridgeUrl.replace(/\/$/, '') + '/print' : '/api/thermal-print'
         await $fetch(endpoint, { method: 'POST', body: { ip: s.printerIp, port: s.printerPort || 9100, data: uint8ToBase64(buf) } })
         return { success: true }
@@ -292,16 +304,7 @@ export function usePrinter() {
       const device = await getUSBPrinter()
       if (!device) return { success: false, errorType: 'no_device' }
 
-      const parts: Uint8Array[] = [
-        new Uint8Array([0x1B, 0x40]),
-        codePageCmd,
-        encodeThai(testLines),
-        new Uint8Array([0x1D, 0x56, 0x42, 0x00])
-      ]
-      const total = parts.reduce((acc, p) => acc + p.length, 0)
-      const buf = new Uint8Array(total)
-      let off = 0
-      for (const p of parts) { buf.set(p, off); off += p.length }
+      const buf = await buildTestBuffer()
 
       try {
         if (!device.opened) await device.open()
@@ -348,8 +351,15 @@ export function usePrinter() {
       }
 
     } else {
-      await nextTick()
-      window.print()
+      const win = window.open('', '_blank', 'width=400,height=600')
+      if (!win) return { success: true }
+      win.document.write(`<!DOCTYPE html><html><head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Sarabun','Noto Sans Thai',monospace; font-size: 13px; padding: 16px; white-space: pre; }
+        </style>
+      </head><body onload="window.print();window.close()">${testLines.replace(/</g, '&lt;')}</body></html>`)
+      win.document.close()
       return { success: true }
     }
   }
@@ -469,6 +479,123 @@ export function usePrinter() {
       other: 'อื่นๆ'
     }
     return labels[method] || method
+  }
+
+  // ---------------------------------------------------------------------------
+  // Plain Text Formatter (ไม่มี ESC/POS control chars) — ใช้สำหรับ image mode
+  // ---------------------------------------------------------------------------
+  function buildReceiptPlainText(order: Order): string {
+    const s = receiptSettings.value
+    const lineWidth = s.paperSize === '58mm' ? 32 : 42
+    const line = '-'.repeat(lineWidth)
+
+    const center = (text: string) => {
+      if (!text) return ''
+      const pad = Math.max(0, Math.floor((lineWidth - text.length) / 2))
+      return ' '.repeat(pad) + text
+    }
+
+    const rows: string[] = []
+    rows.push(center(s.shopName))
+    if (s.shopTagline) rows.push(center(s.shopTagline))
+    if (s.shopAddress) rows.push(center(s.shopAddress))
+    if (s.shopPhone) rows.push(center(`โทร: ${s.shopPhone}`))
+    rows.push(center(new Date(order.createdAt).toLocaleString('th-TH')))
+    rows.push(line)
+
+    if (s.showOrderNumber) rows.push(`เลขที่บิล: ${order.orderNumber}`)
+    if (s.showStaffName) rows.push(`พนักงาน: ${order.staffName}`)
+    rows.push(`การชำระ: ${getPaymentLabel(order.paymentMethod)}`)
+    rows.push(line)
+
+    const nameWidth = lineWidth === 32 ? 14 : 20
+    const qtyWidth = 8
+    const priceWidth = lineWidth - nameWidth - qtyWidth
+    rows.push('รายการ'.padEnd(nameWidth) + 'จำนวน'.padStart(qtyWidth) + 'ราคา'.padStart(priceWidth))
+
+    order.items.forEach((item: OrderItem) => {
+      const name = item.productName.substring(0, nameWidth).padEnd(nameWidth)
+      const qty = `x${item.quantity}`.padStart(qtyWidth)
+      const price = item.totalPrice.toLocaleString().padStart(priceWidth)
+      rows.push(`${name}${qty}${price}`)
+      if (item.addons?.length) item.addons.forEach(a => rows.push(`  + ${a.name}`))
+    })
+
+    rows.push(line)
+    rows.push(`ยอดรวม:${order.subtotal.toLocaleString().padStart(lineWidth - 7)}`)
+    if (order.discountAmount > 0)
+      rows.push(`ส่วนลด:${order.discountAmount.toLocaleString().padStart(lineWidth - 7)}`)
+    if (s.showTaxInfo && order.taxAmount > 0)
+      rows.push(`ภาษี (${order.taxRate}%):${order.taxAmount.toLocaleString().padStart(lineWidth - 13)}`)
+    rows.push(`ยอดสุทธิ:${order.totalAmount.toLocaleString().padStart(lineWidth - 12)} บาท`)
+    rows.push(line)
+    if (s.footerMessage) rows.push(center(s.footerMessage))
+    rows.push(center('Yum2K POS'))
+
+    return rows.join('\n')
+  }
+
+  // ---------------------------------------------------------------------------
+  // Image Mode — render text → Canvas → 1-bit bitmap → ESC/POS GS v 0
+  // ใช้เมื่อ printer ไม่มี Thai font (เช่น Chinese-brand printers)
+  // วิธีนี้ส่ง pixel แทน character จึงรองรับทุกภาษาที่ OS รองรับ
+  // ---------------------------------------------------------------------------
+
+  /** แปลง text หลายบรรทัด → Uint8Array ที่มี ESC/POS image command */
+  async function buildImageEscPos(text: string, paperSize: '58mm' | '80mm'): Promise<Uint8Array> {
+    // ความกว้าง dot ของกระดาษ (203 DPI มาตรฐาน thermal printer)
+    const printWidth = paperSize === '58mm' ? 384 : 576
+    const fontSize = paperSize === '58mm' ? 22 : 26
+    const lineHeight = Math.ceil(fontSize * 1.55)
+    const paddingX = 6
+
+    const lines = text.split('\n')
+    const canvasHeight = lines.length * lineHeight + 16
+
+    const canvas = document.createElement('canvas')
+    canvas.width = printWidth
+    canvas.height = canvasHeight
+    const ctx = canvas.getContext('2d')!
+
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, printWidth, canvasHeight)
+    ctx.fillStyle = '#000000'
+    ctx.font = `${fontSize}px 'Sarabun', 'Noto Sans Thai', 'TH Sarabun New', monospace`
+    ctx.textBaseline = 'top'
+
+    lines.forEach((line, i) => {
+      ctx.fillText(line, paddingX, 8 + i * lineHeight)
+    })
+
+    // แปลงเป็น 1-bit bitmap (1 = black, 0 = white), MSB = leftmost pixel
+    const imageData = ctx.getImageData(0, 0, printWidth, canvasHeight)
+    const bytesPerRow = Math.ceil(printWidth / 8)
+    const bitmap = new Uint8Array(bytesPerRow * canvasHeight)
+
+    for (let y = 0; y < canvasHeight; y++) {
+      for (let x = 0; x < printWidth; x++) {
+        const idx = (y * printWidth + x) * 4
+        const brightness = (imageData.data[idx] + imageData.data[idx + 1] + imageData.data[idx + 2]) / 3
+        if (brightness < 128) {
+          bitmap[y * bytesPerRow + Math.floor(x / 8)] |= (0x80 >> (x % 8))
+        }
+      }
+    }
+
+    // GS v 0 — Print raster bit image
+    const header = new Uint8Array([
+      0x1B, 0x40,                                         // ESC @ init
+      0x1D, 0x76, 0x30, 0x00,                             // GS v 0 (normal)
+      bytesPerRow & 0xFF, (bytesPerRow >> 8) & 0xFF,      // xL xH
+      canvasHeight & 0xFF, (canvasHeight >> 8) & 0xFF,    // yL yH
+    ])
+    const footer = new Uint8Array([0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x42, 0x00])
+
+    const result = new Uint8Array(header.length + bitmap.length + footer.length)
+    result.set(header, 0)
+    result.set(bitmap, header.length)
+    result.set(footer, header.length + bitmap.length)
+    return result
   }
 
   // ---------------------------------------------------------------------------

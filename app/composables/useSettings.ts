@@ -22,6 +22,7 @@ export interface ReceiptSettings {
   printerPort?: number    // TCP port ของ printer (ปกติ 9100)
   printerBridgeUrl?: string // URL ของ Local Print Bridge (ถ้า app รันบน cloud)
   printerCodePage?: number  // ESC/POS code page สำหรับภาษาไทย (20=Epson, 21=Xprinter, 255=Win874)
+  printerImageMode?: boolean // พิมพ์แบบ bitmap image (แก้ปัญหา printer ไม่มี Thai font)
   showOrderNumber: boolean   // แสดงเลขที่บิล
   showStaffName: boolean     // แสดงชื่อพนักงาน
   showTaxInfo: boolean       // แสดงข้อมูลภาษี (VAT)
@@ -54,6 +55,7 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   printerPort: 9100,
   printerBridgeUrl: '',
   printerCodePage: 21,
+  printerImageMode: false,
   showOrderNumber: true,
   showStaffName: true,
   showTaxInfo: false,
