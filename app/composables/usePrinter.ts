@@ -178,7 +178,7 @@ export function usePrinter() {
     }
     try {
       const buffer = s.printerImageMode
-        ? await buildImageEscPos(buildReceiptPlainText(order), s.paperSize)
+        ? await buildImageEscPos(buildReceiptLines(order), s.paperSize)
         : buildEscPosBuffer(order)
       const payload = { ip: s.printerIp, port: s.printerPort || 9100, data: uint8ToBase64(buffer) }
 
@@ -208,7 +208,7 @@ export function usePrinter() {
 
       const s = receiptSettings.value
       const buffer = s.printerImageMode
-        ? await buildImageEscPos(buildReceiptPlainText(order), s.paperSize)
+        ? await buildImageEscPos(buildReceiptLines(order), s.paperSize)
         : buildEscPosBuffer(order)
 
       if (!device.opened) await device.open()
@@ -275,7 +275,7 @@ export function usePrinter() {
 
     // สร้าง buffer ตาม mode (image หรือ text)
     const buildTestBuffer = async (): Promise<Uint8Array> => {
-      if (useImage) return buildImageEscPos(testLines, s.paperSize)
+      if (useImage) return buildImageEscPos(buildTestReceiptLines(s.shopName, s.paperSize), s.paperSize)
       const parts: Uint8Array[] = [
         new Uint8Array([0x1B, 0x40]),
         codePageCmd,
@@ -482,76 +482,90 @@ export function usePrinter() {
   }
 
   // ---------------------------------------------------------------------------
-  // Plain Text Formatter (ไม่มี ESC/POS control chars) — ใช้สำหรับ image mode
+  // Image Mode — render structured receipt → Canvas → 1-bit bitmap → ESC/POS
+  // ใช้ pixel position แทน text padding เพื่อให้ column ตรงกันทุกภาษา
   // ---------------------------------------------------------------------------
-  function buildReceiptPlainText(order: Order): string {
+
+  // โครงสร้างแต่ละบรรทัดของใบเสร็จ
+  type ReceiptLine =
+    | { type: 'text'; text: string; align?: 'left' | 'center' | 'right' }
+    | { type: 'separator' }
+    | { type: 'spacer' }
+    | { type: 'columns'; name: string; qty: string; price: string }
+
+  /** สร้าง receipt เป็น structured lines (ไม่ใช้ text padding) */
+  function buildReceiptLines(order: Order): ReceiptLine[] {
     const s = receiptSettings.value
-    const lineWidth = s.paperSize === '58mm' ? 32 : 42
-    const line = '-'.repeat(lineWidth)
+    const lines: ReceiptLine[] = []
 
-    const center = (text: string) => {
-      if (!text) return ''
-      const pad = Math.max(0, Math.floor((lineWidth - text.length) / 2))
-      return ' '.repeat(pad) + text
-    }
+    lines.push({ type: 'text', text: s.shopName, align: 'center' })
+    if (s.shopTagline) lines.push({ type: 'text', text: s.shopTagline, align: 'center' })
+    if (s.shopAddress) lines.push({ type: 'text', text: s.shopAddress, align: 'center' })
+    if (s.shopPhone) lines.push({ type: 'text', text: `โทร: ${s.shopPhone}`, align: 'center' })
+    lines.push({ type: 'text', text: new Date(order.createdAt).toLocaleString('th-TH'), align: 'center' })
+    lines.push({ type: 'separator' })
 
-    const rows: string[] = []
-    rows.push(center(s.shopName))
-    if (s.shopTagline) rows.push(center(s.shopTagline))
-    if (s.shopAddress) rows.push(center(s.shopAddress))
-    if (s.shopPhone) rows.push(center(`โทร: ${s.shopPhone}`))
-    rows.push(center(new Date(order.createdAt).toLocaleString('th-TH')))
-    rows.push(line)
+    if (s.showOrderNumber) lines.push({ type: 'text', text: `เลขที่บิล: ${order.orderNumber}` })
+    if (s.showStaffName) lines.push({ type: 'text', text: `พนักงาน: ${order.staffName}` })
+    lines.push({ type: 'text', text: `การชำระ: ${getPaymentLabel(order.paymentMethod)}` })
+    lines.push({ type: 'separator' })
 
-    if (s.showOrderNumber) rows.push(`เลขที่บิล: ${order.orderNumber}`)
-    if (s.showStaffName) rows.push(`พนักงาน: ${order.staffName}`)
-    rows.push(`การชำระ: ${getPaymentLabel(order.paymentMethod)}`)
-    rows.push(line)
-
-    const nameWidth = lineWidth === 32 ? 14 : 20
-    const qtyWidth = 8
-    const priceWidth = lineWidth - nameWidth - qtyWidth
-    rows.push('รายการ'.padEnd(nameWidth) + 'จำนวน'.padStart(qtyWidth) + 'ราคา'.padStart(priceWidth))
+    lines.push({ type: 'columns', name: 'รายการ', qty: 'จำนวน', price: 'ราคา' })
 
     order.items.forEach((item: OrderItem) => {
-      const name = item.productName.substring(0, nameWidth).padEnd(nameWidth)
-      const qty = `x${item.quantity}`.padStart(qtyWidth)
-      const price = item.totalPrice.toLocaleString().padStart(priceWidth)
-      rows.push(`${name}${qty}${price}`)
-      if (item.addons?.length) item.addons.forEach(a => rows.push(`  + ${a.name}`))
+      lines.push({ type: 'columns', name: item.productName, qty: `x${item.quantity}`, price: item.totalPrice.toLocaleString() })
+      if (item.addons?.length) item.addons.forEach(a => lines.push({ type: 'text', text: `  + ${a.name}` }))
     })
 
-    rows.push(line)
-    rows.push(`ยอดรวม:${order.subtotal.toLocaleString().padStart(lineWidth - 7)}`)
+    lines.push({ type: 'separator' })
+    lines.push({ type: 'columns', name: 'ยอดรวม', qty: '', price: order.subtotal.toLocaleString() })
     if (order.discountAmount > 0)
-      rows.push(`ส่วนลด:${order.discountAmount.toLocaleString().padStart(lineWidth - 7)}`)
+      lines.push({ type: 'columns', name: 'ส่วนลด', qty: '', price: `-${order.discountAmount.toLocaleString()}` })
     if (s.showTaxInfo && order.taxAmount > 0)
-      rows.push(`ภาษี (${order.taxRate}%):${order.taxAmount.toLocaleString().padStart(lineWidth - 13)}`)
-    rows.push(`ยอดสุทธิ:${order.totalAmount.toLocaleString().padStart(lineWidth - 12)} บาท`)
-    rows.push(line)
-    if (s.footerMessage) rows.push(center(s.footerMessage))
-    rows.push(center('Yum2K POS'))
+      lines.push({ type: 'columns', name: `ภาษี (${order.taxRate}%)`, qty: '', price: order.taxAmount.toLocaleString() })
+    lines.push({ type: 'columns', name: 'ยอดสุทธิ', qty: '', price: `${order.totalAmount.toLocaleString()} บาท` })
+    lines.push({ type: 'separator' })
 
-    return rows.join('\n')
+    if (s.footerMessage) lines.push({ type: 'text', text: s.footerMessage, align: 'center' })
+    lines.push({ type: 'text', text: 'Yum2K POS', align: 'center' })
+    lines.push({ type: 'spacer' })
+
+    return lines
   }
 
-  // ---------------------------------------------------------------------------
-  // Image Mode — render text → Canvas → 1-bit bitmap → ESC/POS GS v 0
-  // ใช้เมื่อ printer ไม่มี Thai font (เช่น Chinese-brand printers)
-  // วิธีนี้ส่ง pixel แทน character จึงรองรับทุกภาษาที่ OS รองรับ
-  // ---------------------------------------------------------------------------
+  /** สร้าง receipt สำหรับ testPrint แบบ structured (ไม่ต้องการ Order) */
+  function buildTestReceiptLines(shopName: string, paperSize: string): ReceiptLine[] {
+    return [
+      { type: 'separator' },
+      { type: 'text', text: 'ทดสอบการพิมพ์ / Test Print', align: 'center' },
+      { type: 'separator' },
+      { type: 'text', text: `ร้าน: ${shopName}` },
+      { type: 'text', text: `กระดาษ: ${paperSize}` },
+      { type: 'text', text: new Date().toLocaleString('th-TH') },
+      { type: 'columns', name: 'กะเพราหมู', qty: 'x2', price: '80' },
+      { type: 'columns', name: 'ต้มยำกุ้ง', qty: 'x1', price: '120' },
+      { type: 'separator' },
+      { type: 'columns', name: 'ยอดสุทธิ', qty: '', price: '200 บาท' },
+      { type: 'separator' },
+      { type: 'spacer' },
+    ]
+  }
 
-  /** แปลง text หลายบรรทัด → Uint8Array ที่มี ESC/POS image command */
-  async function buildImageEscPos(text: string, paperSize: '58mm' | '80mm'): Promise<Uint8Array> {
-    // ความกว้าง dot ของกระดาษ (203 DPI มาตรฐาน thermal printer)
+  /**
+   * render ReceiptLine[] → Canvas → Uint8Array (ESC/POS GS v 0)
+   * วาด column แต่ละ cell ที่ pixel X คงที่ ไม่ขึ้นกับความกว้างตัวอักษร
+   */
+  async function buildImageEscPos(lines: ReceiptLine[], paperSize: '58mm' | '80mm'): Promise<Uint8Array> {
     const printWidth = paperSize === '58mm' ? 384 : 576
     const fontSize = paperSize === '58mm' ? 22 : 26
-    const lineHeight = Math.ceil(fontSize * 1.55)
-    const paddingX = 6
+    const lineHeight = Math.ceil(fontSize * 1.6)
+    const padX = 8
 
-    const lines = text.split('\n')
-    const canvasHeight = lines.length * lineHeight + 16
+    // pixel X ของแต่ละ column (name=left, qty=center-right, price=right edge)
+    const qtyX = paperSize === '58mm' ? 248 : 380   // qty right-edge
+    const priceX = printWidth - padX                 // price right-edge
 
+    const canvasHeight = lines.length * lineHeight + 20
     const canvas = document.createElement('canvas')
     canvas.width = printWidth
     canvas.height = canvasHeight
@@ -560,14 +574,52 @@ export function usePrinter() {
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, printWidth, canvasHeight)
     ctx.fillStyle = '#000000'
-    ctx.font = `${fontSize}px 'Sarabun', 'Noto Sans Thai', 'TH Sarabun New', monospace`
     ctx.textBaseline = 'top'
 
+    const font = `${fontSize}px 'Sarabun','Noto Sans Thai','TH Sarabun New',monospace`
+    ctx.font = font
+
     lines.forEach((line, i) => {
-      ctx.fillText(line, paddingX, 8 + i * lineHeight)
+      const y = 10 + i * lineHeight
+
+      if (line.type === 'separator') {
+        ctx.fillRect(padX, y + lineHeight / 2 - 1, printWidth - padX * 2, 1)
+
+      } else if (line.type === 'text') {
+        const align = line.align ?? 'left'
+        if (align === 'center') {
+          const w = ctx.measureText(line.text).width
+          ctx.fillText(line.text, (printWidth - w) / 2, y)
+        } else if (align === 'right') {
+          const w = ctx.measureText(line.text).width
+          ctx.fillText(line.text, priceX - w, y)
+        } else {
+          ctx.fillText(line.text, padX, y)
+        }
+
+      } else if (line.type === 'columns') {
+        // name: left-aligned, ตัดถ้าชนกับ qty column
+        const maxNameWidth = qtyX - padX - 16
+        let name = line.name
+        while (name.length > 1 && ctx.measureText(name).width > maxNameWidth) {
+          name = name.slice(0, -1)
+        }
+        ctx.fillText(name, padX, y)
+
+        // qty: right-aligned ที่ qtyX
+        if (line.qty) {
+          const qw = ctx.measureText(line.qty).width
+          ctx.fillText(line.qty, qtyX - qw, y)
+        }
+
+        // price: right-aligned ที่ priceX
+        const pw = ctx.measureText(line.price).width
+        ctx.fillText(line.price, priceX - pw, y)
+      }
+      // spacer: ว่างเปล่า
     })
 
-    // แปลงเป็น 1-bit bitmap (1 = black, 0 = white), MSB = leftmost pixel
+    // แปลงเป็น 1-bit bitmap
     const imageData = ctx.getImageData(0, 0, printWidth, canvasHeight)
     const bytesPerRow = Math.ceil(printWidth / 8)
     const bitmap = new Uint8Array(bytesPerRow * canvasHeight)
@@ -582,12 +634,11 @@ export function usePrinter() {
       }
     }
 
-    // GS v 0 — Print raster bit image
     const header = new Uint8Array([
-      0x1B, 0x40,                                         // ESC @ init
-      0x1D, 0x76, 0x30, 0x00,                             // GS v 0 (normal)
-      bytesPerRow & 0xFF, (bytesPerRow >> 8) & 0xFF,      // xL xH
-      canvasHeight & 0xFF, (canvasHeight >> 8) & 0xFF,    // yL yH
+      0x1B, 0x40,
+      0x1D, 0x76, 0x30, 0x00,
+      bytesPerRow & 0xFF, (bytesPerRow >> 8) & 0xFF,
+      canvasHeight & 0xFF, (canvasHeight >> 8) & 0xFF,
     ])
     const footer = new Uint8Array([0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x42, 0x00])
 

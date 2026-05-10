@@ -54,7 +54,7 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   printerIp: '',
   printerPort: 9100,
   printerBridgeUrl: '',
-  printerCodePage: 21,
+  printerCodePage: 255,
   printerImageMode: false,
   showOrderNumber: true,
   showStaffName: true,
