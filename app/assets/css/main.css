@@ -10,16 +10,18 @@
 
 /* --- Color Variables สำหรับระบบ ธีม --- */
 :root {
-  /* Default (Dark Mode) */
+  /* Default (Dark Mode): Low numbers = Light, High numbers = Dark */
   --surface-950: #0f0e0d; /* พื้นหลังหน้าจอ */
   --surface-900: #1a1917; /* พื้นหลัง Card / Header */
   --surface-800: #27251f; /* พื้นหลังปุ่ม / ส่วนที่ยกตัวขึ้น */
-  --surface-700: #3a3731;
-  --surface-600: #4f4b43;
-  --surface-300: #3a3731;
-  --surface-200: #27251f; /* สีขอบ (Border) */
-  --surface-100: #f5f4f2; /* ใช้สำหรับส่วนที่ต้องการเน้นให้สว่างขึ้นในพื้นหลังมืด */
-  --surface-50:  #fafaf9; /* สีตัวอักษรหลัก / หัวตารางที่ต้องการให้เด่น */
+  --surface-700: #3a3731; /* เส้นขอบ (Border) */
+  --surface-600: #525252;
+  --surface-500: #737373;
+  --surface-400: #a3a3a3; /* ตัวอักษรรอง */
+  --surface-300: #d4d4d4; /* ตัวอักษรปกติ */
+  --surface-200: #e5e5e5;
+  --surface-100: #f5f4f2; /* ตัวอักษรเด่น */
+  --surface-50:  #fafaf9; /* ตัวอักษรสีขาว / เด่นที่สุด */
 }
 
 .light-mode {
@@ -72,6 +74,8 @@
   --color-surface-800: var(--surface-800);
   --color-surface-700: var(--surface-700);
   --color-surface-600: var(--surface-600);
+  --color-surface-500: var(--surface-500);
+  --color-surface-400: var(--surface-400);
   --color-surface-300: var(--surface-300);
   --color-surface-200: var(--surface-200);
   --color-surface-100: var(--surface-100);
