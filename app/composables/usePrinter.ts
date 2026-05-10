@@ -205,30 +205,37 @@ export function usePrinter() {
 
       const buffer = buildEscPosBuffer(order)
 
+      if (!device.opened) await device.open()
+      if (device.configuration === null) await device.selectConfiguration(1)
+
+      // หา interface และ endpoint ที่ถูกต้องหลัง open แล้ว
+      let interfaceNumber = 0
       let endpointNumber = 1
       try {
-        const iface = device.configuration?.interfaces?.[0]
-        const alternate = iface?.alternates?.[0]
-        const outEndpoint = alternate?.endpoints?.find((e: any) => e.direction === 'out')
-        if (outEndpoint) endpointNumber = outEndpoint.endpointNumber
+        for (const iface of device.configuration.interfaces) {
+          const ep = iface.alternates?.[0]?.endpoints?.find((e: any) => e.direction === 'out')
+          if (ep) {
+            interfaceNumber = iface.interfaceNumber
+            endpointNumber = ep.endpointNumber
+            break
+          }
+        }
       } catch { /* ใช้ค่าเริ่มต้น */ }
 
-      await device.open()
-      if (device.configuration === null) await device.selectConfiguration(1)
-      await device.claimInterface(0)
+      await device.claimInterface(interfaceNumber)
 
       try {
         await device.transferOut(endpointNumber, buffer)
         return true
       } finally {
-        await device.releaseInterface(0)
+        await device.releaseInterface(interfaceNumber)
         await device.close()
       }
     } catch (error: any) {
       if (error?.name === 'SecurityError') {
         console.warn('⚠️ USB SecurityError: Android OS ครอง printer interface ไว้แล้ว ไม่สามารถใช้ WebUSB ได้')
       } else {
-        console.warn('⚠️ USB print error:', error)
+        console.warn('⚠️ USB print error:', error?.name, error?.message)
       }
       return false
     }
@@ -238,7 +245,7 @@ export function usePrinter() {
    * ส่ง test print ผ่านวิธีที่กำหนดใน settings
    * คืนค่า { success, errorType } เพื่อให้ UI แสดง error message ที่เหมาะสม
    */
-  async function testPrint(): Promise<{ success: boolean; errorType?: 'security_error' | 'no_device' | 'no_ip' | 'connection_error' | 'generic' }> {
+  async function testPrint(): Promise<{ success: boolean; errorType?: 'security_error' | 'no_device' | 'no_ip' | 'connection_error' | 'generic'; errorMessage?: string }> {
     await loadReceiptSettings()
     const s = receiptSettings.value
     const lineWidth = s.paperSize === '58mm' ? 32 : 42
@@ -291,27 +298,36 @@ export function usePrinter() {
       let off = 0
       for (const p of parts) { buf.set(p, off); off += p.length }
 
-      let endpointNumber = 1
       try {
-        const iface = device.configuration?.interfaces?.[0]
-        const ep = iface?.alternates?.[0]?.endpoints?.find((e: any) => e.direction === 'out')
-        if (ep) endpointNumber = ep.endpointNumber
-      } catch { /* ค่าเริ่มต้น */ }
-
-      try {
-        await device.open()
+        if (!device.opened) await device.open()
         if (device.configuration === null) await device.selectConfiguration(1)
-        await device.claimInterface(0)
+
+        // หา interface และ endpoint ที่ถูกต้องหลัง open แล้ว
+        let interfaceNumber = 0
+        let endpointNumber = 1
+        try {
+          for (const iface of device.configuration.interfaces) {
+            const ep = iface.alternates?.[0]?.endpoints?.find((e: any) => e.direction === 'out')
+            if (ep) {
+              interfaceNumber = iface.interfaceNumber
+              endpointNumber = ep.endpointNumber
+              break
+            }
+          }
+        } catch { /* ค่าเริ่มต้น */ }
+
+        await device.claimInterface(interfaceNumber)
         try {
           await device.transferOut(endpointNumber, buf)
           return { success: true }
         } finally {
-          await device.releaseInterface(0)
+          await device.releaseInterface(interfaceNumber)
           await device.close()
         }
       } catch (error: any) {
+        console.warn('⚠️ USB testPrint error:', error?.name, error?.message)
         if (error?.name === 'SecurityError') return { success: false, errorType: 'security_error' }
-        return { success: false, errorType: 'generic' }
+        return { success: false, errorType: 'generic', errorMessage: `${error?.name}: ${error?.message}` }
       }
 
     } else if (method === 'rawbt') {

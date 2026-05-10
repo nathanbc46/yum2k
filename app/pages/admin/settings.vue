@@ -842,7 +842,8 @@ async function handleTestPrint() {
     } else if (result.errorType === 'connection_error') {
       toast.error('เชื่อมต่อ printer ไม่ได้ กรุณาตรวจสอบ IP และการเชื่อมต่อเครือข่าย')
     } else {
-      toast.error('ไม่สามารถพิมพ์ได้ กรุณาตรวจสอบการเชื่อมต่อ')
+      const detail = result.errorMessage ? ` (${result.errorMessage})` : ''
+      toast.error(`ไม่สามารถพิมพ์ได้ กรุณาตรวจสอบการเชื่อมต่อ${detail}`)
     }
   } finally {
     isTestingPrint.value = false
