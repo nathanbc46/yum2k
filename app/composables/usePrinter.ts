@@ -32,6 +32,37 @@ export function usePrinter() {
   }
 
   // ---------------------------------------------------------------------------
+  // Visual Width Helpers
+  // Thai character = 2 columns, ASCII = 1 column (ตาม font ของ thermal printer)
+  // ---------------------------------------------------------------------------
+  const isThai = (code: number) => code >= 0x0E00 && code <= 0x0E7F
+
+  function vw(str: string): number {
+    let w = 0
+    for (let i = 0; i < str.length; i++) w += isThai(str.charCodeAt(i)) ? 2 : 1
+    return w
+  }
+
+  function vwPadEnd(str: string, width: number): string {
+    return str + ' '.repeat(Math.max(0, width - vw(str)))
+  }
+
+  function vwPadStart(str: string, width: number): string {
+    return ' '.repeat(Math.max(0, width - vw(str))) + str
+  }
+
+  function vwTruncate(str: string, maxWidth: number): string {
+    let w = 0, result = ''
+    for (let i = 0; i < str.length; i++) {
+      const cw = isThai(str.charCodeAt(i)) ? 2 : 1
+      if (w + cw > maxWidth) break
+      result += str[i]
+      w += cw
+    }
+    return result
+  }
+
+  // ---------------------------------------------------------------------------
   // ESC/POS Buffer Builder
   // สร้าง Uint8Array ที่มี ESC/POS commands ครบสำหรับส่งตรงไปยัง printer
   // ---------------------------------------------------------------------------
@@ -46,7 +77,7 @@ export function usePrinter() {
 
     const center = (text: string): string => {
       if (!text) return ''
-      const pad = Math.max(0, Math.floor((lineWidth - text.length) / 2))
+      const pad = Math.max(0, Math.floor((lineWidth - vw(text)) / 2))
       return ' '.repeat(pad) + text + '\n'
     }
 
@@ -77,12 +108,12 @@ export function usePrinter() {
     const qtyWidth = 8
     const priceWidth = lineWidth - nameWidth - qtyWidth
 
-    push('รายการ'.padEnd(nameWidth) + 'จำนวน'.padStart(qtyWidth) + 'ราคา'.padStart(priceWidth) + '\n')
+    push(vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวน', qtyWidth) + vwPadStart('ราคา', priceWidth) + '\n')
 
     order.items.forEach((item: OrderItem) => {
-      const name = item.productName.substring(0, nameWidth).padEnd(nameWidth)
-      const qty = `x${item.quantity}`.padStart(qtyWidth)
-      const price = item.totalPrice.toLocaleString().padStart(priceWidth)
+      const name = vwPadEnd(vwTruncate(item.productName, nameWidth), nameWidth)
+      const qty = vwPadStart(`x${item.quantity}`, qtyWidth)
+      const price = vwPadStart(item.totalPrice.toLocaleString('en-US'), priceWidth)
       push(`${name}${qty}${price}\n`)
       if (item.addons && item.addons.length > 0) {
         item.addons.forEach(addon => push(`  + ${addon.name}\n`))
@@ -92,14 +123,15 @@ export function usePrinter() {
     push(line + '\n')
 
     // --- Summary ---
-    push(`ยอดรวม:${order.subtotal.toLocaleString().padStart(lineWidth - 7)}\n`)
+    push(vwPadEnd('ยอดรวม:', 10) + vwPadStart(order.subtotal.toLocaleString('en-US'), lineWidth - 10) + '\n')
     if (order.discountAmount > 0) {
-      push(`ส่วนลด:${order.discountAmount.toLocaleString().padStart(lineWidth - 7)}\n`)
+      push(vwPadEnd('ส่วนลด:', 10) + vwPadStart(order.discountAmount.toLocaleString('en-US'), lineWidth - 10) + '\n')
     }
     if (s.showTaxInfo && order.taxAmount > 0) {
-      push(`ภาษี (${order.taxRate}%):${order.taxAmount.toLocaleString().padStart(lineWidth - 13)}\n`)
+      const taxLabel = `ภาษี (${order.taxRate}%):`
+      push(vwPadEnd(taxLabel, 14) + vwPadStart(order.taxAmount.toLocaleString('en-US'), lineWidth - 14) + '\n')
     }
-    push(`ยอดสุทธิ:${order.totalAmount.toLocaleString().padStart(lineWidth - 12)} บาท\n`)
+    push(vwPadEnd('ยอดสุทธิ:', 12) + vwPadStart(order.totalAmount.toLocaleString('en-US') + ' บาท', lineWidth - 12) + '\n')
     push(line + '\n')
 
     // --- Footer ---
@@ -422,7 +454,7 @@ export function usePrinter() {
 
     const center = (text: string) => {
       if (!text) return ''
-      const padding = Math.max(0, Math.floor((lineWidth - text.length) / 2))
+      const padding = Math.max(0, Math.floor((lineWidth - vw(text)) / 2))
       return ' '.repeat(padding) + text + '\n'
     }
 
@@ -443,12 +475,12 @@ export function usePrinter() {
     const qtyWidth = 8
     const priceWidth = lineWidth - nameWidth - qtyWidth
 
-    res += 'รายการ'.padEnd(nameWidth) + 'จำนวน'.padStart(qtyWidth) + 'ราคา'.padStart(priceWidth) + '\n'
+    res += vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวน', qtyWidth) + vwPadStart('ราคา', priceWidth) + '\n'
 
     order.items.forEach((item: OrderItem) => {
-      const name = item.productName.substring(0, nameWidth).padEnd(nameWidth)
-      const qty = `x${item.quantity}`.padStart(qtyWidth)
-      const price = item.totalPrice.toLocaleString().padStart(priceWidth)
+      const name = vwPadEnd(vwTruncate(item.productName, nameWidth), nameWidth)
+      const qty = vwPadStart(`x${item.quantity}`, qtyWidth)
+      const price = vwPadStart(item.totalPrice.toLocaleString('en-US'), priceWidth)
       res += `${name}${qty}${price}\n`
       if (item.addons && item.addons.length > 0) {
         item.addons.forEach(addon => { res += `  + ${addon.name}\n` })
@@ -456,14 +488,15 @@ export function usePrinter() {
     })
 
     res += line
-    res += `ยอดรวม:${order.subtotal.toLocaleString().padStart(lineWidth - 7)}\n`
+    res += vwPadEnd('ยอดรวม:', 10) + vwPadStart(order.subtotal.toLocaleString('en-US'), lineWidth - 10) + '\n'
     if (order.discountAmount > 0) {
-      res += `ส่วนลด:${order.discountAmount.toLocaleString().padStart(lineWidth - 7)}\n`
+      res += vwPadEnd('ส่วนลด:', 10) + vwPadStart(order.discountAmount.toLocaleString('en-US'), lineWidth - 10) + '\n'
     }
     if (s.showTaxInfo && order.taxAmount > 0) {
-      res += `ภาษี (${order.taxRate}%):${order.taxAmount.toLocaleString().padStart(lineWidth - 13)}\n`
+      const taxLabel = `ภาษี (${order.taxRate}%):`
+      res += vwPadEnd(taxLabel, 14) + vwPadStart(order.taxAmount.toLocaleString('en-US'), lineWidth - 14) + '\n'
     }
-    res += `ยอดสุทธิ:${order.totalAmount.toLocaleString().padStart(lineWidth - 12)} บาท\n`
+    res += vwPadEnd('ยอดสุทธิ:', 12) + vwPadStart(order.totalAmount.toLocaleString('en-US') + ' บาท', lineWidth - 12) + '\n'
     res += line
     if (s.footerMessage) res += center(s.footerMessage)
     res += center('Yum2K POS - Offline First')
@@ -614,9 +647,10 @@ export function usePrinter() {
     for (let y = 0; y < canvasHeight; y++) {
       for (let x = 0; x < printWidth; x++) {
         const idx = (y * printWidth + x) * 4
-        const brightness = (imageData.data[idx] + imageData.data[idx + 1] + imageData.data[idx + 2]) / 3
+        const brightness = (imageData.data[idx]! + imageData.data[idx + 1]! + imageData.data[idx + 2]!) / 3
         if (brightness < 128) {
-          bitmap[y * bytesPerRow + Math.floor(x / 8)] |= (0x80 >> (x % 8))
+          const bitmapIdx = y * bytesPerRow + Math.floor(x / 8)
+          bitmap[bitmapIdx]! |= (0x80 >> (x % 8))
         }
       }
     }
