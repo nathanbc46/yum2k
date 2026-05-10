@@ -787,7 +787,7 @@ const form = reactive<ReceiptSettings>({
   shopAddress: '',
   footerMessage: 'ขอบคุณที่อุดหนุนครับ/ค่ะ',
   paperSize: '80mm',
-  printerMethod: 'wifi',
+  printerMethod: 'usb',
   printerIp: '',
   printerPort: 9100,
   printerBridgeUrl: '',

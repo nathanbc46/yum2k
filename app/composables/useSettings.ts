@@ -50,7 +50,7 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   shopAddress: '',
   footerMessage: 'ขอบคุณที่อุดหนุนครับ/ค่ะ',
   paperSize: '80mm',
-  printerMethod: 'wifi' as const,
+  printerMethod: 'usb' as const,
   printerIp: '',
   printerPort: 9100,
   printerBridgeUrl: '',
