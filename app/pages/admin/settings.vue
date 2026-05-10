@@ -262,7 +262,7 @@
                       <input
                         v-model="form.printerIp"
                         type="text"
-                        placeholder="เช่น 192.168.1.100"
+                        placeholder="เช่น 10.10.100.25"
                         class="form-input font-mono"
                       />
                     </div>
@@ -275,6 +275,20 @@
                         class="form-input font-mono"
                       />
                     </div>
+                  </div>
+
+                  <!-- Bridge URL (สำหรับ app cloud-hosted) -->
+                  <div>
+                    <label class="form-label">
+                      Local Bridge URL
+                      <span class="normal-case font-normal text-surface-500 ml-1">(เฉพาะ app บน Vercel/cloud)</span>
+                    </label>
+                    <input
+                      v-model="form.printerBridgeUrl"
+                      type="text"
+                      placeholder="http://192.168.x.x:9200  (เว้นว่างถ้ารัน local)"
+                      class="form-input font-mono !text-[12px]"
+                    />
                   </div>
 
                   <!-- Help: วิธีหา IP + กรณีไม่มี Router -->
@@ -301,6 +315,18 @@
 
                         <div class="border-t border-surface-800" />
 
+                        <!-- แบบ AP Mode (Xprinter เป็น Hotspot) -->
+                        <div>
+                          <p class="font-bold text-green-400 mb-1">📶 Printer เป็น WiFi Hotspot (AP Mode) — แนะนำ</p>
+                          <div class="font-mono bg-surface-900 rounded-lg p-2 text-[10px] leading-relaxed">
+                            Tablet ──WiFi──▶ Xprinter AP (SSID: Printer)
+                          </div>
+                          <p class="mt-1">Tablet connect WiFi ชื่อ "Printer" แล้วใช้ IP ที่ระบุในใบ self-test เลย</p>
+                          <p class="mt-1 text-amber-400/80">⚠️ ถ้า app รันบน Vercel/cloud ต้องรัน <strong class="text-surface-200">Local Bridge</strong> ด้วย (ดูด้านล่าง)</p>
+                        </div>
+
+                        <div class="border-t border-surface-800" />
+
                         <!-- แบบมี Router -->
                         <div>
                           <p class="font-bold text-surface-300 mb-1">🌐 มี Router / Switch</p>
@@ -314,17 +340,30 @@
 
                         <!-- แบบไม่มี Router: LAN ตรง -->
                         <div>
-                          <p class="font-bold text-amber-400 mb-1">🔌 ไม่มี Router — ต่อสาย LAN ตรงระหว่าง Tablet กับ Printer</p>
+                          <p class="font-bold text-surface-300 mb-1">🔌 ต่อสาย LAN ตรง (ไม่มี Router)</p>
                           <div class="font-mono bg-surface-900 rounded-lg p-2 text-[10px] leading-relaxed">
-                            Tablet ──USB-C Ethernet adapter──LAN──▶ Xprinter
+                            Tablet ──USB-C Ethernet──LAN──▶ Xprinter
                           </div>
-                          <p class="mt-2 font-semibold text-surface-300">ต้องตั้ง Static IP เอง (ไม่มี DHCP):</p>
+                          <p class="mt-2 font-semibold text-surface-300">ตั้ง Static IP เอง:</p>
                           <ol class="list-decimal list-inside mt-1 space-y-1 pl-1">
-                            <li>ตั้ง IP บน <strong class="text-surface-200">Xprinter</strong> เป็น <code class="bg-surface-800 px-1 rounded text-primary-400">192.168.0.100</code></li>
-                            <li>ตั้ง IP บน <strong class="text-surface-200">Tablet</strong> (Settings → Network → Ethernet → Static) เป็น <code class="bg-surface-800 px-1 rounded text-primary-400">192.168.0.1</code> / Subnet <code class="bg-surface-800 px-1 rounded text-primary-400">255.255.255.0</code></li>
-                            <li>กรอก IP printer ด้านบนเป็น <code class="bg-surface-800 px-1 rounded text-primary-400">192.168.0.100</code></li>
+                            <li>Xprinter → <code class="bg-surface-800 px-1 rounded text-primary-400">192.168.0.100</code></li>
+                            <li>Tablet (Settings → Network → Ethernet → Static) → <code class="bg-surface-800 px-1 rounded text-primary-400">192.168.0.1</code> / Subnet <code class="bg-surface-800 px-1 rounded text-primary-400">255.255.255.0</code></li>
                           </ol>
-                          <p class="mt-2 text-amber-400/80">⚠️ USB-C port ใช้ได้ทีละอย่าง — ใช้ USB-C Hub ที่มี PD charging + Ethernet ในตัวเดียว</p>
+                          <p class="mt-2 text-amber-400/80">⚠️ ใช้ USB-C Hub ที่มี PD charging + Ethernet ในตัวเดียว</p>
+                        </div>
+
+                        <div class="border-t border-surface-800" />
+
+                        <!-- Local Bridge (กรณี cloud) -->
+                        <div>
+                          <p class="font-bold text-primary-400 mb-1">🌉 Local Print Bridge (app รันบน Vercel/cloud)</p>
+                          <p class="mb-2">เมื่อ app อยู่บน cloud server ไม่สามารถ reach IP ของ printer ใน local network ได้ ต้องรัน bridge บนเครื่องที่ connect WiFi เดียวกับ printer</p>
+                          <ol class="list-decimal list-inside space-y-1 pl-1">
+                            <li>Connect เครื่อง Windows/Mac/Linux เข้า WiFi "Printer"</li>
+                            <li>ติดตั้ง Node.js แล้วรัน: <code class="bg-surface-800 px-1 rounded text-primary-400">node print-bridge.js</code></li>
+                            <li>ดู IP ของเครื่องที่แสดงใน terminal แล้วกรอกใน <strong class="text-surface-200">Local Bridge URL</strong> ด้านบน</li>
+                          </ol>
+                          <p class="mt-2 text-surface-500">ไฟล์ <code class="bg-surface-800 px-1 rounded">print-bridge.js</code> อยู่ใน root ของ project</p>
                         </div>
 
                       </div>
@@ -712,6 +751,7 @@ const form = reactive<ReceiptSettings>({
   printerMethod: 'wifi',
   printerIp: '',
   printerPort: 9100,
+  printerBridgeUrl: '',
   showOrderNumber: true,
   showStaffName: true,
   showTaxInfo: false,

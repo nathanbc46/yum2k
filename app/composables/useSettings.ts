@@ -18,8 +18,9 @@ export interface ReceiptSettings {
   footerMessage?: string    // ข้อความท้ายใบเสร็จ
   paperSize: '58mm' | '80mm' // ขนาดกระดาษ Thermal Printer
   printerMethod: 'wifi' | 'rawbt' | 'usb' | 'browser' // วิธีการพิมพ์
-  printerIp?: string   // IP ของ printer (สำหรับ WiFi method)
-  printerPort?: number // TCP port ของ printer (ปกติ 9100)
+  printerIp?: string      // IP ของ printer (สำหรับ WiFi method)
+  printerPort?: number    // TCP port ของ printer (ปกติ 9100)
+  printerBridgeUrl?: string // URL ของ Local Print Bridge (ถ้า app รันบน cloud)
   showOrderNumber: boolean   // แสดงเลขที่บิล
   showStaffName: boolean     // แสดงชื่อพนักงาน
   showTaxInfo: boolean       // แสดงข้อมูลภาษี (VAT)
@@ -50,6 +51,7 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   printerMethod: 'wifi' as const,
   printerIp: '',
   printerPort: 9100,
+  printerBridgeUrl: '',
   showOrderNumber: true,
   showStaffName: true,
   showTaxInfo: false,

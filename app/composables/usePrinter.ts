@@ -177,10 +177,11 @@ export function usePrinter() {
     }
     try {
       const buffer = buildEscPosBuffer(order)
-      await $fetch('/api/thermal-print', {
-        method: 'POST',
-        body: { ip: s.printerIp, port: s.printerPort || 9100, data: uint8ToBase64(buffer) }
-      })
+      const payload = { ip: s.printerIp, port: s.printerPort || 9100, data: uint8ToBase64(buffer) }
+
+      // ถ้ากำหนด Bridge URL → ส่งตรงไปยัง local bridge แทน Vercel server route
+      const endpoint = s.printerBridgeUrl ? s.printerBridgeUrl.replace(/\/$/, '') + '/print' : '/api/thermal-print'
+      await $fetch(endpoint, { method: 'POST', body: payload })
       return true
     } catch (error) {
       console.warn('⚠️ WiFi print error:', error)
@@ -268,10 +269,8 @@ export function usePrinter() {
         let off = 0
         for (const p of parts) { buf.set(p, off); off += p.length }
 
-        await $fetch('/api/thermal-print', {
-          method: 'POST',
-          body: { ip: s.printerIp, port: s.printerPort || 9100, data: uint8ToBase64(buf) }
-        })
+        const endpoint = s.printerBridgeUrl ? s.printerBridgeUrl.replace(/\/$/, '') + '/print' : '/api/thermal-print'
+        await $fetch(endpoint, { method: 'POST', body: { ip: s.printerIp, port: s.printerPort || 9100, data: uint8ToBase64(buf) } })
         return { success: true }
       } catch {
         return { success: false, errorType: 'connection_error' }
