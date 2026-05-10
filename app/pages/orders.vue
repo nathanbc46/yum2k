@@ -55,7 +55,7 @@
         <!-- Filters Section -->
         <div class="flex flex-wrap items-center gap-4 animate-in fade-in duration-500">
           <!-- Date Range Filter -->
-          <div class="flex items-center gap-2 bg-surface-100/50 dark:bg-surface-900/40 p-1.5 rounded-2xl border border-surface-200 dark:border-surface-800/50">
+          <div class="flex items-center gap-2 bg-surface-800/80 p-1.5 rounded-2xl border border-surface-700/30">
             <button 
               v-for="range in [
                 { id: 'today', label: 'วันนี้' },
@@ -65,7 +65,7 @@
               :key="range.id"
               @click="selectedDateRange = range.id as any"
               class="px-5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
-              :class="selectedDateRange === range.id ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20' : 'text-surface-600 hover:text-surface-50'"
+              :class="selectedDateRange === range.id ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20' : 'text-surface-400 hover:text-surface-50'"
             >
               {{ range.label }}
             </button>
@@ -75,7 +75,7 @@
               <button 
                 @click="($refs.dateInput as HTMLInputElement).showPicker()"
                 class="px-5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2"
-                :class="selectedDateRange === 'custom' ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20' : 'text-surface-600 hover:text-surface-50'"
+                :class="selectedDateRange === 'custom' ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20' : 'text-surface-400 hover:text-surface-50'"
               >
                 <span>📅</span>
                 <span>{{ selectedDateRange === 'custom' ? customDate : 'ระบุวันที่' }}</span>
@@ -94,7 +94,7 @@
           </div>
 
           <!-- Status Filter -->
-          <div class="flex items-center gap-2 bg-surface-100/50 dark:bg-surface-900/40 p-1.5 rounded-2xl border border-surface-200 dark:border-surface-800/50">
+          <div class="flex items-center gap-2 bg-surface-800/80 p-1.5 rounded-2xl border border-surface-700/30">
             <button 
               v-for="status in [
                 { id: 'all', label: 'ทั้งหมด' },
@@ -105,7 +105,7 @@
               :key="status.id"
               @click="selectedStatus = status.id"
               class="px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
-              :class="selectedStatus === status.id ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20' : 'text-surface-600 hover:text-surface-50'"
+              :class="selectedStatus === status.id ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20' : 'text-surface-400 hover:text-surface-50'"
             >
               {{ status.label }} 
               <span class="ml-1 opacity-70">({{ statusCounts[status.id as keyof typeof statusCounts] }})</span>
@@ -127,7 +127,7 @@
           <div class="bg-surface-900 border border-surface-800 rounded-2xl overflow-hidden shadow-2xl">
             <div class="overflow-x-auto">
               <table class="w-full text-left text-sm border-collapse">
-                <thead class="bg-surface-50 dark:bg-surface-950 text-surface-600 dark:text-surface-500 uppercase text-[10px] font-bold tracking-widest border-b border-surface-200 dark:border-surface-800">
+                <thead class="bg-surface-900 text-surface-400 uppercase text-[10px] font-bold tracking-widest border-b border-surface-700">
                   <tr>
                     <th class="px-6 py-4">วันที่/เวลา</th>
                     <th class="px-6 py-4">เลขออร์เดอร์</th>
@@ -192,7 +192,7 @@
                               order.paymentMethod === 'cash' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
                               order.paymentMethod === 'promptpay' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
                               order.paymentMethod === 'unpaid' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20' :
-                              'bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400 border-surface-200 dark:border-surface-700'
+                              'bg-surface-800 text-surface-600 border-surface-700'
                             ]"
                           >
                             {{ 
@@ -273,7 +273,7 @@
 
         <!-- Empty State -->
         <template v-else>
-          <div class="flex flex-col items-center justify-center p-20 space-y-4 text-surface-500 dark:text-surface-400 bg-surface-100/50 dark:bg-surface-900/20 rounded-3xl border border-dashed border-surface-200 dark:border-surface-800">
+          <div class="flex flex-col items-center justify-center p-20 space-y-4 text-surface-500 bg-surface-800/40 rounded-3xl border border-dashed border-surface-700">
             <span class="text-6xl opacity-20">📭</span>
             <p class="text-xl font-bold text-surface-50 uppercase tracking-tight">ไม่พบประวัติการขาย</p>
             <p class="text-surface-500 font-medium">ยังไม่มีรายการสั่งซื้อในช่วงเวลานี้</p>
@@ -320,7 +320,7 @@
                     <button 
                       @click="paymentMethodToUpdate = 'cash'"
                       class="flex flex-col items-center gap-3 p-5 rounded-3xl border-2 transition-all active:scale-95 group relative overflow-hidden"
-                      :class="paymentMethodToUpdate === 'cash' ? 'bg-primary-600/10 border-primary-500 shadow-md' : 'bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 opacity-60'"
+                      :class="paymentMethodToUpdate === 'cash' ? 'bg-primary-600/10 border-primary-500 shadow-md' : 'bg-surface-800 border-surface-700 opacity-60'"
                     >
                       <span class="text-3xl transition-transform group-hover:scale-110">💵</span>
                       <span class="font-bold whitespace-nowrap" :class="paymentMethodToUpdate === 'cash' ? 'text-primary-600' : 'text-surface-600'">เงินสด</span>
@@ -329,7 +329,7 @@
                     <button 
                       @click="paymentMethodToUpdate = 'promptpay'"
                       class="flex flex-col items-center gap-3 p-5 rounded-3xl border-2 transition-all active:scale-95 group relative overflow-hidden"
-                      :class="paymentMethodToUpdate === 'promptpay' ? 'bg-secondary-500/10 border-secondary-500 shadow-md' : 'bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 opacity-60'"
+                      :class="paymentMethodToUpdate === 'promptpay' ? 'bg-secondary-500/10 border-secondary-500 shadow-md' : 'bg-surface-800 border-surface-700 opacity-60'"
                     >
                       <span class="text-3xl transition-transform group-hover:scale-110">📱</span>
                       <span class="font-bold whitespace-nowrap" :class="paymentMethodToUpdate === 'promptpay' ? 'text-secondary-600' : 'text-surface-600'">พร้อมเพย์</span>

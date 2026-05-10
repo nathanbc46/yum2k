@@ -674,32 +674,7 @@
             </div>
           </div>
 
-          <!-- ส่วนจัดการข้อมูล (Sync Management) -->
-          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
-            <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-4">การจัดการข้อมูล Cloud</h2>
-            <div class="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-              <div class="flex items-start gap-3">
-                <span class="text-lg">⚠️</span>
-                <div>
-                  <h3 class="text-sm font-bold text-amber-400">บังคับส่งข้อมูลขึ้น Cloud (Force Push)</h3>
-                  <p class="text-[10px] text-surface-400 mt-1">
-                    ใช้ในกรณีที่ฐานข้อมูลบน Cloud ถูกล้างข้อมูล หรือต้องการเขียนทับข้อมูลบน Cloud ด้วยข้อมูลจากเครื่องนี้ทั้งหมด
-                    <br />(หมวดหมู่สินค้า, รายการสินค้า และรายชื่อพนักงาน)
-                  </p>
-                </div>
-              </div>
-              <div class="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  @click="handleForcePush"
-                  :disabled="isForcePushing || !isOnline"
-                  class="btn-touch px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-amber-900/20 disabled:opacity-50"
-                >
-                  {{ isForcePushing ? '⌛ กำลังส่งข้อมูล...' : '📤 เริ่มส่งข้อมูลทั้งหมด (Force Upload)' }}
-                </button>
-              </div>
-            </div>
-          </div>
+
 
           <!-- Save Button -->
           <button
@@ -756,17 +731,13 @@
 <script setup lang="ts">
 import { useSettings, type ReceiptSettings } from '~/composables/useSettings'
 import { useToast } from '~/composables/useToast'
-import { useConfirm } from '~/composables/useConfirm'
 import { usePrinter } from '~/composables/usePrinter'
 
 definePageMeta({ layout: 'admin' })
 
 const config = useRuntimeConfig()
 const { receiptSettings, isSaving, loadReceiptSettings, saveReceiptSettings } = useSettings()
-const masterSync = useMasterDataSync()
-const { fetchRemoteOrders, syncPendingOrders, isOnline } = useSync()
 const { checkRawBTStatus, connectUSBPrinter, getUSBPrinter, isUSBSupported, testPrint } = usePrinter()
-const { confirm } = useConfirm()
 const toast = useToast()
 
 const isRawBTConnected = ref(true)
@@ -906,7 +877,7 @@ async function handleSave() {
   }
 }
 
-const isForcePushing = ref(false)
+
 const isTestingSummary = ref(false)
 
 async function handleTestLineSummary() {
@@ -927,31 +898,7 @@ async function handleTestLineSummary() {
   }
 }
 
-async function handleForcePush() {
-  const confirmed = await confirm({
-    title: 'ยืนยันการส่งข้อมูลทั้งหมดขึ้น Cloud',
-    message: '⚠️ แจ้งเตือน: นี่คือการส่งข้อมูลทั้งหมดในเครื่องขึ้น Cloud\nข้อมูลบน Cloud จะถูกอัปเดตตามข้อมูลในเครื่องนี้\nต้องการดำเนินการต่อหรือไม่?',
-    confirmText: 'ยืนยันดำเนินการ',
-    type: 'warning'
-  })
-  if (!confirmed) return
 
-  isForcePushing.value = true
-  try {
-    // ซิงค์ทุกอย่าง (รวมถึง Order) เพื่อความสมบูรณ์
-    const res = await syncPendingOrders(true) 
-    toast.success([
-      '📤 บังคับส่งข้อมูลเสร็จสมบูรณ์',
-      `• ข้อมูลออร์เดอร์: ${res.orders.success} รายการ`,
-      `• ประวัติสต็อก: ${res.auditLogs.success} รายการ`,
-    ].join('\n'), 6000)
-  } catch (err: any) {
-    console.error('Force Push Error:', err)
-    toast.error('การส่งข้อมูลล้มเหลว: ' + err.message)
-  } finally {
-    isForcePushing.value = false
-  }
-}
 </script>
 
 <style scoped>
