@@ -51,9 +51,11 @@ export function usePrinter() {
     }
 
     // ESC @ - Initialize printer
-    // ESC t n ก่อน — ตั้ง code page Thai (255) ทันที ไม่ส่ง ESC @ ก่อน
-    // ESC @ จะ reset printer กลับ factory default (Chinese GBK) ทำให้ ESC t ไม่มีผล
-    const codePage = s.printerCodePage ?? 255
+    pushBytes(0x1B, 0x40)
+    // ESC t n - เลือก code page ภาษาไทย
+    // 70 (0x46) = PC874 Thai (TIS-620/Windows-874) — ตรงกับ encodeThai ที่ใช้อยู่
+    // 255 (0xFF) = Thai variant อีกแบบของ printer นี้
+    const codePage = s.printerCodePage ?? 70
     if (codePage > 0) pushBytes(0x1B, 0x74, codePage)
 
     // --- Header ---
@@ -268,7 +270,7 @@ export function usePrinter() {
 
     const method = s.printerMethod ?? 'wifi'
     const useImage = s.printerImageMode ?? false
-    const codePage = s.printerCodePage ?? 21
+    const codePage = s.printerCodePage ?? 70
     const codePageCmd = codePage > 0
       ? new Uint8Array([0x1B, 0x74, codePage])
       : new Uint8Array([])
@@ -277,6 +279,7 @@ export function usePrinter() {
     const buildTestBuffer = async (): Promise<Uint8Array> => {
       if (useImage) return buildImageEscPos(buildTestReceiptLines(s.shopName, s.paperSize), s.paperSize)
       const parts: Uint8Array[] = [
+        new Uint8Array([0x1B, 0x40]),
         codePageCmd,
         encodeThai(testLines),
         new Uint8Array([0x1D, 0x56, 0x42, 0x00])
@@ -560,66 +563,70 @@ export function usePrinter() {
     const lineHeight = Math.ceil(fontSize * 1.6)
     const padX = 8
 
-    // pixel X ของแต่ละ column (name=left, qty=center-right, price=right edge)
-    const qtyX = paperSize === '58mm' ? 248 : 380   // qty right-edge
-    const priceX = printWidth - padX                 // price right-edge
+    const qtyX = paperSize === '58mm' ? 248 : 380
+    const priceX = printWidth - padX
 
-    const canvasHeight = lines.length * lineHeight + 20
+    // render ที่ 2× (supersampling) เพื่อให้ขอบตัวอักษรคมขึ้นเมื่อ scale ลง
+    const scale = 2
+    const sw = printWidth * scale
+    const lineHeightS = lineHeight * scale
+    const padXS = padX * scale
+    const qtyXS = qtyX * scale
+    const priceXS = priceX * scale
+    const fontSizeS = fontSize * scale
+    const canvasHeightS = (lines.length * lineHeight + 20) * scale
+
     const canvas = document.createElement('canvas')
-    canvas.width = printWidth
-    canvas.height = canvasHeight
+    canvas.width = sw
+    canvas.height = canvasHeightS
     const ctx = canvas.getContext('2d')!
 
     ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, printWidth, canvasHeight)
+    ctx.fillRect(0, 0, sw, canvasHeightS)
     ctx.fillStyle = '#000000'
     ctx.textBaseline = 'top'
-
-    const font = `${fontSize}px 'Sarabun','Noto Sans Thai','TH Sarabun New',monospace`
-    ctx.font = font
+    ctx.font = `${fontSizeS}px 'Sarabun','Noto Sans Thai','TH Sarabun New',monospace`
 
     lines.forEach((line, i) => {
-      const y = 10 + i * lineHeight
+      const y = 10 * scale + i * lineHeightS
 
       if (line.type === 'separator') {
-        ctx.fillRect(padX, y + lineHeight / 2 - 1, printWidth - padX * 2, 1)
+        ctx.fillRect(padXS, y + lineHeightS / 2 - 1, sw - padXS * 2, scale)
 
       } else if (line.type === 'text') {
         const align = line.align ?? 'left'
         if (align === 'center') {
-          const w = ctx.measureText(line.text).width
-          ctx.fillText(line.text, (printWidth - w) / 2, y)
+          ctx.fillText(line.text, (sw - ctx.measureText(line.text).width) / 2, y)
         } else if (align === 'right') {
-          const w = ctx.measureText(line.text).width
-          ctx.fillText(line.text, priceX - w, y)
+          ctx.fillText(line.text, priceXS - ctx.measureText(line.text).width, y)
         } else {
-          ctx.fillText(line.text, padX, y)
+          ctx.fillText(line.text, padXS, y)
         }
 
       } else if (line.type === 'columns') {
-        // name: left-aligned, ตัดถ้าชนกับ qty column
-        const maxNameWidth = qtyX - padX - 16
+        const maxNameWidth = qtyXS - padXS - 16 * scale
         let name = line.name
         while (name.length > 1 && ctx.measureText(name).width > maxNameWidth) {
           name = name.slice(0, -1)
         }
-        ctx.fillText(name, padX, y)
+        ctx.fillText(name, padXS, y)
 
-        // qty: right-aligned ที่ qtyX
         if (line.qty) {
-          const qw = ctx.measureText(line.qty).width
-          ctx.fillText(line.qty, qtyX - qw, y)
+          ctx.fillText(line.qty, qtyXS - ctx.measureText(line.qty).width, y)
         }
-
-        // price: right-aligned ที่ priceX
-        const pw = ctx.measureText(line.price).width
-        ctx.fillText(line.price, priceX - pw, y)
+        ctx.fillText(line.price, priceXS - ctx.measureText(line.price).width, y)
       }
-      // spacer: ว่างเปล่า
     })
 
-    // แปลงเป็น 1-bit bitmap
-    const imageData = ctx.getImageData(0, 0, printWidth, canvasHeight)
+    // scale ลงมาที่ printWidth × canvasHeight จริง แล้วแปลงเป็น 1-bit bitmap
+    const canvasHeight = canvasHeightS / scale
+    const out = document.createElement('canvas')
+    out.width = printWidth
+    out.height = canvasHeight
+    const octx = out.getContext('2d')!
+    octx.drawImage(canvas, 0, 0, printWidth, canvasHeight)
+
+    const imageData = octx.getImageData(0, 0, printWidth, canvasHeight)
     const bytesPerRow = Math.ceil(printWidth / 8)
     const bitmap = new Uint8Array(bytesPerRow * canvasHeight)
 

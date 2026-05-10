@@ -463,7 +463,7 @@ const statusCounts = ref({
 
 const posStore = usePosStore()
 const { restoreStock } = useInventory()
-const { printRawBT, printStandard } = usePrinter()
+const { print } = usePrinter()
 
 // State สำหรับ Modal ชำระเงิน
 const isPayModalOpen = ref(false)
@@ -799,16 +799,7 @@ const formatDate = (date: Date | string) => {
 
 const reprint = async (order: Order) => {
   posStore.setLastOrder(order)
-  
-  // พยายามพิมพ์ผ่าน RawBT (Silent Print)
-  const success = await printRawBT(order)
-  
-  // ถ้าพิมพ์ผ่าน RawBT ไม่สำเร็จ ให้ใช้ระบบพิมพ์มาตรฐานของ Browser
-  if (!success) {
-    setTimeout(() => {
-      printStandard()
-    }, 200)
-  }
+  await print(order)
 }
 
 onMounted(() => {

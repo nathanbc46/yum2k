@@ -557,8 +557,9 @@
                 <div v-if="!form.printerImageMode" class="space-y-1">
                   <label class="form-label">Code Page ภาษาไทย</label>
                   <select v-model.number="form.printerCodePage" class="form-input text-sm">
-                    <option :value="255">255 — Thai / Windows-874 (แนะนำ)</option>
-                    <option :value="21">21 — Xprinter / HOIN บางรุ่น</option>
+                    <option :value="70">70 — PC874 Thai / TIS-620 (แนะนำ)</option>
+                    <option :value="255">255 — Thai variant (บางรุ่น)</option>
+                    <option :value="21">21 — Xprinter บางรุ่น</option>
                     <option :value="20">20 — Epson TM series</option>
                     <option :value="0">0 — ไม่ระบุ (ใช้ค่า default ของ printer)</option>
                   </select>
@@ -790,7 +791,7 @@ const form = reactive<ReceiptSettings>({
   printerIp: '',
   printerPort: 9100,
   printerBridgeUrl: '',
-  printerCodePage: 255,
+  printerCodePage: 70,
   printerImageMode: false,
   showOrderNumber: true,
   showStaffName: true,
