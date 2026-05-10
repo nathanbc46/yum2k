@@ -528,6 +528,18 @@
                 </div>
               </template>
 
+              <!-- Code Page ภาษาไทย (แสดงเฉพาะ usb/wifi) -->
+              <div v-if="form.printerMethod === 'usb' || form.printerMethod === 'wifi'" class="space-y-1">
+                <label class="form-label">Code Page ภาษาไทย</label>
+                <select v-model.number="form.printerCodePage" class="form-input text-sm">
+                  <option :value="21">21 — Xprinter / HOIN / ทั่วไป (แนะนำ)</option>
+                  <option :value="20">20 — Epson TM series</option>
+                  <option :value="255">255 — Windows-874 (บางรุ่น)</option>
+                  <option :value="0">0 — ไม่ระบุ (ใช้ค่า default ของ printer)</option>
+                </select>
+                <p class="text-xs text-surface-500">ถ้าข้อความออกมาเป็นภาษาจีนหรือสัญลักษณ์แปลก ให้ลองเปลี่ยนค่านี้</p>
+              </div>
+
               <!-- ทดสอบพิมพ์ (แสดงทุก method) -->
               <button
                 type="button"
@@ -752,6 +764,7 @@ const form = reactive<ReceiptSettings>({
   printerIp: '',
   printerPort: 9100,
   printerBridgeUrl: '',
+  printerCodePage: 21,
   showOrderNumber: true,
   showStaffName: true,
   showTaxInfo: false,

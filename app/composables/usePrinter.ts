@@ -52,8 +52,9 @@ export function usePrinter() {
 
     // ESC @ - Initialize printer
     pushBytes(0x1B, 0x40)
-    // ESC t 20 (0x14) - Select code page 20 = Windows-874 / TIS-620 (Thai)
-    pushBytes(0x1B, 0x74, 0x14)
+    // ESC t n - เลือก code page ภาษาไทย (ค่าขึ้นกับยี่ห้อ printer: Epson=20, Xprinter=21, Win874=255)
+    const codePage = s.printerCodePage ?? 21
+    if (codePage > 0) pushBytes(0x1B, 0x74, codePage)
 
     // --- Header ---
     push(center(s.shopName))
@@ -261,13 +262,17 @@ export function usePrinter() {
     ].join('\n')
 
     const method = s.printerMethod ?? 'wifi'
+    const codePage = s.printerCodePage ?? 21
+    const codePageCmd = codePage > 0
+      ? new Uint8Array([0x1B, 0x74, codePage])
+      : new Uint8Array([])
 
     if (method === 'wifi') {
       if (!s.printerIp) return { success: false, errorType: 'no_ip' }
       try {
         const parts: Uint8Array[] = [
           new Uint8Array([0x1B, 0x40]),
-          new Uint8Array([0x1B, 0x74, 0x14]),
+          codePageCmd,
           encodeThai(testLines),
           new Uint8Array([0x1D, 0x56, 0x42, 0x00])
         ]
@@ -289,7 +294,7 @@ export function usePrinter() {
 
       const parts: Uint8Array[] = [
         new Uint8Array([0x1B, 0x40]),
-        new Uint8Array([0x1B, 0x74, 0x14]),
+        codePageCmd,
         encodeThai(testLines),
         new Uint8Array([0x1D, 0x56, 0x42, 0x00])
       ]
