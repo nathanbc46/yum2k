@@ -9,14 +9,14 @@
   >
     <div
       v-if="show"
-      class="flex items-center gap-3 px-4 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-amber-400 text-sm"
+      class="flex items-center gap-3 px-4 py-2.5 bg-primary-50 dark:bg-primary-900/10 border-b border-primary-100 dark:border-primary-500/20 text-primary-900 dark:text-primary-400 text-sm"
     >
       <span class="shrink-0 text-base">🖨️</span>
-      <span class="flex-1 font-medium">ยังไม่ได้เชื่อมต่อเครื่องพิมพ์ USB</span>
+      <span class="flex-1 font-semibold">ยังไม่ได้เชื่อมต่อเครื่องพิมพ์ USB</span>
       <button
         @click="reconnect"
         :disabled="isConnecting"
-        class="shrink-0 px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 text-xs font-bold transition-all disabled:opacity-50 active:scale-95"
+        class="shrink-0 px-4 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50"
       >
         {{ isConnecting ? 'กำลังเชื่อมต่อ...' : 'เชื่อมต่อเครื่องพิมพ์' }}
       </button>
