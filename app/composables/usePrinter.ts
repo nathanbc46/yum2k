@@ -562,71 +562,52 @@ export function usePrinter() {
     const fontSize = paperSize === '58mm' ? 22 : 26
     const lineHeight = Math.ceil(fontSize * 1.6)
     const padX = 8
-
     const qtyX = paperSize === '58mm' ? 248 : 380
     const priceX = printWidth - padX
-
-    // render ที่ 2× (supersampling) เพื่อให้ขอบตัวอักษรคมขึ้นเมื่อ scale ลง
-    const scale = 2
-    const sw = printWidth * scale
-    const lineHeightS = lineHeight * scale
-    const padXS = padX * scale
-    const qtyXS = qtyX * scale
-    const priceXS = priceX * scale
-    const fontSizeS = fontSize * scale
-    const canvasHeightS = (lines.length * lineHeight + 20) * scale
+    const canvasHeight = lines.length * lineHeight + 20
 
     const canvas = document.createElement('canvas')
-    canvas.width = sw
-    canvas.height = canvasHeightS
+    canvas.width = printWidth
+    canvas.height = canvasHeight
     const ctx = canvas.getContext('2d')!
 
     ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, sw, canvasHeightS)
+    ctx.fillRect(0, 0, printWidth, canvasHeight)
     ctx.fillStyle = '#000000'
     ctx.textBaseline = 'top'
-    ctx.font = `${fontSizeS}px 'Sarabun','Noto Sans Thai','TH Sarabun New',monospace`
+    ctx.font = `${fontSize}px 'Sarabun','Noto Sans Thai','TH Sarabun New',monospace`
 
     lines.forEach((line, i) => {
-      const y = 10 * scale + i * lineHeightS
+      const y = 10 + i * lineHeight
 
       if (line.type === 'separator') {
-        ctx.fillRect(padXS, y + lineHeightS / 2 - 1, sw - padXS * 2, scale)
+        ctx.fillRect(padX, y + lineHeight / 2 - 1, printWidth - padX * 2, 1)
 
       } else if (line.type === 'text') {
         const align = line.align ?? 'left'
         if (align === 'center') {
-          ctx.fillText(line.text, (sw - ctx.measureText(line.text).width) / 2, y)
+          ctx.fillText(line.text, (printWidth - ctx.measureText(line.text).width) / 2, y)
         } else if (align === 'right') {
-          ctx.fillText(line.text, priceXS - ctx.measureText(line.text).width, y)
+          ctx.fillText(line.text, priceX - ctx.measureText(line.text).width, y)
         } else {
-          ctx.fillText(line.text, padXS, y)
+          ctx.fillText(line.text, padX, y)
         }
 
       } else if (line.type === 'columns') {
-        const maxNameWidth = qtyXS - padXS - 16 * scale
+        const maxNameWidth = qtyX - padX - 16
         let name = line.name
         while (name.length > 1 && ctx.measureText(name).width > maxNameWidth) {
           name = name.slice(0, -1)
         }
-        ctx.fillText(name, padXS, y)
-
+        ctx.fillText(name, padX, y)
         if (line.qty) {
-          ctx.fillText(line.qty, qtyXS - ctx.measureText(line.qty).width, y)
+          ctx.fillText(line.qty, qtyX - ctx.measureText(line.qty).width, y)
         }
-        ctx.fillText(line.price, priceXS - ctx.measureText(line.price).width, y)
+        ctx.fillText(line.price, priceX - ctx.measureText(line.price).width, y)
       }
     })
 
-    // scale ลงมาที่ printWidth × canvasHeight จริง แล้วแปลงเป็น 1-bit bitmap
-    const canvasHeight = canvasHeightS / scale
-    const out = document.createElement('canvas')
-    out.width = printWidth
-    out.height = canvasHeight
-    const octx = out.getContext('2d')!
-    octx.drawImage(canvas, 0, 0, printWidth, canvasHeight)
-
-    const imageData = octx.getImageData(0, 0, printWidth, canvasHeight)
+    const imageData = ctx.getImageData(0, 0, printWidth, canvasHeight)
     const bytesPerRow = Math.ceil(printWidth / 8)
     const bitmap = new Uint8Array(bytesPerRow * canvasHeight)
 
