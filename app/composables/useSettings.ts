@@ -83,8 +83,8 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   printKitchenCopy: false,
   receiptMarginLeft: 0,
   receiptMarginRight: 0,
-  receiptQtyWidth: 6,
-  receiptPriceWidth: 8,
+  receiptQtyWidth: 4,
+  receiptPriceWidth: 7,
 }
 
 // compat export สำหรับโค้ดเก่าที่ import DEFAULT_RECEIPT_SETTINGS โดยตรง

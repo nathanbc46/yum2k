@@ -113,17 +113,15 @@ export function usePrinter() {
     push(leftPad + line + '\n')
 
     // --- Items ---
-    const qtyWidth = s.receiptQtyWidth ?? 6
-    const priceWidth = s.receiptPriceWidth ?? 8
-    const nameWidth = effectiveWidth - qtyWidth - priceWidth
+    const combinedWidth = (s.receiptQtyWidth ?? 4) + (s.receiptPriceWidth ?? 7)
+    const nameWidth = effectiveWidth - combinedWidth
 
-    push(leftPad + vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวน', qtyWidth) + vwPadStart('ราคา', priceWidth) + '\n')
+    push(leftPad + vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวนราคา', combinedWidth) + '\n')
 
     order.items.forEach((item: OrderItem) => {
       const name = vwPadEnd(vwTruncate(item.productName, nameWidth), nameWidth)
-      const qty = vwPadStart(`x${item.quantity}`, qtyWidth)
-      const price = vwPadStart(item.totalPrice.toLocaleString('en-US'), priceWidth)
-      push(leftPad + `${name}${qty}${price}\n`)
+      const combined = vwPadStart(`x${item.quantity} ${item.totalPrice.toLocaleString('en-US')}`, combinedWidth)
+      push(leftPad + `${name}${combined}\n`)
       if (item.addons && item.addons.length > 0) {
         item.addons.forEach(addon => push(leftPad + `  + ${addon.name}\n`))
       }
@@ -547,17 +545,15 @@ export function usePrinter() {
     }
     res += line
 
-    const qtyWidth = s.receiptQtyWidth ?? 6
-    const priceWidth = s.receiptPriceWidth ?? 8
-    const nameWidth = effectiveWidth - qtyWidth - priceWidth
+    const combinedWidth = (s.receiptQtyWidth ?? 4) + (s.receiptPriceWidth ?? 7)
+    const nameWidth = effectiveWidth - combinedWidth
 
-    res += leftPad + vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวน', qtyWidth) + vwPadStart('ราคา', priceWidth) + '\n'
+    res += leftPad + vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวนราคา', combinedWidth) + '\n'
 
     order.items.forEach((item: OrderItem) => {
       const name = vwPadEnd(vwTruncate(item.productName, nameWidth), nameWidth)
-      const qty = vwPadStart(`x${item.quantity}`, qtyWidth)
-      const price = vwPadStart(item.totalPrice.toLocaleString('en-US'), priceWidth)
-      res += leftPad + `${name}${qty}${price}\n`
+      const combined = vwPadStart(`x${item.quantity} ${item.totalPrice.toLocaleString('en-US')}`, combinedWidth)
+      res += leftPad + `${name}${combined}\n`
       if (item.addons && item.addons.length > 0) {
         item.addons.forEach(addon => { res += leftPad + `  + ${addon.name}\n` })
       }

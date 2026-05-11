@@ -254,15 +254,15 @@
 
               <!-- Column Width -->
               <div>
-                <label class="form-label">ความกว้างคอลัมน์ (visual columns)</label>
+                <label class="form-label">ความกว้างคอลัมน์ จำนวนราคา (visual columns)</label>
                 <div class="grid grid-cols-2 gap-3 mt-1">
                   <div>
                     <label class="text-xs text-surface-400 mb-1 block">จำนวน (qty)</label>
                     <input
                       type="number"
                       v-model.number="form.receiptQtyWidth"
-                      min="4"
-                      max="10"
+                      min="2"
+                      max="8"
                       class="form-input text-sm"
                     />
                   </div>
@@ -271,17 +271,18 @@
                     <input
                       type="number"
                       v-model.number="form.receiptPriceWidth"
-                      min="6"
-                      max="14"
+                      min="4"
+                      max="12"
                       class="form-input text-sm"
                     />
                   </div>
                 </div>
                 <p class="text-xs text-surface-500 mt-1">
-                  ชื่อสินค้าจะได้
+                  รวมกัน = คอลัมน์ "จำนวนราคา"
+                  <span class="text-surface-300 font-semibold">{{ (form.receiptQtyWidth ?? 4) + (form.receiptPriceWidth ?? 7) }} cols</span>
+                  — ชื่อสินค้าได้
                   <span class="text-surface-300 font-semibold">{{ receiptNameWidthPreview.nameWidth }} cols</span>
                   (~{{ receiptNameWidthPreview.thaiChars }} ตัวอักษรไทย)
-                  — ค่าเริ่มต้น: จำนวน 6, ราคา 8
                 </p>
               </div>
 
@@ -973,8 +974,8 @@ const form = reactive<ReceiptSettings>({
   printKitchenCopy: false,
   receiptMarginLeft: 0,
   receiptMarginRight: 0,
-  receiptQtyWidth: 6,
-  receiptPriceWidth: 8,
+  receiptQtyWidth: 4,
+  receiptPriceWidth: 7,
 })
 
 const printerMethods = [
@@ -1010,8 +1011,8 @@ const receiptNameWidthPreview = computed(() => {
   const marginLeft = form.receiptMarginLeft ?? 0
   const marginRight = form.receiptMarginRight ?? 0
   const effectiveWidth = lineWidth - marginLeft - marginRight
-  const qtyWidth = form.receiptQtyWidth ?? 6
-  const priceWidth = form.receiptPriceWidth ?? 8
+  const qtyWidth = form.receiptQtyWidth ?? 4
+  const priceWidth = form.receiptPriceWidth ?? 7
   const nameWidth = effectiveWidth - qtyWidth - priceWidth
   const thaiChars = Math.floor(nameWidth / 2)
   return { nameWidth, thaiChars }
