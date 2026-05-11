@@ -42,6 +42,10 @@ export interface ReceiptSettings {
   // POS Display
   showSubcategoryProducts: boolean // แสดงสินค้าของหมวดหมู่ย่อยเมื่อเลือกหมวดหมู่หลัก
   printKitchenCopy: boolean        // พิมพ์ใบสั่งทำอาหาร (Kitchen Copy) แยกต่างหาก
+  receiptMarginLeft?: number       // Margin ซ้าย (หน่วย: ตัวอักษร) สำหรับ text mode / pixels สำหรับ image mode
+  receiptMarginRight?: number      // Margin ขวา (หน่วย: ตัวอักษร) สำหรับ text mode / pixels สำหรับ image mode
+  receiptQtyWidth?: number         // ความกว้างคอลัมน์จำนวน (visual columns), default: 6
+  receiptPriceWidth?: number       // ความกว้างคอลัมน์ราคา (visual columns), default: 8
 }
 
 // ---------------------------------------------------------------------------
@@ -77,6 +81,10 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   enableKds: false,
   showSubcategoryProducts: false,
   printKitchenCopy: false,
+  receiptMarginLeft: 0,
+  receiptMarginRight: 0,
+  receiptQtyWidth: 6,
+  receiptPriceWidth: 8,
 }
 
 // compat export สำหรับโค้ดเก่าที่ import DEFAULT_RECEIPT_SETTINGS โดยตรง

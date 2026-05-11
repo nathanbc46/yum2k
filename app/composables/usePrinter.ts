@@ -69,7 +69,11 @@ export function usePrinter() {
   function buildEscPosBuffer(order: Order, isKitchenCopy = false): Uint8Array {
     const s = receiptSettings.value
     const lineWidth = s.paperSize === '58mm' ? 32 : 42
-    const line = '-'.repeat(lineWidth)
+    const marginLeft = s.receiptMarginLeft ?? 0
+    const marginRight = s.receiptMarginRight ?? 0
+    const effectiveWidth = lineWidth - marginLeft - marginRight
+    const leftPad = ' '.repeat(marginLeft)
+    const line = '-'.repeat(effectiveWidth)
 
     const parts: Uint8Array[] = []
     const push = (text: string) => parts.push(encodeThai(text))
@@ -77,8 +81,8 @@ export function usePrinter() {
 
     const center = (text: string): string => {
       if (!text) return ''
-      const pad = Math.max(0, Math.floor((lineWidth - vw(text)) / 2))
-      return ' '.repeat(pad) + text + '\n'
+      const pad = Math.max(0, Math.floor((effectiveWidth - vw(text)) / 2))
+      return leftPad + ' '.repeat(pad) + text + '\n'
     }
 
     // ESC @ - Initialize printer
@@ -98,46 +102,46 @@ export function usePrinter() {
       if (s.shopPhone) push(center(`โทร: ${s.shopPhone}`))
     }
     push(center(new Date(order.createdAt).toLocaleString('th-TH')))
-    push(line + '\n')
+    push(leftPad + line + '\n')
 
     // --- Order Info ---
-    if (s.showOrderNumber) push(`เลขที่บิล: ${order.orderNumber}\n`)
-    if (s.showStaffName) push(`พนักงาน: ${order.staffName}\n`)
+    if (s.showOrderNumber) push(leftPad + `เลขที่บิล: ${order.orderNumber}\n`)
+    if (s.showStaffName) push(leftPad + `พนักงาน: ${order.staffName}\n`)
     if (!isKitchenCopy) {
-      push(`การชำระ: ${getPaymentLabel(order.paymentMethod)}\n`)
+      push(leftPad + `การชำระ: ${getPaymentLabel(order.paymentMethod)}\n`)
     }
-    push(line + '\n')
+    push(leftPad + line + '\n')
 
     // --- Items ---
-    const nameWidth = lineWidth === 32 ? 14 : 20
-    const qtyWidth = 8
-    const priceWidth = lineWidth - nameWidth - qtyWidth
+    const qtyWidth = s.receiptQtyWidth ?? 6
+    const priceWidth = s.receiptPriceWidth ?? 8
+    const nameWidth = effectiveWidth - qtyWidth - priceWidth
 
-    push(vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวน', qtyWidth) + vwPadStart('ราคา', priceWidth) + '\n')
+    push(leftPad + vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวน', qtyWidth) + vwPadStart('ราคา', priceWidth) + '\n')
 
     order.items.forEach((item: OrderItem) => {
       const name = vwPadEnd(vwTruncate(item.productName, nameWidth), nameWidth)
       const qty = vwPadStart(`x${item.quantity}`, qtyWidth)
       const price = vwPadStart(item.totalPrice.toLocaleString('en-US'), priceWidth)
-      push(`${name}${qty}${price}\n`)
+      push(leftPad + `${name}${qty}${price}\n`)
       if (item.addons && item.addons.length > 0) {
-        item.addons.forEach(addon => push(`  + ${addon.name}\n`))
+        item.addons.forEach(addon => push(leftPad + `  + ${addon.name}\n`))
       }
     })
 
-    push(line + '\n')
+    push(leftPad + line + '\n')
 
     // --- Summary ---
-    push(vwPadEnd('ยอดรวม:', 10) + vwPadStart(order.subtotal.toLocaleString('en-US'), lineWidth - 10) + '\n')
+    push(leftPad + vwPadEnd('ยอดรวม:', 10) + vwPadStart(order.subtotal.toLocaleString('en-US'), effectiveWidth - 10) + '\n')
     if (order.discountAmount > 0) {
-      push(vwPadEnd('ส่วนลด:', 10) + vwPadStart(order.discountAmount.toLocaleString('en-US'), lineWidth - 10) + '\n')
+      push(leftPad + vwPadEnd('ส่วนลด:', 10) + vwPadStart(order.discountAmount.toLocaleString('en-US'), effectiveWidth - 10) + '\n')
     }
     if (s.showTaxInfo && order.taxAmount > 0) {
       const taxLabel = `ภาษี (${order.taxRate}%):`
-      push(vwPadEnd(taxLabel, 14) + vwPadStart(order.taxAmount.toLocaleString('en-US'), lineWidth - 14) + '\n')
+      push(leftPad + vwPadEnd(taxLabel, 14) + vwPadStart(order.taxAmount.toLocaleString('en-US'), effectiveWidth - 14) + '\n')
     }
-    push(vwPadEnd('ยอดสุทธิ:', 12) + vwPadStart(order.totalAmount.toLocaleString('en-US') + ' บาท', lineWidth - 12) + '\n')
-    push(line + '\n')
+    push(leftPad + vwPadEnd('ยอดสุทธิ:', 12) + vwPadStart(order.totalAmount.toLocaleString('en-US') + ' บาท', effectiveWidth - 12) + '\n')
+    push(leftPad + line + '\n')
 
     // --- Footer ---
     if (!isKitchenCopy) {
@@ -510,12 +514,16 @@ export function usePrinter() {
   function formatReceiptEscPos(order: Order, isKitchenCopy = false): string {
     const s = receiptSettings.value
     const lineWidth = s.paperSize === '58mm' ? 32 : 42
-    const line = '-'.repeat(lineWidth) + '\n'
+    const marginLeft = s.receiptMarginLeft ?? 0
+    const marginRight = s.receiptMarginRight ?? 0
+    const effectiveWidth = lineWidth - marginLeft - marginRight
+    const leftPad = ' '.repeat(marginLeft)
+    const line = leftPad + '-'.repeat(effectiveWidth) + '\n'
 
     const center = (text: string) => {
       if (!text) return ''
-      const padding = Math.max(0, Math.floor((lineWidth - vw(text)) / 2))
-      return ' '.repeat(padding) + text + '\n'
+      const padding = Math.max(0, Math.floor((effectiveWidth - vw(text)) / 2))
+      return leftPad + ' '.repeat(padding) + text + '\n'
     }
 
     let res = ''
@@ -532,39 +540,39 @@ export function usePrinter() {
     res += center(new Date(order.createdAt).toLocaleString('th-TH'))
     res += line
 
-    if (s.showOrderNumber) res += `เลขที่บิล: ${order.orderNumber}\n`
-    if (s.showStaffName) res += `พนักงาน: ${order.staffName}\n`
+    if (s.showOrderNumber) res += leftPad + `เลขที่บิล: ${order.orderNumber}\n`
+    if (s.showStaffName) res += leftPad + `พนักงาน: ${order.staffName}\n`
     if (!isKitchenCopy) {
-      res += `การชำระ: ${getPaymentLabel(order.paymentMethod)}\n`
+      res += leftPad + `การชำระ: ${getPaymentLabel(order.paymentMethod)}\n`
     }
     res += line
 
-    const nameWidth = lineWidth === 32 ? 14 : 20
-    const qtyWidth = 8
-    const priceWidth = lineWidth - nameWidth - qtyWidth
+    const qtyWidth = s.receiptQtyWidth ?? 6
+    const priceWidth = s.receiptPriceWidth ?? 8
+    const nameWidth = effectiveWidth - qtyWidth - priceWidth
 
-    res += vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวน', qtyWidth) + vwPadStart('ราคา', priceWidth) + '\n'
+    res += leftPad + vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวน', qtyWidth) + vwPadStart('ราคา', priceWidth) + '\n'
 
     order.items.forEach((item: OrderItem) => {
       const name = vwPadEnd(vwTruncate(item.productName, nameWidth), nameWidth)
       const qty = vwPadStart(`x${item.quantity}`, qtyWidth)
       const price = vwPadStart(item.totalPrice.toLocaleString('en-US'), priceWidth)
-      res += `${name}${qty}${price}\n`
+      res += leftPad + `${name}${qty}${price}\n`
       if (item.addons && item.addons.length > 0) {
-        item.addons.forEach(addon => { res += `  + ${addon.name}\n` })
+        item.addons.forEach(addon => { res += leftPad + `  + ${addon.name}\n` })
       }
     })
 
     res += line
-    res += vwPadEnd('ยอดรวม:', 10) + vwPadStart(order.subtotal.toLocaleString('en-US'), lineWidth - 10) + '\n'
+    res += leftPad + vwPadEnd('ยอดรวม:', 10) + vwPadStart(order.subtotal.toLocaleString('en-US'), effectiveWidth - 10) + '\n'
     if (order.discountAmount > 0) {
-      res += vwPadEnd('ส่วนลด:', 10) + vwPadStart(order.discountAmount.toLocaleString('en-US'), lineWidth - 10) + '\n'
+      res += leftPad + vwPadEnd('ส่วนลด:', 10) + vwPadStart(order.discountAmount.toLocaleString('en-US'), effectiveWidth - 10) + '\n'
     }
     if (s.showTaxInfo && order.taxAmount > 0) {
       const taxLabel = `ภาษี (${order.taxRate}%):`
-      res += vwPadEnd(taxLabel, 14) + vwPadStart(order.taxAmount.toLocaleString('en-US'), lineWidth - 14) + '\n'
+      res += leftPad + vwPadEnd(taxLabel, 14) + vwPadStart(order.taxAmount.toLocaleString('en-US'), effectiveWidth - 14) + '\n'
     }
-    res += vwPadEnd('ยอดสุทธิ:', 12) + vwPadStart(order.totalAmount.toLocaleString('en-US') + ' บาท', lineWidth - 12) + '\n'
+    res += leftPad + vwPadEnd('ยอดสุทธิ:', 12) + vwPadStart(order.totalAmount.toLocaleString('en-US') + ' บาท', effectiveWidth - 12) + '\n'
     res += line
     if (!isKitchenCopy) {
       if (s.footerMessage) res += center(s.footerMessage)
@@ -675,12 +683,16 @@ export function usePrinter() {
    * วาด column แต่ละ cell ที่ pixel X คงที่ ไม่ขึ้นกับความกว้างตัวอักษร
    */
   async function buildImageEscPos(lines: ReceiptLine[], paperSize: '58mm' | '80mm'): Promise<Uint8Array> {
+    const s = receiptSettings.value
     const printWidth = paperSize === '58mm' ? 384 : 576
     const fontSize = paperSize === '58mm' ? 22 : 26
     const lineHeight = Math.ceil(fontSize * 1.6)
-    const padX = 8
-    const qtyX = paperSize === '58mm' ? 248 : 380
-    const priceX = printWidth - padX
+    const charPx = Math.ceil(fontSize / 2)
+    const padX = (s.receiptMarginLeft ?? 0) * charPx + 4
+    const padXRight = (s.receiptMarginRight ?? 0) * charPx + 4
+    const printableWidth = printWidth - padX - padXRight
+    const qtyX = padX + Math.round(printableWidth * 0.68)
+    const priceX = printWidth - padXRight
     const canvasHeight = lines.length * lineHeight + 20
 
     const canvas = document.createElement('canvas')
@@ -698,7 +710,7 @@ export function usePrinter() {
       const y = 10 + i * lineHeight
 
       if (line.type === 'separator') {
-        ctx.fillRect(padX, y + lineHeight / 2 - 1, printWidth - padX * 2, 1)
+        ctx.fillRect(padX, y + lineHeight / 2 - 1, printWidth - padX - padXRight, 1)
 
       } else if (line.type === 'text') {
         const align = line.align ?? 'left'

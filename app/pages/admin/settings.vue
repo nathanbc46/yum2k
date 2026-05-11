@@ -224,6 +224,67 @@
                 </div>
               </div>
 
+              <!-- Margin ซ้าย/ขวา -->
+              <div>
+                <label class="form-label">Margin ใบเสร็จ (ตัวอักษร)</label>
+                <div class="grid grid-cols-2 gap-3 mt-1">
+                  <div>
+                    <label class="text-xs text-surface-400 mb-1 block">ซ้าย</label>
+                    <input
+                      type="number"
+                      v-model.number="form.receiptMarginLeft"
+                      min="0"
+                      max="10"
+                      class="form-input text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label class="text-xs text-surface-400 mb-1 block">ขวา</label>
+                    <input
+                      type="number"
+                      v-model.number="form.receiptMarginRight"
+                      min="0"
+                      max="10"
+                      class="form-input text-sm"
+                    />
+                  </div>
+                </div>
+                <p class="text-xs text-surface-500 mt-1">0–10 ตัวอักษร — ใช้เมื่อข้อความชิดขอบกระดาษ (ค่าเริ่มต้น: 0)</p>
+              </div>
+
+              <!-- Column Width -->
+              <div>
+                <label class="form-label">ความกว้างคอลัมน์ (visual columns)</label>
+                <div class="grid grid-cols-2 gap-3 mt-1">
+                  <div>
+                    <label class="text-xs text-surface-400 mb-1 block">จำนวน (qty)</label>
+                    <input
+                      type="number"
+                      v-model.number="form.receiptQtyWidth"
+                      min="4"
+                      max="10"
+                      class="form-input text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label class="text-xs text-surface-400 mb-1 block">ราคา (price)</label>
+                    <input
+                      type="number"
+                      v-model.number="form.receiptPriceWidth"
+                      min="6"
+                      max="14"
+                      class="form-input text-sm"
+                    />
+                  </div>
+                </div>
+                <p class="text-xs text-surface-500 mt-1">
+                  ชื่อสินค้าจะได้
+                  <span class="text-surface-300 font-semibold">{{ receiptNameWidthPreview.nameWidth }} cols</span>
+                  (~{{ receiptNameWidthPreview.thaiChars }} ตัวอักษรไทย)
+                  — ค่าเริ่มต้น: จำนวน 6, ราคา 8
+                </p>
+              </div>
+
               <!-- Toggle Options -->
               <div class="space-y-3">
                 <div
@@ -910,6 +971,10 @@ const form = reactive<ReceiptSettings>({
   enableKds: false,
   showSubcategoryProducts: false,
   printKitchenCopy: false,
+  receiptMarginLeft: 0,
+  receiptMarginRight: 0,
+  receiptQtyWidth: 6,
+  receiptPriceWidth: 8,
 })
 
 const printerMethods = [
@@ -938,6 +1003,18 @@ const printerMethods = [
 const summaryHourOptions = Array.from({ length: 8 }, (_, i) => {
   const h = 16 + i // 16–23
   return { value: h, label: `${h.toString().padStart(2, '0')}:00` }
+})
+
+const receiptNameWidthPreview = computed(() => {
+  const lineWidth = form.paperSize === '58mm' ? 32 : 42
+  const marginLeft = form.receiptMarginLeft ?? 0
+  const marginRight = form.receiptMarginRight ?? 0
+  const effectiveWidth = lineWidth - marginLeft - marginRight
+  const qtyWidth = form.receiptQtyWidth ?? 6
+  const priceWidth = form.receiptPriceWidth ?? 8
+  const nameWidth = effectiveWidth - qtyWidth - priceWidth
+  const thaiChars = Math.floor(nameWidth / 2)
+  return { nameWidth, thaiChars }
 })
 
 onMounted(async () => {
