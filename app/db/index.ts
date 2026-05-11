@@ -230,6 +230,8 @@ export async function clearAllData(): Promise<void> {
   })
 }
 
+
+
 /**
  * ดึง Setting จาก appSettings
  * @param key - ชื่อ Setting

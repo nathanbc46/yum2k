@@ -646,6 +646,8 @@
 
         <!-- ====== TAB: KDS ====== -->
         <div v-show="activeTab === 'kds'" class="space-y-5">
+
+          <!-- KDS Card -->
           <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
             <div class="flex items-center gap-2 mb-4">
               <span class="text-xl">👨‍🍳</span>
@@ -669,6 +671,35 @@
               </div>
             </div>
           </div>
+
+          <!-- POS Display Card -->
+          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-xl">🛒</span>
+              <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest">การแสดงสินค้าในหน้าขาย (POS)</h2>
+            </div>
+            <div class="space-y-3">
+              <div class="flex items-start justify-between bg-surface-950 rounded-xl px-4 py-3 border border-surface-800 gap-3">
+                <div>
+                  <div class="text-sm font-semibold text-surface-50">แสดงสินค้าหมวดหมู่ย่อยรวมด้วย</div>
+                  <div class="text-xs text-surface-500 mt-1 leading-relaxed">
+                    เมื่อกดเลือกหมวดหมู่ที่มีหมวดหมู่ย่อย จะแสดงสินค้าของหมวดหมู่ย่อยทั้งหมดรวมกัน<br />
+                    <span class="text-primary-400/80">(ปิด = แสดงเฉพาะสินค้าในหมวดหมู่นั้นโดยตรงเท่านั้น)</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  @click="form.showSubcategoryProducts = !form.showSubcategoryProducts"
+                  class="relative w-12 h-[26px] rounded-full transition-all duration-300 shrink-0 p-[3px] flex items-center mt-0.5"
+                  :class="form.showSubcategoryProducts ? 'bg-primary-500' : 'bg-surface-700'"
+                >
+                  <div class="w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-300"
+                    :class="form.showSubcategoryProducts ? 'translate-x-[22px]' : 'translate-x-0'" />
+                </button>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <!-- ====== TAB: LINE ====== -->
@@ -848,6 +879,7 @@ const form = reactive<ReceiptSettings>({
   lineDailySummary: true,
   lineDailySummaryHour: 22,
   enableKds: true,
+  showSubcategoryProducts: true,
 })
 
 const printerMethods = [

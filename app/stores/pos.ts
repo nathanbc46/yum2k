@@ -1,9 +1,13 @@
 import { defineStore } from 'pinia'
 import { db } from '~/db'
 import { seedDatabase } from '~/db/seedData'
+import { useSettings } from '~/composables/useSettings'
 import type { Category, ProductWithCategory, Order } from '~/types'
 
 export const usePosStore = defineStore('pos', () => {
+  // โหลด Settings (singleton ref จาก useSettings)
+  const { receiptSettings, loadReceiptSettings } = useSettings()
+
   // State
   const activeCategoryId = ref<number | null>(null)
   const currentParentId = ref<number | null>(null)
@@ -73,17 +77,28 @@ export const usePosStore = defineStore('pos', () => {
   }
 
   const filteredProducts = computed(() => {
-    // 1. ถ้าไม่ได้เลือกหมวดหมู่ (แสดงทั้งหมด) -> เรียงตามสินค้าขายดี (totalSold DESC)
+    // อ่าน setting ว่าจะรวมหมวดหมู่ย่อยหรือไม่ (default: true)
+    // receiptSettings เป็น singleton ref โหลดจาก loadData() แล้ว
+    const includeSubcategories = receiptSettings.value.showSubcategoryProducts ?? true
+
+    // 1. ไม่ได้เลือกหมวดหมู่ → แสดงทั้งหมดเรียงตามขายดี
     if (!activeCategoryId.value) {
       return [...products.value].sort((a, b) => (b.totalSold || 0) - (a.totalSold || 0))
     }
 
-    // 2. ถ้าเลือกหมวดหมู่แล้ว -> ดึงสินค้าจากหมวดหมู่นี้ และหมวดหมู่ย่อยทั้งหมด (Descendants)
-    const targetCategoryIds = getCategoryDescendants(activeCategoryId.value)
-
-    return products.value
-      .filter(p => p.categoryId && targetCategoryIds.includes(p.categoryId))
-      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+    // 2. เลือกหมวดหมู่แล้ว
+    if (includeSubcategories) {
+      // โหมดรวมหมวดหมู่ย่อย: ดึงสินค้าจากหมวดหมู่นี้และหมวดหมู่ย่อยทั้งหมด
+      const targetCategoryIds = getCategoryDescendants(activeCategoryId.value)
+      return products.value
+        .filter(p => p.categoryId && targetCategoryIds.includes(p.categoryId))
+        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+    } else {
+      // โหมดเฉพาะหมวดหมู่: แสดงเฉพาะสินค้าในหมวดหมู่ที่เลือกโดยตรง ไม่รวมหมวดหมู่ย่อย
+      return products.value
+        .filter(p => p.categoryId === activeCategoryId.value)
+        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+    }
   })
 
   // สร้างรายชื่อหมวดหมู่ตามลำดับชั้น (Breadcrumbs)
@@ -108,14 +123,31 @@ export const usePosStore = defineStore('pos', () => {
   async function loadData(force = false) {
     if (isLoading.value) return
     
+    // โหลด Settings เสมอเพื่อให้ UI สะท้อนค่าล่าสุด (เช่น showSubcategoryProducts)
+    // ถึงแม้ข้อมูลสินค้าจะอยู่ใน memory แล้วก็ตาม
+    await loadReceiptSettings()
+
     // ข้ามการโหลดซ้ำถ้าข้อมูลอยู่ใน memory แล้ว (เช่น navigate กลับจาก orders)
     // ใช้ force=true เพื่อบังคับโหลดใหม่ (เช่น หลัง pull จาก cloud)
-    if (!force && products.value.length > 0 && categories.value.length > 0) return
+    if (!force && products.value.length > 0 && categories.value.length > 0) {
+      // อัปเดตคิวค้างจ่ายด้วย (เผื่อมีออร์เดอร์ใหม่จากเครื่องอื่น sync ลงมา)
+      await refreshPendingOrdersCount()
+      return
+    }
 
     isLoading.value = true
     loadError.value = null
 
     try {
+      // ตรวจสอบสถานะ DB ก่อน (ถ้า plugin เปิดไม่สำเร็จ db.isOpen จะเป็น false)
+      if (!db.isOpen()) {
+        try {
+          await db.open()
+        } catch (dbErr: any) {
+          throw new Error(`ไม่สามารถเปิดฐานข้อมูลได้: ${dbErr.message}`)
+        }
+      }
+
       // 1. ระบบเริ่มต้นผู้ใช้งาน (เช็ค Local/Cloud/Seed)
       const authStore = useAuthStore()
       const userInit = await authStore.initUserSystem()

@@ -39,6 +39,8 @@ export interface ReceiptSettings {
   lineDailySummaryHour?: number // ชั่วโมงที่ส่งสรุป 0-23 (default: 22)
   // Kitchen Display System (KDS)
   enableKds: boolean            // เปิดใช้งานจอห้องเครื่อง (KDS) หรือไม่
+  // POS Display
+  showSubcategoryProducts: boolean // แสดงสินค้าของหมวดหมู่ย่อยเมื่อเลือกหมวดหมู่หลัก
 }
 
 // ---------------------------------------------------------------------------
@@ -72,6 +74,7 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   lineDailySummary: true,
   lineDailySummaryHour: 22,
   enableKds: true,
+  showSubcategoryProducts: true,
 }
 
 // compat export สำหรับโค้ดเก่าที่ import DEFAULT_RECEIPT_SETTINGS โดยตรง
@@ -92,13 +95,17 @@ function getDefaultSettings(): ReceiptSettings {
 const RECEIPT_SETTINGS_KEY = 'receipt_settings'
 
 // ---------------------------------------------------------------------------
+// Singleton State: ใช้ร่วมกันทุก caller ที่เรียก useSettings()
+// pattern เดียวกับ useCart.ts เพื่อให้ posStore และ settings.vue ใช้ ref เดียวกัน
+// ---------------------------------------------------------------------------
+const receiptSettings = ref<ReceiptSettings>(STATIC_DEFAULTS)
+const isSaving = ref(false)
+const isLoading = ref(false)
+
+// ---------------------------------------------------------------------------
 // Composable
 // ---------------------------------------------------------------------------
 export function useSettings() {
-  const receiptSettings = ref<ReceiptSettings>(getDefaultSettings())
-  const isSaving = ref(false)
-  const isLoading = ref(false)
-
   /** โหลดค่าตั้งค่าจาก IndexedDB (form แสดงเฉพาะ key ที่ user กรอก ไม่รวม env default) */
   async function loadReceiptSettings() {
     isLoading.value = true

@@ -219,9 +219,9 @@ watch(selectedPayment, (newVal) => {
                   <!-- ยอดที่ต้องจ่าย -->
                   <div class="space-y-2">
                     <span class="text-xs text-surface-500 font-bold">ยอดสุทธิ</span>
-                    <div class="bg-blue-600 border-2 border-blue-500 rounded-2xl py-4 px-5 flex items-center justify-between shadow-lg shadow-blue-500/20">
-                      <span class="text-white/60 font-bold text-xl">฿</span>
-                      <span class="text-3xl font-black text-white">
+                    <div class="bg-surface-900/50 border-2 border-surface-800 rounded-2xl py-4 px-5 flex items-center justify-between">
+                      <span class="text-primary-500/50 font-bold text-xl">฿</span>
+                      <span class="text-3xl font-black text-primary-400">
                         {{ totalAmount.toLocaleString() }}
                       </span>
                     </div>

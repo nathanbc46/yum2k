@@ -20,13 +20,18 @@
     >
       <!-- Logo / Brand & User Profile -->
       <div class="p-5 border-b border-surface-800 pt-16 lg:pt-5">
-        <div class="flex items-center gap-3 mb-4">
-          <span class="text-2xl">🍋</span>
+        <NuxtLink
+          to="/"
+          class="flex items-center gap-3 mb-4 rounded-xl px-1 py-1 -mx-1 hover:bg-surface-800 transition-colors cursor-pointer group"
+          title="กลับหน้าตะกร้าสินค้า (POS)"
+          @click="isSidebarOpen = false"
+        >
+          <span class="text-2xl group-hover:scale-110 transition-transform">🍋</span>
           <div>
-            <div class="font-bold text-sm text-surface-50">Yum2K</div>
+            <div class="font-bold text-sm text-surface-50 group-hover:text-primary-400 transition-colors">Yum2K</div>
             <div class="text-[10px] text-surface-500 uppercase tracking-widest">แผงจัดการ</div>
           </div>
-        </div>
+        </NuxtLink>
 
         <!-- Current User Box -->
         <div class="bg-surface-800 rounded-xl p-3 flex items-center justify-between border border-surface-700">
