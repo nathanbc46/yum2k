@@ -63,21 +63,21 @@
         </div>
       </div>
 
-      <!-- Nav Links -->
-      <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
-        <!-- ปุ่มกลับหน้าขาย (เด่นชัด) -->
+      <!-- ปุ่มกลับหน้าขาย (fixed ไม่ scroll) -->
+      <div class="px-3 py-2.5 border-b border-surface-800 shrink-0">
         <NuxtLink
           to="/"
-          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium mb-3 bg-surface-800 border border-surface-700 text-surface-300 hover:text-primary-400 hover:border-primary-500/40 transition-all"
           @click="isSidebarOpen = false"
+          class="flex items-center gap-3 px-4 py-3 rounded-2xl font-black text-sm transition-all group relative overflow-hidden bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-900/40 hover:from-emerald-500 hover:to-emerald-400 active:scale-95"
         >
-          <span>⬅️</span>
-          <span>กลับหน้าขาย (POS)</span>
+          <span class="text-lg shrink-0 group-hover:-translate-x-0.5 transition-transform">⬅️</span>
+          <span class="flex-1">กลับหน้าขาย (POS)</span>
+          <div class="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent pointer-events-none rounded-2xl" />
         </NuxtLink>
+      </div>
 
-        <!-- เส้นคั่น -->
-        <div class="border-t border-surface-800 mb-2"></div>
-
+      <!-- Nav Links -->
+      <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
         <NuxtLink
           v-for="link in navLinks"
           :key="link.to"

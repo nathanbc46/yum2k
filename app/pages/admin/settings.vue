@@ -195,11 +195,9 @@
         </div>
 
         <!-- ====== TAB: ใบเสร็จ & เครื่องพิมพ์ ====== -->
-        <div v-show="activeTab === 'receipt'" class="space-y-6">
-          <div class="grid grid-cols-1 min-[1024px]:grid-cols-[1fr_320px] xl:grid-cols-[1fr_380px] gap-6 items-start">
-            <div class="space-y-5">
-              <!-- ส่วนตั้งค่าใบเสร็จ -->
-              <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
+        <div v-show="activeTab === 'receipt'" class="space-y-5">
+          <!-- ส่วนตั้งค่าใบเสร็จ -->
+          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
             <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-4">การพิมพ์ใบเสร็จ</h2>
             <div class="space-y-4">
               <!-- Paper Size -->
@@ -635,47 +633,9 @@
             </div>
           </div>
 
-          <!-- Live Preview (Sticky on Desktop) -->
-          <div class="lg:sticky lg:top-6 space-y-4">
-            <div class="bg-surface-900 border border-surface-700 rounded-2xl p-4 shadow-2xl shadow-black/50">
-              <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                <span>📄</span> ตัวอย่างใบเสร็จ (Live Preview)
-              </h2>
-              <div class="flex justify-center bg-surface-950 rounded-xl p-4 overflow-auto border border-surface-800">
-              <div :class="['font-mono text-black bg-white p-3 text-[10px] shadow-lg', form.paperSize === '58mm' ? 'w-[48mm]' : 'w-[72mm]']">
-                <div class="text-center border-b border-dashed border-gray-400 pb-2 mb-2">
-                  <p class="font-black text-sm uppercase">{{ form.shopName || 'ชื่อร้าน' }}</p>
-                  <p v-if="form.shopTagline" class="text-[9px]">{{ form.shopTagline }}</p>
-                  <p v-if="form.shopPhone" class="text-[9px]">📞 {{ form.shopPhone }}</p>
-                  <p v-if="form.shopAddress" class="text-[8px] leading-tight">{{ form.shopAddress }}</p>
-                  <p class="text-[8px] text-gray-400 mt-0.5">07/04/2026 13:30</p>
-                </div>
-                <div class="text-[9px] space-y-0.5 mb-2">
-                  <p v-if="form.showOrderNumber">เลขที่บิล: <strong>YUM-260407-1330-{{ form.deviceCode || 'D1' }}-0001</strong></p>
-                  <p v-if="form.showStaffName">พนักงาน: ผู้จัดการ</p>
-                  <p>ชำระ: เงินสด</p>
-                </div>
-                <div class="border-t border-dashed border-gray-400 pt-1.5 mb-2">
-                  <div class="flex justify-between"><span class="flex-1">ยำมะม่วง</span><span class="w-5 text-right">x1</span><span class="w-12 text-right">60</span></div>
-                  <div class="text-[8px] text-gray-400 pl-2">เผ็ดน้อย</div>
-                  <div class="flex justify-between mt-1"><span class="flex-1">ข้าวสวย</span><span class="w-5 text-right">x2</span><span class="w-12 text-right">40</span></div>
-                </div>
-                <div class="border-t border-dashed border-gray-400 pt-1 text-[9px] space-y-0.5 mb-2">
-                  <div class="flex justify-between"><span>ยอดรวม</span><span>100</span></div>
-                  <div class="flex justify-between font-black text-xs border-t border-gray-400 pt-0.5 mt-0.5"><span>ยอดสุทธิ</span><span>100 บาท</span></div>
-                </div>
-                <div class="text-center border-t border-dashed border-gray-400 pt-1.5 text-[9px]">
-                  <p class="font-bold">{{ form.footerMessage || 'ขอบคุณที่อุดหนุน' }}</p>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
-      </div>
-    </div>
-  </div>
 
-    <!-- ====== TAB: KDS ====== -->
+        <!-- ====== TAB: KDS ====== -->
         <div v-show="activeTab === 'kds'" class="space-y-5">
 
           <!-- KDS Card -->
@@ -840,7 +800,45 @@
         </button>
 
         </div>
-        <!-- /Right: Tab Content -->
+        <!-- /Center: Tab Content -->
+
+        <!-- ====== Right: Receipt Preview (ร้านค้า + ใบเสร็จ) ====== -->
+        <div v-if="activeTab === 'shop' || activeTab === 'receipt'" class="w-52 shrink-0 sticky top-6">
+          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-4 shadow-2xl shadow-black/50">
+            <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <span>📄</span> ตัวอย่างใบเสร็จ
+            </h2>
+            <div class="flex justify-center bg-surface-950 rounded-xl p-3 overflow-auto border border-surface-800">
+              <div :class="['font-mono text-black bg-white p-3 text-[10px] shadow-lg', form.paperSize === '58mm' ? 'w-[48mm]' : 'w-[72mm]']">
+                <div class="text-center border-b border-dashed border-gray-400 pb-2 mb-2">
+                  <p class="font-black text-sm uppercase">{{ form.shopName || 'ชื่อร้าน' }}</p>
+                  <p v-if="form.shopTagline" class="text-[9px]">{{ form.shopTagline }}</p>
+                  <p v-if="form.shopPhone" class="text-[9px]">📞 {{ form.shopPhone }}</p>
+                  <p v-if="form.shopAddress" class="text-[8px] leading-tight">{{ form.shopAddress }}</p>
+                  <p class="text-[8px] text-gray-400 mt-0.5">07/04/2026 13:30</p>
+                </div>
+                <div class="text-[9px] space-y-0.5 mb-2">
+                  <p v-if="form.showOrderNumber">เลขที่บิล: <strong>YUM-260407-1330-{{ form.deviceCode || 'D1' }}-0001</strong></p>
+                  <p v-if="form.showStaffName">พนักงาน: ผู้จัดการ</p>
+                  <p>ชำระ: เงินสด</p>
+                </div>
+                <div class="border-t border-dashed border-gray-400 pt-1.5 mb-2">
+                  <div class="flex justify-between"><span class="flex-1">ยำมะม่วง</span><span class="w-5 text-right">x1</span><span class="w-12 text-right">60</span></div>
+                  <div class="text-[8px] text-gray-400 pl-2">เผ็ดน้อย</div>
+                  <div class="flex justify-between mt-1"><span class="flex-1">ข้าวสวย</span><span class="w-5 text-right">x2</span><span class="w-12 text-right">40</span></div>
+                </div>
+                <div class="border-t border-dashed border-gray-400 pt-1 text-[9px] space-y-0.5 mb-2">
+                  <div class="flex justify-between"><span>ยอดรวม</span><span>100</span></div>
+                  <div class="flex justify-between font-black text-xs border-t border-gray-400 pt-0.5 mt-0.5"><span>ยอดสุทธิ</span><span>100 บาท</span></div>
+                </div>
+                <div class="text-center border-t border-dashed border-gray-400 pt-1.5 text-[9px]">
+                  <p class="font-bold">{{ form.footerMessage || 'ขอบคุณที่อุดหนุน' }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /Right: Receipt Preview -->
 
       </div>
       <!-- /Layout -->
@@ -1037,6 +1035,7 @@ async function handleTestLineSummary() {
 </script>
 
 <style scoped>
+
 .form-label {
   display: block;
   font-size: 0.75rem;
