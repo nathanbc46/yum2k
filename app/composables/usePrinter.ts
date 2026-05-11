@@ -66,7 +66,7 @@ export function usePrinter() {
   // ESC/POS Buffer Builder
   // สร้าง Uint8Array ที่มี ESC/POS commands ครบสำหรับส่งตรงไปยัง printer
   // ---------------------------------------------------------------------------
-  function buildEscPosBuffer(order: Order): Uint8Array {
+  function buildEscPosBuffer(order: Order, isKitchenCopy = false): Uint8Array {
     const s = receiptSettings.value
     const lineWidth = s.paperSize === '58mm' ? 32 : 42
     const line = '-'.repeat(lineWidth)
@@ -83,24 +83,29 @@ export function usePrinter() {
 
     // ESC @ - Initialize printer
     pushBytes(0x1B, 0x40)
-    // ESC t n - เลือก code page ภาษาไทย
-    // 70 (0x46) = PC874 Thai (TIS-620/Windows-874) — ตรงกับ encodeThai ที่ใช้อยู่
-    // 255 (0xFF) = Thai variant อีกแบบของ printer นี้
     const codePage = s.printerCodePage ?? 70
     if (codePage > 0) pushBytes(0x1B, 0x74, codePage)
 
     // --- Header ---
-    push(center(s.shopName))
-    if (s.shopTagline) push(center(s.shopTagline))
-    if (s.shopAddress) push(center(s.shopAddress))
-    if (s.shopPhone) push(center(`โทร: ${s.shopPhone}`))
+    if (isKitchenCopy) {
+      push('\n')
+      push(center('--- ใบสั่งทำอาหาร ---'))
+      push(center('(Kitchen Copy)'))
+    } else {
+      push(center(s.shopName))
+      if (s.shopTagline) push(center(s.shopTagline))
+      if (s.shopAddress) push(center(s.shopAddress))
+      if (s.shopPhone) push(center(`โทร: ${s.shopPhone}`))
+    }
     push(center(new Date(order.createdAt).toLocaleString('th-TH')))
     push(line + '\n')
 
     // --- Order Info ---
     if (s.showOrderNumber) push(`เลขที่บิล: ${order.orderNumber}\n`)
     if (s.showStaffName) push(`พนักงาน: ${order.staffName}\n`)
-    push(`การชำระ: ${getPaymentLabel(order.paymentMethod)}\n`)
+    if (!isKitchenCopy) {
+      push(`การชำระ: ${getPaymentLabel(order.paymentMethod)}\n`)
+    }
     push(line + '\n')
 
     // --- Items ---
@@ -135,8 +140,12 @@ export function usePrinter() {
     push(line + '\n')
 
     // --- Footer ---
-    if (s.footerMessage) push(center(s.footerMessage))
-    push(center('Yum2K POS - Offline First'))
+    if (!isKitchenCopy) {
+      if (s.footerMessage) push(center(s.footerMessage))
+      push(center('Yum2K POS - Offline First'))
+    } else {
+      push(center('--- จบใบสั่งงาน ---'))
+    }
     push('\n\n\n')
 
     // GS V 66 0 - Partial cut
@@ -187,6 +196,18 @@ export function usePrinter() {
     }
   }
 
+  // รวม Uint8Array หลายชุดเข้าด้วยกัน
+  function concatBuffers(buffers: Uint8Array[]): Uint8Array {
+    const totalLength = buffers.reduce((sum, p) => sum + p.length, 0)
+    const result = new Uint8Array(totalLength)
+    let offset = 0
+    for (const buf of buffers) {
+      result.set(buf, offset)
+      offset += buf.length
+    }
+    return result
+  }
+
   // แปลง Uint8Array → base64 string (chunk เพื่อป้องกัน stack overflow)
   function uint8ToBase64(bytes: Uint8Array): string {
     let binary = ''
@@ -211,10 +232,22 @@ export function usePrinter() {
       return false
     }
     try {
-      const buffer = s.printerImageMode
+      // สร้าง buffer ใบเสร็จลูกค้า
+      const customerBuffer = s.printerImageMode
         ? await buildImageEscPos(buildReceiptLines(order), s.paperSize)
         : buildEscPosBuffer(order)
-      const payload = { ip: s.printerIp, port: s.printerPort || 9100, data: uint8ToBase64(buffer) }
+      
+      let finalBuffer = customerBuffer
+
+      // ถ้าเปิด Kitchen Copy ให้สร้าง buffer ใบสั่งครัวมาต่อท้าย
+      if (s.printKitchenCopy) {
+        const kitchenBuffer = s.printerImageMode
+          ? await buildImageEscPos(buildReceiptLines(order, true), s.paperSize)
+          : buildEscPosBuffer(order, true)
+        finalBuffer = concatBuffers([customerBuffer, kitchenBuffer])
+      }
+
+      const payload = { ip: s.printerIp, port: s.printerPort || 9100, data: uint8ToBase64(finalBuffer) }
 
       // ถ้ากำหนด Bridge URL → ส่งตรงไปยัง local bridge แทน Vercel server route
       const endpoint = s.printerBridgeUrl ? s.printerBridgeUrl.replace(/\/$/, '') + '/print' : '/api/thermal-print'
@@ -241,9 +274,21 @@ export function usePrinter() {
       }
 
       const s = receiptSettings.value
-      const buffer = s.printerImageMode
+      
+      // สร้าง buffer ใบเสร็จลูกค้า
+      const customerBuffer = s.printerImageMode
         ? await buildImageEscPos(buildReceiptLines(order), s.paperSize)
         : buildEscPosBuffer(order)
+      
+      let finalBuffer = customerBuffer
+
+      // ถ้าเปิด Kitchen Copy ให้สร้าง buffer ใบสั่งครัวมาต่อท้าย
+      if (s.printKitchenCopy) {
+        const kitchenBuffer = s.printerImageMode
+          ? await buildImageEscPos(buildReceiptLines(order, true), s.paperSize)
+          : buildEscPosBuffer(order, true)
+        finalBuffer = concatBuffers([customerBuffer, kitchenBuffer])
+      }
 
       if (!device.opened) await device.open()
       if (device.configuration === null) await device.selectConfiguration(1)
@@ -265,7 +310,7 @@ export function usePrinter() {
       await device.claimInterface(interfaceNumber)
 
       try {
-        await device.transferOut(endpointNumber, buffer)
+        await device.transferOut(endpointNumber, finalBuffer)
         return true
       } finally {
         await device.releaseInterface(interfaceNumber)
@@ -409,11 +454,21 @@ export function usePrinter() {
   async function printRawBT(order: Order): Promise<boolean> {
     try {
       await loadReceiptSettings()
-      const receiptText = formatReceiptEscPos(order)
+      const s = receiptSettings.value
+      
+      // สร้างใบเสร็จลูกค้า
+      let finalText = formatReceiptEscPos(order)
+
+      // ถ้าเปิด Kitchen Copy ให้สร้างใบสั่งครัวมาต่อท้าย
+      if (s.printKitchenCopy) {
+        const kitchenText = formatReceiptEscPos(order, true)
+        finalText += kitchenText
+      }
+
       const response = await fetch(RAWBT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-        body: receiptText
+        body: finalText
       })
       if (!response.ok) throw new Error('RawBT returned error status')
       return true
@@ -452,7 +507,7 @@ export function usePrinter() {
   // ---------------------------------------------------------------------------
   // ESC/POS String Format (สำหรับ RawBT ซึ่งรับ UTF-8 text)
   // ---------------------------------------------------------------------------
-  function formatReceiptEscPos(order: Order): string {
+  function formatReceiptEscPos(order: Order, isKitchenCopy = false): string {
     const s = receiptSettings.value
     const lineWidth = s.paperSize === '58mm' ? 32 : 42
     const line = '-'.repeat(lineWidth) + '\n'
@@ -464,16 +519,24 @@ export function usePrinter() {
     }
 
     let res = ''
-    res += center(s.shopName)
-    if (s.shopTagline) res += center(s.shopTagline)
-    if (s.shopAddress) res += center(s.shopAddress)
-    if (s.shopPhone) res += center(`โทร: ${s.shopPhone}`)
+    if (isKitchenCopy) {
+      res += '\n'
+      res += center('--- ใบสั่งทำอาหาร ---')
+      res += center('(Kitchen Copy)')
+    } else {
+      res += center(s.shopName)
+      if (s.shopTagline) res += center(s.shopTagline)
+      if (s.shopAddress) res += center(s.shopAddress)
+      if (s.shopPhone) res += center(`โทร: ${s.shopPhone}`)
+    }
     res += center(new Date(order.createdAt).toLocaleString('th-TH'))
     res += line
 
     if (s.showOrderNumber) res += `เลขที่บิล: ${order.orderNumber}\n`
     if (s.showStaffName) res += `พนักงาน: ${order.staffName}\n`
-    res += `การชำระ: ${getPaymentLabel(order.paymentMethod)}\n`
+    if (!isKitchenCopy) {
+      res += `การชำระ: ${getPaymentLabel(order.paymentMethod)}\n`
+    }
     res += line
 
     const nameWidth = lineWidth === 32 ? 14 : 20
@@ -503,8 +566,12 @@ export function usePrinter() {
     }
     res += vwPadEnd('ยอดสุทธิ:', 12) + vwPadStart(order.totalAmount.toLocaleString('en-US') + ' บาท', lineWidth - 12) + '\n'
     res += line
-    if (s.footerMessage) res += center(s.footerMessage)
-    res += center('Yum2K POS - Offline First')
+    if (!isKitchenCopy) {
+      if (s.footerMessage) res += center(s.footerMessage)
+      res += center('Yum2K POS - Offline First')
+    } else {
+      res += center('--- จบใบสั่งงาน ---')
+    }
     res += '\n\n\n'
     res += '\x1dV\x42\x00'
     return res
@@ -534,20 +601,28 @@ export function usePrinter() {
     | { type: 'columns'; name: string; qty: string; price: string }
 
   /** สร้าง receipt เป็น structured lines (ไม่ใช้ text padding) */
-  function buildReceiptLines(order: Order): ReceiptLine[] {
+  function buildReceiptLines(order: Order, isKitchenCopy = false): ReceiptLine[] {
     const s = receiptSettings.value
     const lines: ReceiptLine[] = []
 
-    lines.push({ type: 'text', text: s.shopName, align: 'center' })
-    if (s.shopTagline) lines.push({ type: 'text', text: s.shopTagline, align: 'center' })
-    if (s.shopAddress) lines.push({ type: 'text', text: s.shopAddress, align: 'center' })
-    if (s.shopPhone) lines.push({ type: 'text', text: `โทร: ${s.shopPhone}`, align: 'center' })
+    if (isKitchenCopy) {
+      lines.push({ type: 'spacer' })
+      lines.push({ type: 'text', text: '--- ใบสั่งทำอาหาร ---', align: 'center' })
+      lines.push({ type: 'text', text: '(Kitchen Copy)', align: 'center' })
+    } else {
+      lines.push({ type: 'text', text: s.shopName, align: 'center' })
+      if (s.shopTagline) lines.push({ type: 'text', text: s.shopTagline, align: 'center' })
+      if (s.shopAddress) lines.push({ type: 'text', text: s.shopAddress, align: 'center' })
+      if (s.shopPhone) lines.push({ type: 'text', text: `โทร: ${s.shopPhone}`, align: 'center' })
+    }
     lines.push({ type: 'text', text: new Date(order.createdAt).toLocaleString('th-TH'), align: 'center' })
     lines.push({ type: 'separator' })
 
     if (s.showOrderNumber) lines.push({ type: 'text', text: `เลขที่บิล: ${order.orderNumber}` })
     if (s.showStaffName) lines.push({ type: 'text', text: `พนักงาน: ${order.staffName}` })
-    lines.push({ type: 'text', text: `การชำระ: ${getPaymentLabel(order.paymentMethod)}` })
+    if (!isKitchenCopy) {
+      lines.push({ type: 'text', text: `การชำระ: ${getPaymentLabel(order.paymentMethod)}` })
+    }
     lines.push({ type: 'separator' })
 
     lines.push({ type: 'columns', name: 'รายการ', qty: 'จำนวน', price: 'ราคา' })
@@ -566,8 +641,12 @@ export function usePrinter() {
     lines.push({ type: 'columns', name: 'ยอดสุทธิ', qty: '', price: `${order.totalAmount.toLocaleString()} บาท` })
     lines.push({ type: 'separator' })
 
-    if (s.footerMessage) lines.push({ type: 'text', text: s.footerMessage, align: 'center' })
-    lines.push({ type: 'text', text: 'Yum2K POS', align: 'center' })
+    if (!isKitchenCopy) {
+      if (s.footerMessage) lines.push({ type: 'text', text: s.footerMessage, align: 'center' })
+      lines.push({ type: 'text', text: 'Yum2K POS', align: 'center' })
+    } else {
+      lines.push({ type: 'text', text: '--- จบใบสั่งงาน ---', align: 'center' })
+    }
     lines.push({ type: 'spacer' })
 
     return lines

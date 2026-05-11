@@ -139,14 +139,6 @@ export const usePosStore = defineStore('pos', () => {
     loadError.value = null
 
     try {
-      // ตรวจสอบสถานะ DB ก่อน (ถ้า plugin เปิดไม่สำเร็จ db.isOpen จะเป็น false)
-      if (!db.isOpen()) {
-        try {
-          await db.open()
-        } catch (dbErr: any) {
-          throw new Error(`ไม่สามารถเปิดฐานข้อมูลได้: ${dbErr.message}`)
-        }
-      }
 
       // 1. ระบบเริ่มต้นผู้ใช้งาน (เช็ค Local/Cloud/Seed)
       const authStore = useAuthStore()

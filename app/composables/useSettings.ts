@@ -41,6 +41,7 @@ export interface ReceiptSettings {
   enableKds: boolean            // เปิดใช้งานจอห้องเครื่อง (KDS) หรือไม่
   // POS Display
   showSubcategoryProducts: boolean // แสดงสินค้าของหมวดหมู่ย่อยเมื่อเลือกหมวดหมู่หลัก
+  printKitchenCopy: boolean        // พิมพ์ใบสั่งทำอาหาร (Kitchen Copy) แยกต่างหาก
 }
 
 // ---------------------------------------------------------------------------
@@ -73,8 +74,9 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   lineLowStock: false,
   lineDailySummary: true,
   lineDailySummaryHour: 22,
-  enableKds: true,
-  showSubcategoryProducts: true,
+  enableKds: false,
+  showSubcategoryProducts: false,
+  printKitchenCopy: false,
 }
 
 // compat export สำหรับโค้ดเก่าที่ import DEFAULT_RECEIPT_SETTINGS โดยตรง

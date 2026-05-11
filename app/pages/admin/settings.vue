@@ -7,7 +7,7 @@
 ============================================================================= -->
 <template>
   <div class="flex-1 overflow-y-auto p-6">
-    <div class="max-w-3xl mx-auto space-y-6">
+    <div class="max-w-none mx-auto space-y-6">
       
       <!-- RawBT Status Alert (แสดงเฉพาะเมื่อเลือกใช้ RawBT และยังไม่ได้เปิดแอป) -->
       <div
@@ -72,7 +72,7 @@
           <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
             <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-4">ข้อมูลร้านค้า</h2>
             <div class="space-y-4">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                 <div>
                   <label class="form-label">ชื่อร้าน <span class="text-danger">*</span></label>
                   <input v-model="form.shopName" type="text" placeholder="เช่น Yum2K, ร้านยำรสเด็ด" class="form-input" />
@@ -195,10 +195,11 @@
         </div>
 
         <!-- ====== TAB: ใบเสร็จ & เครื่องพิมพ์ ====== -->
-        <div v-show="activeTab === 'receipt'" class="space-y-5">
-
-          <!-- ส่วนตั้งค่าใบเสร็จ -->
-          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
+        <div v-show="activeTab === 'receipt'" class="space-y-6">
+          <div class="grid grid-cols-1 min-[1024px]:grid-cols-[1fr_320px] xl:grid-cols-[1fr_380px] gap-6 items-start">
+            <div class="space-y-5">
+              <!-- ส่วนตั้งค่าใบเสร็จ -->
+              <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
             <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-4">การพิมพ์ใบเสร็จ</h2>
             <div class="space-y-4">
               <!-- Paper Size -->
@@ -598,6 +599,30 @@
                 </div>
               </div>
 
+              <!-- Kitchen Copy Toggle -->
+              <div class="space-y-3 pt-2 border-t border-surface-800">
+                <div class="flex items-start justify-between gap-3 p-4 bg-surface-950 rounded-xl border border-primary-500/20 shadow-lg shadow-primary-500/5">
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="text-lg">👨‍🍳</span>
+                      <p class="text-sm font-bold text-surface-50">พิมพ์ใบสั่งทำอาหาร (Kitchen Copy)</p>
+                    </div>
+                    <p class="text-[11px] text-surface-500 leading-relaxed">
+                      พิมพ์บิล 2 ชุดและตัดกระดาษคั่น ชุดที่ 2 จะตัดส่วนหัวร้านออกและแสดงเฉพาะรายการอาหารสำหรับเข้าครัว
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    @click="form.printKitchenCopy = !form.printKitchenCopy"
+                    class="relative w-12 h-[26px] rounded-full transition-all duration-300 shrink-0 p-[3px] flex items-center mt-1"
+                    :class="form.printKitchenCopy ? 'bg-primary-500' : 'bg-surface-700'"
+                  >
+                    <div class="w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-300"
+                      :class="form.printKitchenCopy ? 'translate-x-[22px]' : 'translate-x-0'" />
+                  </button>
+                </div>
+              </div>
+
               <!-- ทดสอบพิมพ์ (แสดงทุก method) -->
               <button
                 type="button"
@@ -610,10 +635,13 @@
             </div>
           </div>
 
-          <!-- Live Preview (อยู่ใน Tab ใบเสร็จ) -->
-          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-4">
-            <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-3">ตัวอย่างใบเสร็จ</h2>
-            <div class="flex justify-center bg-surface-950 rounded-xl p-4 overflow-auto">
+          <!-- Live Preview (Sticky on Desktop) -->
+          <div class="lg:sticky lg:top-6 space-y-4">
+            <div class="bg-surface-900 border border-surface-700 rounded-2xl p-4 shadow-2xl shadow-black/50">
+              <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <span>📄</span> ตัวอย่างใบเสร็จ (Live Preview)
+              </h2>
+              <div class="flex justify-center bg-surface-950 rounded-xl p-4 overflow-auto border border-surface-800">
               <div :class="['font-mono text-black bg-white p-3 text-[10px] shadow-lg', form.paperSize === '58mm' ? 'w-[48mm]' : 'w-[72mm]']">
                 <div class="text-center border-b border-dashed border-gray-400 pb-2 mb-2">
                   <p class="font-black text-sm uppercase">{{ form.shopName || 'ชื่อร้าน' }}</p>
@@ -643,8 +671,11 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
 
-        <!-- ====== TAB: KDS ====== -->
+    <!-- ====== TAB: KDS ====== -->
         <div v-show="activeTab === 'kds'" class="space-y-5">
 
           <!-- KDS Card -->
@@ -878,8 +909,9 @@ const form = reactive<ReceiptSettings>({
   lineLowStock: false,
   lineDailySummary: true,
   lineDailySummaryHour: 22,
-  enableKds: true,
-  showSubcategoryProducts: true,
+  enableKds: false,
+  showSubcategoryProducts: false,
+  printKitchenCopy: false,
 })
 
 const printerMethods = [
