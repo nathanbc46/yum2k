@@ -366,11 +366,13 @@ export function useSync() {
       await masterSync.pullAll().catch(err => console.error('⚠️ Master Pull Error:', err))
     }
 
-    const { data: remoteOrders, error } = await supabase
-      .from('orders')
-      .select('*, order_items(*)')
-      .order('created_at', { ascending: false })
-      .limit(limit)
+    const { data: remoteOrders, error } = await withTimeout(
+      supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .order('created_at', { ascending: false })
+        .limit(limit)
+    )
 
     if (error) throw error
     if (!remoteOrders?.length) return 0
@@ -400,76 +402,79 @@ export function useSync() {
 
     // --- ประมวลผลออร์เดอร์ ---
     let count = 0
-    for (const remote of remoteOrders) {
-      const existing = existingOrders.find(o => o.uuid === remote.uuid)
-      
-      const processedItems: OrderItem[] = remote.order_items.map((item: any) => {
-        const prodInfo = prodUuidToLocalId.get(item.product_uuid)
-        const categoryId = prodInfo?.categoryId ?? catUuidToLocalId.get(item.category_uuid) ?? 0
-
-        return {
-          productId: prodInfo?.id || 0,
-          productUuid: item.product_uuid || '',
-          categoryId,
-          categoryUuid: item.category_uuid || '',
-          productName: item.product_name,
-          productSku: item.product_sku,
-          quantity: item.quantity,
-          unitPrice: Number(item.unit_price),
-          costPrice: Number(item.cost_price),
-          discount: Number(item.discount || 0),
-          totalPrice: Number(item.total_price),
-          addonsTotal: Number(item.addons_total || 0),
-          addons: item.addons || [],
-          inventoryDeductions: item.inventory_deductions || []
-        }
-      })
-
-      const orderData = {
-        uuid: remote.uuid,
-        orderNumber: remote.order_number,
-        staffId: 1,
-        staffUuid: remote.staff_uuid || remote.staff_id || '',
-        staffName: remote.staff_name,
-        subtotal: Number(remote.subtotal),
-        discountAmount: Number(remote.discount_amount),
-        taxRate: Number(remote.tax_rate),
-        taxAmount: Number(remote.tax_amount || 0),
-        totalAmount: Number(remote.total_amount),
-        totalCost: Number(remote.total_cost),
-        profitAmount: Number(remote.profit_amount),
-        paymentMethod: remote.payment_method,
-        amountReceived: Number(remote.amount_received),
-        changeAmount: Number(remote.change_amount),
-        status: remote.status,
-        kitchenStatus: remote.kitchen_status || 'pending',
-        note: remote.note,
-        deliveryRef: remote.delivery_ref,
-        cashDenominations: remote.cash_denominations,
-        isDeleted: remote.is_deleted,
-        syncStatus: 'synced' as SyncStatus,
-        syncRetryCount: 0,
-        syncedAt: new Date(remote.updated_at),
-        createdAt: new Date(remote.created_at),
-        updatedAt: new Date(remote.updated_at),
-        items: processedItems
-      }
-
-      if (existing) {
-        // ถ้ามีอยู่แล้ว ตรวจสอบว่าข้อมูลบน Cloud ใหม่กว่าหรือไม่
-        const remoteDate = new Date(remote.updated_at)
-        const localDate = new Date(existing.updatedAt)
+    
+    await db.transaction('rw', db.orders, async () => {
+      for (const remote of remoteOrders) {
+        const existing = existingOrders.find(o => o.uuid === remote.uuid)
         
-        if (remoteDate > localDate) {
-          await db.orders.update(existing.id!, orderData)
+        const processedItems: OrderItem[] = remote.order_items.map((item: any) => {
+          const prodInfo = prodUuidToLocalId.get(item.product_uuid)
+          const categoryId = prodInfo?.categoryId ?? catUuidToLocalId.get(item.category_uuid) ?? 0
+
+          return {
+            productId: prodInfo?.id || 0,
+            productUuid: item.product_uuid || '',
+            categoryId,
+            categoryUuid: item.category_uuid || '',
+            productName: item.product_name,
+            productSku: item.product_sku,
+            quantity: item.quantity,
+            unitPrice: Number(item.unit_price),
+            costPrice: Number(item.cost_price),
+            discount: Number(item.discount || 0),
+            totalPrice: Number(item.total_price),
+            addonsTotal: Number(item.addons_total || 0),
+            addons: item.addons || [],
+            inventoryDeductions: item.inventory_deductions || []
+          }
+        })
+
+        const orderData = {
+          uuid: remote.uuid,
+          orderNumber: remote.order_number,
+          staffId: 1,
+          staffUuid: remote.staff_uuid || remote.staff_id || '',
+          staffName: remote.staff_name,
+          subtotal: Number(remote.subtotal),
+          discountAmount: Number(remote.discount_amount),
+          taxRate: Number(remote.tax_rate),
+          taxAmount: Number(remote.tax_amount || 0),
+          totalAmount: Number(remote.total_amount),
+          totalCost: Number(remote.total_cost),
+          profitAmount: Number(remote.profit_amount),
+          paymentMethod: remote.payment_method,
+          amountReceived: Number(remote.amount_received),
+          changeAmount: Number(remote.change_amount),
+          status: remote.status,
+          kitchenStatus: remote.kitchen_status || 'pending',
+          note: remote.note,
+          deliveryRef: remote.delivery_ref,
+          cashDenominations: remote.cash_denominations,
+          isDeleted: remote.is_deleted,
+          syncStatus: 'synced' as SyncStatus,
+          syncRetryCount: 0,
+          syncedAt: new Date(remote.updated_at),
+          createdAt: new Date(remote.created_at),
+          updatedAt: new Date(remote.updated_at),
+          items: processedItems
+        }
+
+        if (existing) {
+          // ถ้ามีอยู่แล้ว ตรวจสอบว่าข้อมูลบน Cloud ใหม่กว่าหรือไม่
+          const remoteDate = new Date(remote.updated_at)
+          const localDate = new Date(existing.updatedAt)
+          
+          if (remoteDate > localDate) {
+            await db.orders.update(existing.id!, orderData)
+            count++
+          }
+        } else {
+          // ถ้ายังไม่มี ให้เพิ่มใหม่
+          await db.orders.add(orderData)
           count++
         }
-      } else {
-        // ถ้ายังไม่มี ให้เพิ่มใหม่
-        await db.orders.add(orderData)
-        count++
       }
-    }
+    })
 
     await refreshPendingCount()
     return count
@@ -481,11 +486,13 @@ export function useSync() {
   async function fetchRemoteExpenses(limit = 100): Promise<number> {
     if (!supabase) return 0
 
-    const { data: remoteExpenses, error } = await supabase
-      .from('expenses')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit)
+    const { data: remoteExpenses, error } = await withTimeout(
+      supabase
+        .from('expenses')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit)
+    )
 
     if (error) throw error
     if (!remoteExpenses?.length) return 0
@@ -496,52 +503,54 @@ export function useSync() {
     const existingUuids = new Set(existingExpenses.map(e => e.uuid))
 
     let count = 0
-    for (const remote of remoteExpenses) {
-      if (existingUuids.has(remote.uuid)) {
-        // อัปเดตข้อมูลเดิมที่มีอยู่ (ถ้ามี)
-        const localExp = existingExpenses.find(e => e.uuid === remote.uuid)
-        if (localExp) {
-          // เปรียบเทียบ updatedAt เพื่อดูว่าควรทับไหม
-          const remoteDate = new Date(remote.updated_at)
-          const localDate = new Date(localExp.updatedAt)
-          
-          if (remoteDate > localDate) {
-            await db.expenses.update(localExp.id!, {
-              category: remote.category,
-              amount: Number(remote.amount),
-              description: remote.description,
-              expenseDate: remote.expense_date,
-              recordedBy: remote.recorded_by,
-              staffId: remote.staff_id,
-              staffUuid: remote.staff_uuid,
-              isDeleted: !!remote.is_deleted,
-              syncStatus: 'synced',
-              syncedAt: new Date(remote.updated_at),
-              updatedAt: new Date(remote.updated_at)
-            })
-            count++
+    await db.transaction('rw', db.expenses, async () => {
+      for (const remote of remoteExpenses) {
+        if (existingUuids.has(remote.uuid)) {
+          // อัปเดตข้อมูลเดิมที่มีอยู่ (ถ้ามี)
+          const localExp = existingExpenses.find(e => e.uuid === remote.uuid)
+          if (localExp) {
+            // เปรียบเทียบ updatedAt เพื่อดูว่าควรทับไหม
+            const remoteDate = new Date(remote.updated_at)
+            const localDate = new Date(localExp.updatedAt)
+            
+            if (remoteDate > localDate) {
+              await db.expenses.update(localExp.id!, {
+                category: remote.category,
+                amount: Number(remote.amount),
+                description: remote.description,
+                expenseDate: remote.expense_date,
+                recordedBy: remote.recorded_by,
+                staffId: remote.staff_id,
+                staffUuid: remote.staff_uuid,
+                isDeleted: !!remote.is_deleted,
+                syncStatus: 'synced',
+                syncedAt: new Date(remote.updated_at),
+                updatedAt: new Date(remote.updated_at)
+              })
+              count++
+            }
           }
+        } else {
+          // เพิ่มรายการใหม่
+          await db.expenses.add({
+            uuid: remote.uuid,
+            category: remote.category,
+            amount: Number(remote.amount),
+            description: remote.description,
+            expenseDate: remote.expense_date,
+            recordedBy: remote.recorded_by,
+            staffId: remote.staff_id,
+            staffUuid: remote.staff_uuid,
+            isDeleted: !!remote.is_deleted,
+            syncStatus: 'synced',
+            syncedAt: new Date(remote.updated_at),
+            createdAt: new Date(remote.created_at),
+            updatedAt: new Date(remote.updated_at)
+          })
+          count++
         }
-      } else {
-        // เพิ่มรายการใหม่
-        await db.expenses.add({
-          uuid: remote.uuid,
-          category: remote.category,
-          amount: Number(remote.amount),
-          description: remote.description,
-          expenseDate: remote.expense_date,
-          recordedBy: remote.recorded_by,
-          staffId: remote.staff_id,
-          staffUuid: remote.staff_uuid,
-          isDeleted: !!remote.is_deleted,
-          syncStatus: 'synced',
-          syncedAt: new Date(remote.updated_at),
-          createdAt: new Date(remote.created_at),
-          updatedAt: new Date(remote.updated_at)
-        })
-        count++
       }
-    }
+    })
 
     await refreshPendingCount()
     return count

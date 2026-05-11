@@ -219,9 +219,9 @@ watch(selectedPayment, (newVal) => {
                   <!-- ยอดที่ต้องจ่าย -->
                   <div class="space-y-2">
                     <span class="text-xs text-surface-500 font-bold">ยอดสุทธิ</span>
-                    <div class="bg-surface-900 border-2 border-amber-500/30 rounded-2xl py-4 px-5 flex items-center justify-between">
-                      <span class="text-amber-500/50 font-bold text-xl">฿</span>
-                      <span class="text-3xl font-black text-amber-500">
+                    <div class="bg-blue-600 border-2 border-blue-500 rounded-2xl py-4 px-5 flex items-center justify-between shadow-lg shadow-blue-500/20">
+                      <span class="text-white/60 font-bold text-xl">฿</span>
+                      <span class="text-3xl font-black text-white">
                         {{ totalAmount.toLocaleString() }}
                       </span>
                     </div>
@@ -295,8 +295,8 @@ watch(selectedPayment, (newVal) => {
           <button 
             @click="confirmSale"
             :disabled="!isAmountEnough"
-            class="flex-[2] btn-touch text-white font-bold text-lg rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed"
-            :class="isAmountEnough ? 'bg-primary-600 hover:bg-primary-500 shadow-primary-900/30' : 'bg-surface-800 text-surface-500'"
+            class="flex-[2] btn-touch text-white font-bold text-lg rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
+            :class="isAmountEnough ? 'bg-primary-600 hover:bg-primary-500 shadow-primary-900/30' : 'bg-surface-700 text-surface-400'"
           >
             <span>ยืนยันและปริ้น</span>
             <span class="text-xl">🖨️</span>

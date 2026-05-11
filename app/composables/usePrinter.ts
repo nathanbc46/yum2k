@@ -5,7 +5,7 @@
 // =============================================================================
 
 import type { Order, OrderItem } from '~/types'
-import { useSettings } from '~/composables/useSettings'
+import { useSettings, type ReceiptSettings } from '~/composables/useSettings'
 
 export function usePrinter() {
   const RAWBT_URL = 'http://localhost:40213/print'
@@ -285,9 +285,14 @@ export function usePrinter() {
    * ส่ง test print ผ่านวิธีที่กำหนดใน settings
    * คืนค่า { success, errorType } เพื่อให้ UI แสดง error message ที่เหมาะสม
    */
-  async function testPrint(): Promise<{ success: boolean; errorType?: 'security_error' | 'no_device' | 'no_ip' | 'connection_error' | 'generic'; errorMessage?: string }> {
-    await loadReceiptSettings()
-    const s = receiptSettings.value
+  async function testPrint(customSettings?: ReceiptSettings): Promise<{ success: boolean; errorType?: 'security_error' | 'no_device' | 'no_ip' | 'connection_error' | 'generic'; errorMessage?: string }> {
+    if (customSettings) {
+      // Use provided settings directly
+      var s = customSettings
+    } else {
+      await loadReceiptSettings()
+      var s = receiptSettings.value
+    }
     const lineWidth = s.paperSize === '58mm' ? 32 : 42
     const line = '='.repeat(lineWidth)
     const testLines = [

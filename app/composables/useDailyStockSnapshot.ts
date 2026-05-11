@@ -207,37 +207,39 @@ export function useDailyStockSnapshot() {
     const prodUuidToId = new Map(allProducts.map(p => [p.uuid, p.id!]))
 
     let count = 0
-    for (const remote of remoteRows) {
-      const existing = existingByUuid.get(remote.uuid)
-      const remoteUpdatedAt = new Date(remote.updated_at)
-      if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) continue
+    await db.transaction('rw', db.dailyStockSnapshots, async () => {
+      for (const remote of remoteRows) {
+        const existing = existingByUuid.get(remote.uuid)
+        const remoteUpdatedAt = new Date(remote.updated_at)
+        if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) continue
 
-      const localSnapshot: Omit<DailyStockSnapshot, 'id'> = {
-        uuid:            remote.uuid,
-        snapshotDate:    remote.snapshot_date,
-        productUuid:     remote.product_uuid,
-        productId:       prodUuidToId.get(remote.product_uuid) ?? existing?.productId ?? 0,
-        productName:     remote.product_name,
-        productSku:      remote.product_sku ?? undefined,
-        stockQuantity:   Number(remote.stock_quantity),
-        capturedByUuid:  remote.captured_by_uuid ?? '',
-        capturedByName:  remote.captured_by_name ?? '',
-        capturedAt:      new Date(remote.captured_at),
-        syncStatus:      'synced',
-        syncedAt:        remoteUpdatedAt,
-        syncRetryCount:  0,
-        isDeleted:       remote.is_deleted ?? false,
-        createdAt:       new Date(remote.created_at),
-        updatedAt:       remoteUpdatedAt,
-      }
+        const localSnapshot: Omit<DailyStockSnapshot, 'id'> = {
+          uuid:            remote.uuid,
+          snapshotDate:    remote.snapshot_date,
+          productUuid:     remote.product_uuid,
+          productId:       prodUuidToId.get(remote.product_uuid) ?? existing?.productId ?? 0,
+          productName:     remote.product_name,
+          productSku:      remote.product_sku ?? undefined,
+          stockQuantity:   Number(remote.stock_quantity),
+          capturedByUuid:  remote.captured_by_uuid ?? '',
+          capturedByName:  remote.captured_by_name ?? '',
+          capturedAt:      new Date(remote.captured_at),
+          syncStatus:      'synced',
+          syncedAt:        remoteUpdatedAt,
+          syncRetryCount:  0,
+          isDeleted:       remote.is_deleted ?? false,
+          createdAt:       new Date(remote.created_at),
+          updatedAt:       remoteUpdatedAt,
+        }
 
-      if (existing?.id) {
-        await db.dailyStockSnapshots.update(existing.id, localSnapshot)
-      } else {
-        await db.dailyStockSnapshots.add(localSnapshot as DailyStockSnapshot)
+        if (existing?.id) {
+          await db.dailyStockSnapshots.update(existing.id, localSnapshot)
+        } else {
+          await db.dailyStockSnapshots.add(localSnapshot as DailyStockSnapshot)
+        }
+        count++
       }
-      count++
-    }
+    })
 
     await setSetting(SETTING_KEY_SNAPSHOT_PULL, new Date().toISOString())
     return count

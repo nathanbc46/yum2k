@@ -274,9 +274,15 @@ export function useCart() {
       // เก็บ snapshot ก่อนล้างตะกร้า และเตรียมข้อมูลนอก transaction
       const snapshot = [...cartItems.value]
       const posStore = usePosStore()
+      const { receiptSettings, loadReceiptSettings } = useSettings()
+      
+      // โหลด Settings ล่าสุดจาก DB เพื่อตรวจสอบ KDS และ Device Code
+      await loadReceiptSettings()
+      
       const orderNumber = await generateOrderNumber()
       const now = new Date()
       const isUnpaid = paymentMethod === 'unpaid'
+      const isKdsEnabled = receiptSettings.value.enableKds ?? true
 
       let savedOrder: Order | undefined
 
@@ -326,7 +332,7 @@ export function useCart() {
           changeAmount: isUnpaid ? 0 : amountReceived - totalAmount.value,
           cashDenominations: paymentMethod === 'cash' ? cashDenominations : undefined,
           status: isUnpaid ? 'pending' : 'completed',
-          kitchenStatus: 'pending',
+          kitchenStatus: isKdsEnabled ? 'pending' : 'served',
           note: note.value,
           deliveryRef: deliveryRef.value,
           syncStatus: 'pending',
@@ -474,10 +480,8 @@ export function useCart() {
   async function generateOrderNumber(): Promise<string> {
     const { receiptSettings, loadReceiptSettings } = useSettings()
     
-    // โหลด Settings เพื่อเอา Device Code
-    if (!receiptSettings.value.deviceCode) {
-      await loadReceiptSettings()
-    }
+    // โหลด Settings เพื่อเอา Device Code ล่าสุด
+    await loadReceiptSettings()
 
     const device = receiptSettings.value.deviceCode || 'D1'
     const today = new Date()

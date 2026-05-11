@@ -187,36 +187,38 @@ export function useMasterDataSync() {
     if (!remoteCats?.length) return 0
 
     let count = 0
-    for (const remote of remoteCats) {
-      let existing = await db.categories.where('uuid').equals(remote.uuid).first()
-      if (!existing) {
-        existing = await db.categories.where('name').equals(remote.name).first()
-      }
+    await db.transaction('rw', db.categories, async () => {
+      for (const remote of remoteCats) {
+        let existing = await db.categories.where('uuid').equals(remote.uuid).first()
+        if (!existing) {
+          existing = await db.categories.where('name').equals(remote.name).first()
+        }
 
-      const remoteUpdatedAt = new Date(remote.updated_at)
-      if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) continue
+        const remoteUpdatedAt = new Date(remote.updated_at)
+        if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) continue
 
-      const localCategory: Omit<Category, 'id'> = {
-        uuid:        remote.uuid,
-        name:        remote.name,
-        description: remote.description ?? undefined,
-        iconUrl:     remote.icon_url ?? undefined,
-        color:       remote.color ?? '#6366f1',
-        sortOrder:   remote.sort_order,
-        parentUuid:  remote.parent_uuid ?? undefined,
-        isActive:    remote.is_active,
-        isDeleted:   remote.is_deleted,
-        createdAt:   new Date(remote.created_at),
-        updatedAt:   remoteUpdatedAt,
-      }
+        const localCategory: Omit<Category, 'id'> = {
+          uuid:        remote.uuid,
+          name:        remote.name,
+          description: remote.description ?? undefined,
+          iconUrl:     remote.icon_url ?? undefined,
+          color:       remote.color ?? '#6366f1',
+          sortOrder:   remote.sort_order,
+          parentUuid:  remote.parent_uuid ?? undefined,
+          isActive:    remote.is_active,
+          isDeleted:   remote.is_deleted,
+          createdAt:   new Date(remote.created_at),
+          updatedAt:   remoteUpdatedAt,
+        }
 
-      if (existing?.id) {
-        await db.categories.update(existing.id, { ...localCategory, uuid: remote.uuid })
-      } else {
-        await db.categories.add(localCategory as Category)
+        if (existing?.id) {
+          await db.categories.update(existing.id, { ...localCategory, uuid: remote.uuid })
+        } else {
+          await db.categories.add(localCategory as Category)
+        }
+        count++
       }
-      count++
-    }
+    })
 
     // --- Second Pass: เชื่อมโยง parentId จาก parentUuid ---
     if (count > 0 || force) {
@@ -266,63 +268,65 @@ export function useMasterDataSync() {
 
     // --- First Pass: Upsert สินค้าเบื้องต้น (ยังไม่เชื่อม Mapping) ---
     let count = 0
-    for (const remote of remoteProds) {
-      let existing = await db.products.where('uuid').equals(remote.uuid).first()
-      if (!existing) {
-        if (remote.sku) {
-          existing = await db.products.where('sku').equals(remote.sku).first()
-        }
+    await db.transaction('rw', db.products, async () => {
+      for (const remote of remoteProds) {
+        let existing = await db.products.where('uuid').equals(remote.uuid).first()
         if (!existing) {
-          existing = await db.products.where('name').equals(remote.name).first()
+          if (remote.sku) {
+            existing = await db.products.where('sku').equals(remote.sku).first()
+          }
+          if (!existing) {
+            existing = await db.products.where('name').equals(remote.name).first()
+          }
         }
-      }
 
-      const remoteUpdatedAt = new Date(remote.updated_at)
-      if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) continue
+        const remoteUpdatedAt = new Date(remote.updated_at)
+        if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) continue
 
-      const categoryId = catUuidToId.get(remote.category_uuid)
-      if (!categoryId) {
-        console.warn(`⚠️ ไม่พบหมวดหมู่ uuid=${remote.category_uuid} สำหรับสินค้า "${remote.name}" — ข้าม`)
-        continue
-      }
+        const categoryId = catUuidToId.get(remote.category_uuid)
+        if (!categoryId) {
+          console.warn(`⚠️ ไม่พบหมวดหมู่ uuid=${remote.category_uuid} สำหรับสินค้า "${remote.name}" — ข้าม`)
+          continue
+        }
 
-      // บันทึก Log เพื่อตรวจสอบข้อมูล Addon
-      let addonData = remote.addon_groups
-      if (typeof addonData === 'string') {
-        try { addonData = JSON.parse(addonData) } catch (e) { addonData = undefined }
-      }
+        // บันทึก Log เพื่อตรวจสอบข้อมูล Addon
+        let addonData = remote.addon_groups
+        if (typeof addonData === 'string') {
+          try { addonData = JSON.parse(addonData) } catch (e) { addonData = undefined }
+        }
 
-      const localProduct: Omit<Product, 'id'> = {
-        uuid:               remote.uuid,
-        categoryId,
-        sku:                remote.sku ?? undefined,
-        name:               remote.name,
-        description:        remote.description ?? undefined,
-        salePrice:          Number(remote.sale_price),
-        costPrice:          Number(remote.cost_price),
-        stockQuantity:      Number(remote.stock_quantity),
-        alertThreshold:     Number(remote.alert_threshold),
-        trackInventory:     remote.track_inventory,
-        mappingType:        remote.mapping_type ?? undefined,
-        // สำคัญ: รอบแรกห้ามใส่ Mappings เพราะสินค้าปลายทางอาจยังไม่มีในเครื่อง
-        inventoryMappings:  undefined,
-        addonGroups:        Array.isArray(addonData) ? addonData : undefined,
-        isActive:           remote.is_active,
-        sortOrder:          remote.sort_order,
-        totalSold:          Number(remote.total_sold || 0),
-        imageUrl:           remote.image_url ?? undefined,
-        isDeleted:          remote.is_deleted,
-        createdAt:          new Date(remote.created_at),
-        updatedAt:          remoteUpdatedAt,
-      }
+        const localProduct: Omit<Product, 'id'> = {
+          uuid:               remote.uuid,
+          categoryId,
+          sku:                remote.sku ?? undefined,
+          name:               remote.name,
+          description:        remote.description ?? undefined,
+          salePrice:          Number(remote.sale_price),
+          costPrice:          Number(remote.cost_price),
+          stockQuantity:      Number(remote.stock_quantity),
+          alertThreshold:     Number(remote.alert_threshold),
+          trackInventory:     remote.track_inventory,
+          mappingType:        remote.mapping_type ?? undefined,
+          // สำคัญ: รอบแรกห้ามใส่ Mappings เพราะสินค้าปลายทางอาจยังไม่มีในเครื่อง
+          inventoryMappings:  undefined,
+          addonGroups:        Array.isArray(addonData) ? addonData : undefined,
+          isActive:           remote.is_active,
+          sortOrder:          remote.sort_order,
+          totalSold:          Number(remote.total_sold || 0),
+          imageUrl:           remote.image_url ?? undefined,
+          isDeleted:          remote.is_deleted,
+          createdAt:          new Date(remote.created_at),
+          updatedAt:          remoteUpdatedAt,
+        }
 
-      if (existing?.id) {
-        await db.products.update(existing.id, { ...localProduct, uuid: remote.uuid })
-      } else {
-        await db.products.add(localProduct as Product)
+        if (existing?.id) {
+          await db.products.update(existing.id, { ...localProduct, uuid: remote.uuid })
+        } else {
+          await db.products.add(localProduct as Product)
+        }
+        count++
       }
-      count++
-    }
+    })
 
     // --- Second Pass: เชื่อมโยง Inventory Mappings เมื่อสินค้าครบทุกคนแล้ว ---
     if (count > 0 || force) {
@@ -391,54 +395,56 @@ export function useMasterDataSync() {
     if (!remoteUsers?.length) return 0
 
     let count = 0
-    for (const remote of remoteUsers) {
-      let existing = await db.users.where('uuid').equals(remote.uuid).first()
-      if (!existing) {
-        existing = await db.users.where('username').equals(remote.username).first()
-      }
-
-      const remoteUpdatedAt = new Date(remote.updated_at)
-      if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) {
-        if (existing.uuid !== remote.uuid) {
-            await db.users.update(existing.id!, { uuid: remote.uuid })
+    await db.transaction('rw', db.users, async () => {
+      for (const remote of remoteUsers) {
+        let existing = await db.users.where('uuid').equals(remote.uuid).first()
+        if (!existing) {
+          existing = await db.users.where('username').equals(remote.username).first()
         }
-        continue
-      }
 
-      const remotePin = remote.pin ?? undefined
-      const hashedPin = (remotePin && !isAlreadyHashed(remotePin)) 
-        ? await hashSHA256(remotePin) 
-        : remotePin
-
-      const localUser: Omit<User, 'id'> = {
-        uuid:         remote.uuid,
-        username:     remote.username,
-        displayName:  remote.display_name,
-        role:         remote.role as UserRole,
-        pin:          hashedPin,
-        passwordHash: '', 
-        isActive:     remote.is_active,
-        isDeleted:    remote.is_deleted,
-        createdAt:    new Date(remote.created_at),
-        updatedAt:    remoteUpdatedAt,
-      }
-
-      if (existing?.id) {
-        await db.users.update(existing.id, localUser)
-        
-        // --- SECURITY CHECK: ตรวจสอบว่าพนักงานที่กำลัง Login อยู่ ถูกเปลี่ยนรหัสจากเครื่องอื่นหรือไม่ ---
-        if (authStore.currentUser?.uuid === remote.uuid) {
-          if (authStore.currentUser?.pin !== hashedPin) {
-            console.warn('⚠️ ตรวจพบการเปลี่ยนรหัสผ่านจากอุปกรณ์อื่น สำหรับผู้ใช้ปัจจุบัน')
-            // ส่งสัญญาณให้หน้าจอแจ้งเตือนและ Logout (ผ่าน Global Hook หรือ Store)
-            authStore.handleSecurityInvalidation()
+        const remoteUpdatedAt = new Date(remote.updated_at)
+        if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) {
+          if (existing.uuid !== remote.uuid) {
+              await db.users.update(existing.id!, { uuid: remote.uuid })
           }
+          continue
         }
-      } else {
-        await db.users.add(localUser as User)
+
+        const remotePin = remote.pin ?? undefined
+        const hashedPin = (remotePin && !isAlreadyHashed(remotePin)) 
+          ? await hashSHA256(remotePin) 
+          : remotePin
+
+        const localUser: Omit<User, 'id'> = {
+          uuid:         remote.uuid,
+          username:     remote.username,
+          displayName:  remote.display_name,
+          role:         remote.role as UserRole,
+          pin:          hashedPin,
+          passwordHash: '', 
+          isActive:     remote.is_active,
+          isDeleted:    remote.is_deleted,
+          createdAt:    new Date(remote.created_at),
+          updatedAt:    remoteUpdatedAt,
+        }
+
+        if (existing?.id) {
+          await db.users.update(existing.id, localUser)
+          
+          // --- SECURITY CHECK: ตรวจสอบว่าพนักงานที่กำลัง Login อยู่ ถูกเปลี่ยนรหัสจากเครื่องอื่นหรือไม่ ---
+          if (authStore.currentUser?.uuid === remote.uuid) {
+            if (authStore.currentUser?.pin !== hashedPin) {
+              console.warn('⚠️ ตรวจพบการเปลี่ยนรหัสผ่านจากอุปกรณ์อื่น สำหรับผู้ใช้ปัจจุบัน')
+              // ส่งสัญญาณให้หน้าจอแจ้งเตือนและ Logout (ผ่าน Global Hook หรือ Store)
+              authStore.handleSecurityInvalidation()
+            }
+          }
+        } else {
+          await db.users.add(localUser as User)
+        }
+        count++
       }
-      count++
-    }
+    })
     return count
   }
 
@@ -479,36 +485,38 @@ export function useMasterDataSync() {
     const existingUuidToId = new Map(existingLogs.map(l => [l.uuid, l.id!]))
 
     let count = 0
-    for (const remote of remoteLogs) {
-      const existingId = existingUuidToId.get(remote.uuid)
-      
-      // ถ้ามีอยู่ในเครื่องแล้ว ไม่ว่ากรณีใดๆ (แม้แต่ Force) ให้ข้ามไปเลย 
-      // เพราะประวัติสต็อกเป็นข้อมูลแบบเน้นบันทึกเพิ่ม (Append-only) ไม่ควรแก้ไขของเก่า
-      if (existingId) continue
+    await db.transaction('rw', db.stockAuditLogs, async () => {
+      for (const remote of remoteLogs) {
+        const existingId = existingUuidToId.get(remote.uuid)
+        
+        // ถ้ามีอยู่ในเครื่องแล้ว ไม่ว่ากรณีใดๆ (แม้แต่ Force) ให้ข้ามไปเลย 
+        // เพราะประวัติสต็อกเป็นข้อมูลแบบเน้นบันทึกเพิ่ม (Append-only) ไม่ควรแก้ไขของเก่า
+        if (existingId) continue
 
-      const localLog: Omit<StockAuditLog, 'id'> = {
-        uuid:             remote.uuid,
-        productId:        prodUuidToLocalId.get(remote.product_uuid) || 0,
-        productName:      remote.product_name,
-        changeQuantity:   Number(remote.change_quantity),
-        previousQuantity: Number(remote.previous_quantity),
-        newQuantity:      Number(remote.new_quantity),
-        reason:           remote.reason,
-        note:             remote.note ?? undefined,
-        staffId:          userUuidToLocalId.get(remote.staff_uuid) || 0,
-        staffName:        remote.staff_name,
-        staffUuid:        remote.staff_uuid,
-        syncStatus:       'synced',
-        syncedAt:         new Date(remote.updated_at),
-        syncRetryCount:   0,
-        createdAt:        new Date(remote.created_at),
-        updatedAt:        new Date(remote.updated_at),
-        isDeleted:        remote.is_deleted,
+        const localLog: Omit<StockAuditLog, 'id'> = {
+          uuid:             remote.uuid,
+          productId:        prodUuidToLocalId.get(remote.product_uuid) || 0,
+          productName:      remote.product_name,
+          changeQuantity:   Number(remote.change_quantity),
+          previousQuantity: Number(remote.previous_quantity),
+          newQuantity:      Number(remote.new_quantity),
+          reason:           remote.reason,
+          note:             remote.note ?? undefined,
+          staffId:          userUuidToLocalId.get(remote.staff_uuid) || 0,
+          staffName:        remote.staff_name,
+          staffUuid:        remote.staff_uuid,
+          syncStatus:       'synced',
+          syncedAt:         new Date(remote.updated_at),
+          syncRetryCount:   0,
+          createdAt:        new Date(remote.created_at),
+          updatedAt:        new Date(remote.updated_at),
+          isDeleted:        remote.is_deleted,
+        }
+
+        await db.stockAuditLogs.add(localLog as StockAuditLog)
+        count++
       }
-
-      await db.stockAuditLogs.add(localLog as StockAuditLog)
-      count++
-    }
+    })
 
     await setSetting(SETTING_KEY_STOCK_PULL, new Date().toISOString())
     return count

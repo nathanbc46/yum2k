@@ -334,6 +334,8 @@ export interface Expense extends BaseEntity {
   // --- Sync Status ---
   syncStatus: SyncStatus     // สถานะการ Sync
   syncedAt?: Date            // เวลาที่ Sync สำเร็จ
+  syncError?: string         // ข้อความ Error ถ้า Sync ล้มเหลว
+  syncRetryCount?: number    // จำนวนครั้งที่ลอง Sync (ทำให้เป็น Optional เผื่อข้อมูลเก่า)
 }
 
 // ---------------------------------------------------------------------------

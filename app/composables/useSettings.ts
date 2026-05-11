@@ -37,6 +37,8 @@ export interface ReceiptSettings {
   lineLowStock?: boolean        // แจ้งเตือนสต็อกใกล้หมด (default: true)
   lineDailySummary?: boolean    // ส่งสรุปยอดรายวัน (default: true)
   lineDailySummaryHour?: number // ชั่วโมงที่ส่งสรุป 0-23 (default: 22)
+  // Kitchen Display System (KDS)
+  enableKds: boolean            // เปิดใช้งานจอห้องเครื่อง (KDS) หรือไม่
 }
 
 // ---------------------------------------------------------------------------
@@ -69,6 +71,7 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   lineLowStock: false,
   lineDailySummary: true,
   lineDailySummaryHour: 22,
+  enableKds: true,
 }
 
 // compat export สำหรับโค้ดเก่าที่ import DEFAULT_RECEIPT_SETTINGS โดยตรง

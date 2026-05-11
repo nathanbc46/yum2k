@@ -579,6 +579,31 @@
             </div>
           </div>
 
+          <!-- ระบบจอสั่งงานห้องเครื่อง (KDS) -->
+          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-xl">👨‍🍳</span>
+              <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest">ระบบจอสั่งงานห้องเครื่อง (KDS)</h2>
+            </div>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between bg-surface-950 rounded-xl px-4 py-3 border border-surface-800">
+                <div>
+                  <div class="text-sm font-semibold text-surface-50">เปิดใช้งาน KDS</div>
+                  <div class="text-xs text-surface-500">เปิดใช้สถานะ รอทำ/รอเสิร์ฟ (ถ้าปิดออร์เดอร์จะเสร็จทันที)</div>
+                </div>
+                <button
+                  type="button"
+                  @click="form.enableKds = !form.enableKds"
+                  class="relative w-12 h-[26px] rounded-full transition-all duration-300 shrink-0 p-[3px] flex items-center"
+                  :class="form.enableKds ? 'bg-primary-500' : 'bg-surface-700'"
+                >
+                  <div class="w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-300"
+                    :class="form.enableKds ? 'translate-x-[22px]' : 'translate-x-0'" />
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- LINE Notifications -->
           <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
             <div class="flex items-center gap-2 mb-4">
@@ -777,6 +802,7 @@ const form = reactive<ReceiptSettings>({
   lineLowStock: false,
   lineDailySummary: true,
   lineDailySummaryHour: 22,
+  enableKds: true,
 })
 
 const printerMethods = [
