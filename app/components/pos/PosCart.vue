@@ -369,9 +369,7 @@ async function handleConfirmAddons(selectedAddons: AddonOption[], addonsTotal: n
 const isProcessing = ref(false)
 const isSummaryModalOpen = ref(false)
 
-onMounted(() => {
-  loadCart()
-})
+// loadCart() ถูกเรียกแล้วใน onMounted ด้านบน (ลบอันซ้ำกันออก)
 
 function openSummaryModal() {
   if (cartItems.value.length === 0) return

@@ -9,6 +9,7 @@ import { db, getSetting, setSetting } from '~/db'
 import { useInventory } from '~/composables/useInventory'
 import type {
   Product,
+  ProductWithCategory,
   OrderItem,
   Order,
   PaymentMethod,
@@ -18,7 +19,7 @@ import type {
 
 // --- Cart Item ที่ใช้ใน RAM (ขณะขายของ) ---
 export interface CartItem {
-  product: Product
+  product: ProductWithCategory  // ใช้ ProductWithCategory เพื่อให้เข้าถึง .category.color ได้
   quantity: number
   unitPrice: number
   discount: number
@@ -99,7 +100,7 @@ export function useCart() {
    * @param addonsTotal - ราคารวม addons ต่อชิ้น (optional)
    */
   async function addItem(
-    product: Product,
+    product: ProductWithCategory,
     qty: number = 1,
     addons: AddonOption[] = [],
     addonsTotal: number = 0
@@ -447,13 +448,24 @@ export function useCart() {
     const fetched = await db.products.where('id').anyOf(ids).toArray()
     const productMap = new Map(fetched.map(p => [p.id!, p]))
 
+    // batch-fetch category เพื่อ join เข้า product (ต้องการ ProductWithCategory)
+    const catIds = [...new Set(fetched.map(p => p.categoryId).filter(Boolean))]
+    const fetchedCats = catIds.length > 0
+      ? await db.categories.where('id').anyOf(catIds).toArray()
+      : []
+    const categoryMap = new Map(fetchedCats.map(c => [c.id!, c]))
+
     const restoredItems: CartItem[] = []
     for (const saved_item of saved.items) {
       const product = productMap.get(saved_item.productId)
       if (!product || product.isDeleted || !product.isActive) continue
 
+      // join category เพื่อให้ได้ ProductWithCategory (มี .category field)
+      const category = categoryMap.get(product.categoryId)
+      const productWithCategory = { ...product, category: category! }
+
       restoredItems.push({
-        product,
+        product: productWithCategory,
         quantity: saved_item.quantity,
         unitPrice: saved_item.unitPrice,
         discount: saved_item.discount,

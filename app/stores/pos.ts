@@ -105,8 +105,13 @@ export const usePosStore = defineStore('pos', () => {
   })
 
   // Methods
-  async function loadData() {
+  async function loadData(force = false) {
     if (isLoading.value) return
+    
+    // ข้ามการโหลดซ้ำถ้าข้อมูลอยู่ใน memory แล้ว (เช่น navigate กลับจาก orders)
+    // ใช้ force=true เพื่อบังคับโหลดใหม่ (เช่น หลัง pull จาก cloud)
+    if (!force && products.value.length > 0 && categories.value.length > 0) return
+
     isLoading.value = true
     loadError.value = null
 

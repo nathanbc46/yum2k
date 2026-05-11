@@ -438,6 +438,7 @@ import { useSync } from '~/composables/useSync'
 import { useToast } from '~/composables/useToast'
 import { usePrinter } from '~/composables/usePrinter'
 import { useConfirm } from '~/composables/useConfirm'
+import { useMasterDataSync } from '~/composables/useMasterDataSync'
 
 const orders = ref<Order[]>([])
 const isLoading = ref(true)
@@ -726,12 +727,18 @@ const handleFetchCloud = async () => {
   
   isFetchingRemote.value = true
   try {
-    const count = await fetchRemoteOrders(100) // ดึง 100 รายการล่าสุด (รวมข้อมูลพนักงาน/สินค้า)
+    // แยก Master Data Pull ออกเป็น background (non-blocking)
+    // เพื่อไม่ให้การดึง Orders ต้องรอ Master Data จนนานเกินไป
+    const masterSync = useMasterDataSync()
+    masterSync.pullAll().catch((err: any) => console.warn('⚠️ Master pull background error:', err))
+
+    // ดึง Orders เท่านั้น (includeMasterData=false) → เร็วกว่าเดิมมาก
+    const count = await fetchRemoteOrders(100, false)
     if (count > 0) {
-      toast.success(`ดึงข้อมูลสำเร็จ!\n• นำเข้าออร์เดอร์ใหม่ ${count} รายการ\n• อัปเดตข้อมูลสินค้าและพนักงานเรียบร้อย`)
-      await loadOrders(true) // รีโหลดหน้าจอ
+      toast.success(`ดึงข้อมูลสำเร็จ!\n• นำเข้าออร์เดอร์ใหม่ ${count} รายการ`)
+      await loadOrders(true)
     } else {
-      toast.info('ข้อมูลออร์เดอร์เป็นปัจจุบันแล้ว (อัปเดตข้อมูลหลักเรียบร้อย)')
+      toast.info('ข้อมูลออร์เดอร์เป็นปัจจุบันแล้ว')
     }
   } catch (error: any) {
     toast.error(`เกิดข้อผิดพลาดในการดึงข้อมูล: ${error.message}`)

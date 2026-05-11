@@ -37,13 +37,36 @@
       <!-- Page Header -->
       <div>
         <h1 class="text-2xl font-bold text-surface-50">⚙️ ตั้งค่าร้านค้า</h1>
-        <p class="text-sm text-surface-400 mt-1">ข้อมูลร้านและการตั้งค่าการพิมพ์ใบเสร็จ</p>
+        <p class="text-sm text-surface-400 mt-1">เลือกหมวดการตั้งค่าด้านซ้าย</p>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+      <!-- Layout: Sidebar Tabs + Content -->
+      <div class="flex gap-5 items-start">
 
-        <!-- ====== Left: Settings Form ====== -->
-        <div class="lg:col-span-3 space-y-5">
+        <!-- ====== Left: Vertical Tab Nav ====== -->
+        <div class="w-44 shrink-0 bg-surface-950 border border-surface-800 rounded-2xl p-2 sticky top-6">
+          <nav class="flex flex-col gap-1">
+            <button
+              v-for="tab in tabs"
+              :key="tab.key"
+              type="button"
+              @click="activeTab = (tab.key as typeof activeTab)"
+              class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all duration-200 text-left"
+              :class="activeTab === tab.key
+                ? 'bg-surface-800 text-surface-50 shadow-sm'
+                : 'text-surface-500 hover:text-surface-300 hover:bg-surface-900'"
+            >
+              <span class="text-lg leading-none shrink-0">{{ tab.icon }}</span>
+              <span>{{ tab.label }}</span>
+            </button>
+          </nav>
+        </div>
+
+        <!-- ====== Right: Tab Content ====== -->
+        <div class="flex-1 min-w-0 space-y-5">
+
+        <!-- ====== TAB: ร้านค้า ====== -->
+        <div v-show="activeTab === 'shop'" class="space-y-5">
 
           <!-- ส่วนข้อมูลร้าน -->
           <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
@@ -84,6 +107,10 @@
               
             </div>
           </div>
+        </div>
+
+        <!-- ====== TAB: AI ====== -->
+        <div v-show="activeTab === 'ai'" class="space-y-5">
 
           <!-- การรวมระบบ AI (AI Integration) -->
           <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
@@ -165,6 +192,10 @@
               <p class="text-[10px] text-surface-500 italic text-center">หากเว้นช่อง Model ไว้ ระบบจะใช้ค่าเริ่มต้นที่เหมาะสมที่สุดให้ทันทีค่ะ</p>
             </div>
           </div>
+        </div>
+
+        <!-- ====== TAB: ใบเสร็จ & เครื่องพิมพ์ ====== -->
+        <div v-show="activeTab === 'receipt'" class="space-y-5">
 
           <!-- ส่วนตั้งค่าใบเสร็จ -->
           <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
@@ -579,7 +610,42 @@
             </div>
           </div>
 
-          <!-- ระบบจอสั่งงานห้องเครื่อง (KDS) -->
+          <!-- Live Preview (อยู่ใน Tab ใบเสร็จ) -->
+          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-4">
+            <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-3">ตัวอย่างใบเสร็จ</h2>
+            <div class="flex justify-center bg-surface-950 rounded-xl p-4 overflow-auto">
+              <div :class="['font-mono text-black bg-white p-3 text-[10px] shadow-lg', form.paperSize === '58mm' ? 'w-[48mm]' : 'w-[72mm]']">
+                <div class="text-center border-b border-dashed border-gray-400 pb-2 mb-2">
+                  <p class="font-black text-sm uppercase">{{ form.shopName || 'ชื่อร้าน' }}</p>
+                  <p v-if="form.shopTagline" class="text-[9px]">{{ form.shopTagline }}</p>
+                  <p v-if="form.shopPhone" class="text-[9px]">📞 {{ form.shopPhone }}</p>
+                  <p v-if="form.shopAddress" class="text-[8px] leading-tight">{{ form.shopAddress }}</p>
+                  <p class="text-[8px] text-gray-400 mt-0.5">07/04/2026 13:30</p>
+                </div>
+                <div class="text-[9px] space-y-0.5 mb-2">
+                  <p v-if="form.showOrderNumber">เลขที่บิล: <strong>YUM-260407-1330-{{ form.deviceCode || 'D1' }}-0001</strong></p>
+                  <p v-if="form.showStaffName">พนักงาน: ผู้จัดการ</p>
+                  <p>ชำระ: เงินสด</p>
+                </div>
+                <div class="border-t border-dashed border-gray-400 pt-1.5 mb-2">
+                  <div class="flex justify-between"><span class="flex-1">ยำมะม่วง</span><span class="w-5 text-right">x1</span><span class="w-12 text-right">60</span></div>
+                  <div class="text-[8px] text-gray-400 pl-2">เผ็ดน้อย</div>
+                  <div class="flex justify-between mt-1"><span class="flex-1">ข้าวสวย</span><span class="w-5 text-right">x2</span><span class="w-12 text-right">40</span></div>
+                </div>
+                <div class="border-t border-dashed border-gray-400 pt-1 text-[9px] space-y-0.5 mb-2">
+                  <div class="flex justify-between"><span>ยอดรวม</span><span>100</span></div>
+                  <div class="flex justify-between font-black text-xs border-t border-gray-400 pt-0.5 mt-0.5"><span>ยอดสุทธิ</span><span>100 บาท</span></div>
+                </div>
+                <div class="text-center border-t border-dashed border-gray-400 pt-1.5 text-[9px]">
+                  <p class="font-bold">{{ form.footerMessage || 'ขอบคุณที่อุดหนุน' }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== TAB: KDS ====== -->
+        <div v-show="activeTab === 'kds'" class="space-y-5">
           <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
             <div class="flex items-center gap-2 mb-4">
               <span class="text-xl">👨‍🍳</span>
@@ -603,8 +669,10 @@
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- LINE Notifications -->
+        <!-- ====== TAB: LINE ====== -->
+        <div v-show="activeTab === 'line'" class="space-y-5">
           <div class="bg-surface-900 border border-surface-700 rounded-2xl p-5">
             <div class="flex items-center gap-2 mb-4">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -698,60 +766,27 @@
               </div>
             </div>
           </div>
-
-
-
-          <!-- Save Button -->
-          <button
-            @click="handleSave"
-            :disabled="isSaving"
-            class="w-full py-3.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-primary-900/20"
-          >
-            {{ isSaving ? 'กำลังบันทึก...' : '✅ บันทึกการตั้งค่า' }}
-          </button>
         </div>
 
-        <!-- ====== Right: Live Preview ====== -->
-        <div class="lg:col-span-2">
-          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-4 lg:sticky lg:top-6">
-            <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-3">ตัวอย่างใบเสร็จ</h2>
-            <div class="flex justify-center bg-surface-950 rounded-xl p-4 overflow-auto">
-              <!-- Mock Receipt Preview -->
-              <div
-                :class="['font-mono text-black bg-white p-3 text-[10px] shadow-lg', form.paperSize === '58mm' ? 'w-[48mm]' : 'w-[72mm]']"
-              >
-                <div class="text-center border-b border-dashed border-gray-400 pb-2 mb-2">
-                  <p class="font-black text-sm uppercase">{{ form.shopName || 'ชื่อร้าน' }}</p>
-                  <p v-if="form.shopTagline" class="text-[9px]">{{ form.shopTagline }}</p>
-                  <p v-if="form.shopPhone" class="text-[9px]">📞 {{ form.shopPhone }}</p>
-                  <p v-if="form.shopAddress" class="text-[8px] leading-tight">{{ form.shopAddress }}</p>
-                  <p class="text-[8px] text-gray-400 mt-0.5">07/04/2026 13:30</p>
-                </div>
-                <div class="text-[9px] space-y-0.5 mb-2">
-                  <p v-if="form.showOrderNumber">เลขที่บิล: <strong>YUM-260407-1330-{{ form.deviceCode || 'D1' }}-0001</strong></p>
-                  <p v-if="form.showStaffName">พนักงาน: ผู้จัดการ</p>
-                  <p>ชำระ: เงินสด</p>
-                </div>
-                <div class="border-t border-dashed border-gray-400 pt-1.5 mb-2">
-                  <div class="flex justify-between"><span class="flex-1">ยำมะม่วง</span><span class="w-5 text-right">x1</span><span class="w-12 text-right">60</span></div>
-                  <div class="text-[8px] text-gray-400 pl-2">เผ็ดน้อย</div>
-                  <div class="flex justify-between mt-1"><span class="flex-1">ข้าวสวย</span><span class="w-5 text-right">x2</span><span class="w-12 text-right">40</span></div>
-                </div>
-                <div class="border-t border-dashed border-gray-400 pt-1 text-[9px] space-y-0.5 mb-2">
-                  <div class="flex justify-between"><span>ยอดรวม</span><span>100</span></div>
-                  <div class="flex justify-between font-black text-xs border-t border-gray-400 pt-0.5 mt-0.5"><span>ยอดสุทธิ</span><span>100 บาท</span></div>
-                </div>
-                <div class="text-center border-t border-dashed border-gray-400 pt-1.5 text-[9px]">
-                  <p class="font-bold">{{ form.footerMessage || 'ขอบคุณที่อุดหนุน' }}</p>
-                </div>
-              </div>
-            </div>
-          </div>
+        <!-- ====== Save Button (แสดงทุก Tab) ====== -->
+        <button
+          @click="handleSave"
+          :disabled="isSaving"
+          class="w-full py-3.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-primary-900/20"
+        >
+          {{ isSaving ? 'กำลังบันทึก...' : '✅ บันทึกการตั้งค่า' }}
+        </button>
+
         </div>
+        <!-- /Right: Tab Content -->
+
       </div>
+      <!-- /Layout -->
+
     </div>
   </div>
 </template>
+
 
 <script setup lang="ts">
 import { useSettings, type ReceiptSettings } from '~/composables/useSettings'
@@ -759,6 +794,16 @@ import { useToast } from '~/composables/useToast'
 import { usePrinter } from '~/composables/usePrinter'
 
 definePageMeta({ layout: 'admin' })
+
+// ระบบ Tab
+const activeTab = ref<'shop' | 'receipt' | 'kds' | 'line' | 'ai'>('shop')
+const tabs: { key: typeof activeTab.value; icon: string; label: string }[] = [
+  { key: 'shop', icon: '🏪', label: 'ร้านค้า' },
+  { key: 'receipt', icon: '🖨️', label: 'ใบเสร็จ' },
+  { key: 'kds', icon: '👨‍🍳', label: 'KDS' },
+  { key: 'line', icon: '💬', label: 'LINE' },
+  { key: 'ai', icon: '🤖', label: 'AI' },
+]
 
 const config = useRuntimeConfig()
 const { receiptSettings, isSaving, loadReceiptSettings, saveReceiptSettings } = useSettings()
