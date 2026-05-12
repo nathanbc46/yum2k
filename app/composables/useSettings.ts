@@ -15,6 +15,7 @@ export interface ReceiptSettings {
   shopTagline?: string      // คำอธิบายสั้น เช่น "ยำรสเด็ด อร่อยทุกคำ!"
   shopPhone?: string        // เบอร์โทรศัพท์
   shopAddress?: string      // ที่อยู่
+  shopLogo?: string         // โลโก้ร้านค้า (Base64 data URL)
   footerMessage?: string    // ข้อความท้ายใบเสร็จ
   paperSize: '58mm' | '80mm' // ขนาดกระดาษ Thermal Printer
   printerMethod: 'wifi' | 'rawbt' | 'usb' | 'browser' // วิธีการพิมพ์
@@ -57,6 +58,7 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   shopTagline: 'ร้านยำรสเด็ด',
   shopPhone: '',
   shopAddress: '',
+  shopLogo: '',
   footerMessage: 'ขอบคุณที่อุดหนุนครับ/ค่ะ',
   paperSize: '80mm',
   printerMethod: 'usb' as const,

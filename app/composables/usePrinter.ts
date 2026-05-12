@@ -247,6 +247,70 @@ export function usePrinter() {
   }
 
   // ---------------------------------------------------------------------------
+  // ตัวแปลง Logo Base64 เป็น ESC/POS Bitmap (GS v 0)
+  // ---------------------------------------------------------------------------
+  async function generateLogoBuffer(base64: string, paperSize: '58mm' | '80mm'): Promise<Uint8Array> {
+    return new Promise((resolve) => {
+      if (!base64) return resolve(new Uint8Array([]))
+      const img = new Image()
+      img.onload = () => {
+        const printWidth = paperSize === '58mm' ? 384 : 576
+        let w = img.width
+        let h = img.height
+        // ย่อขนาดให้พอดีหน้ากระดาษและให้อยู่ตรงกลาง
+        if (w > printWidth) {
+          h = Math.round((h * printWidth) / w)
+          w = printWidth
+        }
+        
+        const canvas = document.createElement('canvas')
+        canvas.width = printWidth
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return resolve(new Uint8Array([]))
+        
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, printWidth, h)
+        
+        const xOffset = Math.floor((printWidth - w) / 2)
+        ctx.drawImage(img, xOffset, 0, w, h)
+        
+        const imageData = ctx.getImageData(0, 0, printWidth, h)
+        const bytesPerRow = Math.ceil(printWidth / 8)
+        const bitmap = new Uint8Array(bytesPerRow * h)
+        
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < printWidth; x++) {
+            const idx = (y * printWidth + x) * 4
+            const brightness = (imageData.data[idx]! + imageData.data[idx + 1]! + imageData.data[idx + 2]!) / 3
+            if (brightness < 128) {
+              const bitmapIdx = y * bytesPerRow + Math.floor(x / 8)
+              bitmap[bitmapIdx]! |= (0x80 >> (x % 8))
+            }
+          }
+        }
+        
+        const header = new Uint8Array([
+          0x1B, 0x40, // Init
+          0x1B, 0x61, 0x01, // Center align
+          0x1D, 0x76, 0x30, 0x00,
+          bytesPerRow & 0xFF, (bytesPerRow >> 8) & 0xFF,
+          h & 0xFF, (h >> 8) & 0xFF,
+        ])
+        const footer = new Uint8Array([0x0A, 0x1B, 0x61, 0x00]) // Line feed and Reset align to left
+        
+        const result = new Uint8Array(header.length + bitmap.length + footer.length)
+        result.set(header, 0)
+        result.set(bitmap, header.length)
+        result.set(footer, header.length + bitmap.length)
+        resolve(result)
+      }
+      img.onerror = () => resolve(new Uint8Array([]))
+      img.src = base64
+    })
+  }
+
+  // ---------------------------------------------------------------------------
   // WiFi / Network Printing — ส่ง ESC/POS ผ่าน TCP socket ไปยัง printer IP
   // server/api/thermal-print.post.ts จะรับและส่งต่อผ่าน Node.js net module
   // ใช้กับ Xprinter ที่มี WiFi/LAN (port มาตรฐาน 9100)
@@ -260,9 +324,15 @@ export function usePrinter() {
     }
     try {
       // สร้าง buffer ใบเสร็จลูกค้า
-      const customerBuffer = s.printerImageMode
+      let customerBuffer = s.printerImageMode
         ? await buildImageEscPos(buildReceiptLines(order), s.paperSize)
         : buildEscPosBuffer(order)
+      
+      // ถ้ามีโลโก้ ให้สร้าง buffer ของโลโก้มาต่อข้างหน้า
+      if (s.shopLogo) {
+        const logoBuffer = await generateLogoBuffer(s.shopLogo, s.paperSize)
+        customerBuffer = concatBuffers([logoBuffer, customerBuffer])
+      }
       
       let finalBuffer = customerBuffer
 
@@ -303,9 +373,14 @@ export function usePrinter() {
       const s = receiptSettings.value
       
       // สร้าง buffer ใบเสร็จลูกค้า
-      const customerBuffer = s.printerImageMode
+      let customerBuffer = s.printerImageMode
         ? await buildImageEscPos(buildReceiptLines(order), s.paperSize)
         : buildEscPosBuffer(order)
+      
+      if (s.shopLogo) {
+        const logoBuffer = await generateLogoBuffer(s.shopLogo, s.paperSize)
+        customerBuffer = concatBuffers([logoBuffer, customerBuffer])
+      }
       
       let finalBuffer = customerBuffer
 
@@ -484,7 +559,15 @@ export function usePrinter() {
       const s = receiptSettings.value
       
       // สร้างใบเสร็จลูกค้า
-      let finalText = formatReceiptEscPos(order)
+      let finalText = ''
+      
+      // สำหรับ RawBT ถ้าต้องการพิมพ์ Logo สามารถส่งรูป base64 ในแท็ก <image> ได้ (เฉพาะ base64 ที่ตัด header data:image... ออก)
+      if (s.shopLogo) {
+        const base64Data = s.shopLogo.split(',')[1]
+        if (base64Data) finalText += `<image>${base64Data}</image>\n`
+      }
+      
+      finalText += formatReceiptEscPos(order)
 
       // ถ้าเปิด Kitchen Copy ให้สร้างใบสั่งครัวมาต่อท้าย
       if (s.printKitchenCopy) {
@@ -508,9 +591,36 @@ export function usePrinter() {
   // ---------------------------------------------------------------------------
   // Browser Print - Fallback (มี dialog ของ browser)
   // ---------------------------------------------------------------------------
-  async function printStandard() {
+  async function printStandard(order: Order) {
+    await loadReceiptSettings()
+    const s = receiptSettings.value
     await nextTick()
-    window.print()
+    
+    // พิมพ์ผ่าน Browser สร้างหน้าต่างใหม่
+    const win = window.open('', '_blank', 'width=400,height=600')
+    if (!win) return
+    
+    let html = `<!DOCTYPE html><html><head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: 'Sarabun','Noto Sans Thai',monospace; font-size: 13px; padding: 16px; white-space: pre; }
+        .logo { display: block; margin: 0 auto 10px auto; max-height: 80px; filter: grayscale(100%) contrast(1.2); }
+      </style>
+    </head><body>`
+    
+    if (s.shopLogo) {
+      html += `<img src="${s.shopLogo}" class="logo" />`
+    }
+    
+    let text = formatReceiptEscPos(order)
+    if (s.printKitchenCopy) {
+      text += formatReceiptEscPos(order, true)
+    }
+    
+    html += text.replace(/</g, '&lt;') + `</body><script>window.onload = function() { window.print(); window.close(); }</script></html>`
+    
+    win.document.write(html)
+    win.document.close()
   }
 
   // ---------------------------------------------------------------------------
@@ -526,7 +636,7 @@ export function usePrinter() {
     } else if (method === 'rawbt') {
       return await printRawBT(order)
     } else {
-      await printStandard()
+      await printStandard(order)
       return true
     }
   }

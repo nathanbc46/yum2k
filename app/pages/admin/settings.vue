@@ -41,17 +41,17 @@
       </div>
 
       <!-- Layout: Sidebar Tabs + Content -->
-      <div class="flex gap-5 items-start">
+      <div class="flex flex-col lg:flex-row gap-5 items-start w-full">
 
         <!-- ====== Left: Vertical Tab Nav ====== -->
-        <div class="w-44 shrink-0 bg-surface-950 border border-surface-800 rounded-2xl p-2 sticky top-6">
-          <nav class="flex flex-col gap-1">
+        <div class="w-full lg:w-44 shrink-0 bg-surface-950 border border-surface-800 rounded-2xl p-2 lg:sticky lg:top-6 overflow-x-auto hide-scrollbar">
+          <nav class="flex lg:flex-col gap-1 min-w-max lg:min-w-0">
             <button
               v-for="tab in tabs"
               :key="tab.key"
               type="button"
               @click="activeTab = (tab.key as typeof activeTab)"
-              class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all duration-200 text-left"
+              class="flex items-center gap-2 lg:gap-3 px-4 lg:px-3 py-2.5 lg:py-3 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap lg:whitespace-normal"
               :class="activeTab === tab.key
                 ? 'bg-surface-800 text-surface-50 shadow-sm'
                 : 'text-surface-500 hover:text-surface-300 hover:bg-surface-900'"
@@ -63,7 +63,7 @@
         </div>
 
         <!-- ====== Right: Tab Content ====== -->
-        <div class="flex-1 min-w-0 space-y-5">
+        <div class="flex-1 min-w-0 w-full space-y-5">
 
         <!-- ====== TAB: ร้านค้า ====== -->
         <div v-show="activeTab === 'shop'" class="space-y-5">
@@ -81,6 +81,31 @@
                   <label class="form-label">รหัสเครื่อง (Device Code) <span class="text-danger">*</span></label>
                   <input v-model="form.deviceCode" type="text" placeholder="เช่น D1, TAB-01" class="form-input" />
                   <p class="text-[10px] text-surface-500 mt-1">ใช้แยกเลขบิลระหว่างเครื่อง (ห้ามซ้ำกับเครื่องอื่น)</p>
+                </div>
+              </div>
+
+              <!-- โลโก้ร้าน -->
+              <div>
+                <label class="form-label">โลโก้ร้าน (พิมพ์ลงบนใบเสร็จ)</label>
+                <div class="flex items-start gap-4 mt-2">
+                  <div class="w-24 h-24 bg-surface-800 rounded-xl border-2 border-dashed border-surface-600 flex items-center justify-center overflow-hidden shrink-0">
+                    <img v-if="form.shopLogo" :src="form.shopLogo" class="w-full h-full object-contain bg-white" />
+                    <span v-else class="text-surface-500 text-3xl opacity-50">🖼️</span>
+                  </div>
+                  <div class="space-y-2 flex-1">
+                    <input type="file" accept="image/png, image/jpeg, image/webp" @change="handleLogoUpload" class="hidden" ref="logoInputRef" />
+                    <div class="flex gap-2">
+                      <button type="button" @click="logoInputRef?.click()" class="px-4 py-2.5 bg-surface-800 text-surface-300 hover:text-white hover:bg-surface-700 rounded-xl text-xs font-bold transition-all border border-surface-700 shadow-sm">
+                        📁 อัปโหลดรูปภาพ
+                      </button>
+                      <button v-if="form.shopLogo" type="button" @click="form.shopLogo = ''" class="px-4 py-2.5 bg-red-500/10 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded-xl text-xs font-bold transition-all border border-red-500/20">
+                        🗑️ ลบ
+                      </button>
+                    </div>
+                    <p class="text-[10px] text-surface-500 max-w-[250px] leading-relaxed">
+                      ใช้รูปขาวดำหรือโทนสว่าง ความกว้างไม่เกิน 500px จะได้ผลลัพธ์การพิมพ์ที่ดีที่สุดบน Thermal Printer
+                    </p>
+                  </div>
                 </div>
               </div>
               <div>
@@ -882,14 +907,17 @@
         <!-- /Center: Tab Content -->
 
         <!-- ====== Right: Receipt Preview (ร้านค้า + ใบเสร็จ) ====== -->
-        <div v-if="activeTab === 'shop' || activeTab === 'receipt'" class="w-52 shrink-0 sticky top-6">
-          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-4 shadow-2xl shadow-black/50">
+        <div v-if="activeTab === 'shop' || activeTab === 'receipt'" class="w-full lg:w-52 shrink-0 lg:sticky lg:top-6 flex justify-center lg:block">
+          <div class="bg-surface-900 border border-surface-700 rounded-2xl p-4 shadow-2xl shadow-black/50 w-full max-w-sm lg:max-w-none">
             <h2 class="text-xs font-bold text-surface-400 uppercase tracking-widest mb-3 flex items-center gap-2">
               <span>📄</span> ตัวอย่างใบเสร็จ
             </h2>
             <div class="flex justify-center bg-surface-950 rounded-xl p-3 overflow-auto border border-surface-800">
               <div :class="['font-mono text-black bg-white p-3 text-[10px] shadow-lg', form.paperSize === '58mm' ? 'w-[48mm]' : 'w-[72mm]']">
                 <div class="text-center border-b border-dashed border-gray-400 pb-2 mb-2">
+                  <div v-if="form.shopLogo" class="flex justify-center mb-2">
+                    <img :src="form.shopLogo" class="max-h-16 object-contain grayscale" style="filter: contrast(1.2) grayscale(1);" />
+                  </div>
                   <p class="font-black text-sm uppercase">{{ form.shopName || 'ชื่อร้าน' }}</p>
                   <p v-if="form.shopTagline" class="text-[9px]">{{ form.shopTagline }}</p>
                   <p v-if="form.shopPhone" class="text-[9px]">📞 {{ form.shopPhone }}</p>
@@ -1019,7 +1047,51 @@ const form = reactive<ReceiptSettings>({
   receiptMarginRight: 0,
   receiptQtyWidth: 6,
   receiptPriceWidth: 8,
+  shopLogo: '',
 })
+
+const logoInputRef = ref<HTMLInputElement | null>(null)
+
+async function handleLogoUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (!input.files || input.files.length === 0) return
+  const file = input.files[0]!
+  if (file.size > 1024 * 1024) { // 1MB max
+    toast.error('ไฟล์ขนาดใหญ่เกินไป (สูงสุด 1MB)')
+    return
+  }
+  
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    // ย่อขนาดรูปภาพด้วย Canvas เพื่อลดขนาด Base64 String ไม่ให้หนัก IndexedDB
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      let width = img.width
+      let height = img.height
+      const MAX_WIDTH = 384 // เหมาะกับกระดาษ 58mm (384px) หรือ 80mm
+      
+      if (width > MAX_WIDTH) {
+        height = Math.round((height * MAX_WIDTH) / width)
+        width = MAX_WIDTH
+      }
+      
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      
+      // วาดพื้นหลังขาว (เพื่อป้องกัน transparent เป็นสีดำ)
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, width, height)
+      ctx.drawImage(img, 0, 0, width, height)
+      
+      form.shopLogo = canvas.toDataURL('image/jpeg', 0.8)
+    }
+    img.src = e.target?.result as string
+  }
+  reader.readAsDataURL(file)
+}
 
 const printerMethods = [
   {
@@ -1225,5 +1297,12 @@ async function handleTestLineSummary() {
 .expand-enter-to, .expand-leave-from {
   opacity: 1;
   max-height: 120px;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 </style>
