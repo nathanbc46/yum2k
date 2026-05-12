@@ -254,15 +254,15 @@
 
               <!-- Column Width -->
               <div>
-                <label class="form-label">ความกว้างคอลัมน์ จำนวนราคา (visual columns)</label>
+                <label class="form-label">ความกว้างคอลัมน์ จำนวน & ราคา (visual columns)</label>
                 <div class="grid grid-cols-2 gap-3 mt-1">
                   <div>
                     <label class="text-xs text-surface-400 mb-1 block">จำนวน (qty)</label>
                     <input
                       type="number"
                       v-model.number="form.receiptQtyWidth"
-                      min="2"
-                      max="8"
+                      min="5"
+                      max="12"
                       class="form-input text-sm"
                     />
                   </div>
@@ -271,18 +271,18 @@
                     <input
                       type="number"
                       v-model.number="form.receiptPriceWidth"
-                      min="4"
-                      max="12"
+                      min="6"
+                      max="15"
                       class="form-input text-sm"
                     />
                   </div>
                 </div>
                 <p class="text-xs text-surface-500 mt-1">
-                  รวมกัน = คอลัมน์ "จำนวนราคา"
-                  <span class="text-surface-300 font-semibold">{{ (form.receiptQtyWidth ?? 4) + (form.receiptPriceWidth ?? 7) }} cols</span>
-                  — ชื่อสินค้าได้
-                  <span class="text-surface-300 font-semibold">{{ receiptNameWidthPreview.nameWidth }} cols</span>
-                  (~{{ receiptNameWidthPreview.thaiChars }} ตัวอักษรไทย)
+                  รวมกัน = คอลัมน์ "จำนวน" และ "ราคา"
+                  <span class="text-surface-300 font-semibold">{{ Math.max(form.receiptQtyWidth ?? 6, 6) + Math.max(form.receiptPriceWidth ?? 8, 8) }} cols</span>
+                  — ชื่อสินค้าได้สูงสุด
+                  <span class="text-surface-300 font-semibold text-green-400">{{ receiptNameWidthPreview.nameWidth }} ตัวอักษร</span>
+                  (ไม่นับสระและวรรณยุกต์)
                 </p>
               </div>
 
@@ -684,14 +684,23 @@
               </div>
 
               <!-- ทดสอบพิมพ์ (แสดงทุก method) -->
-              <button
-                type="button"
-                @click="handleTestPrint"
-                :disabled="isTestingPrint"
-                class="w-full py-2.5 text-sm font-bold rounded-xl border border-surface-600 bg-surface-800 text-surface-300 hover:bg-surface-700 transition-all disabled:opacity-50"
-              >
-                {{ isTestingPrint ? '⏳ กำลังพิมพ์...' : '🖨️ ทดสอบพิมพ์' }}
-              </button>
+              <div class="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  @click="handleShowPreview"
+                  class="w-full py-2.5 text-sm font-bold rounded-xl border border-primary-500/30 bg-primary-500/10 text-primary-400 hover:bg-primary-500/20 transition-all"
+                >
+                  👁️ ดูตัวอย่างบิล (Text)
+                </button>
+                <button
+                  type="button"
+                  @click="handleTestPrint"
+                  :disabled="isTestingPrint"
+                  class="w-full py-2.5 text-sm font-bold rounded-xl border border-surface-600 bg-surface-800 text-surface-300 hover:bg-surface-700 transition-all disabled:opacity-50"
+                >
+                  {{ isTestingPrint ? '⏳ กำลังพิมพ์...' : '🖨️ ทดสอบพิมพ์' }}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -852,14 +861,22 @@
           </div>
         </div>
 
-        <!-- ====== Save Button (แสดงทุก Tab) ====== -->
-        <button
-          @click="handleSave"
-          :disabled="isSaving"
-          class="w-full py-3.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-primary-900/20"
-        >
-          {{ isSaving ? 'กำลังบันทึก...' : '✅ บันทึกการตั้งค่า' }}
-        </button>
+        <!-- ====== Save Button & Reset (แสดงทุก Tab) ====== -->
+        <div class="flex gap-3">
+          <button
+            @click="handleResetDefaults"
+            class="px-5 py-3.5 bg-surface-800 hover:bg-surface-700 text-surface-300 rounded-xl text-sm font-bold transition-all border border-surface-700"
+          >
+            🔄 รีเซ็ตค่าเริ่มต้น
+          </button>
+          <button
+            @click="handleSave"
+            :disabled="isSaving"
+            class="flex-1 py-3.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-primary-900/20"
+          >
+            {{ isSaving ? 'กำลังบันทึก...' : '✅ บันทึกการตั้งค่า' }}
+          </button>
+        </div>
 
         </div>
         <!-- /Center: Tab Content -->
@@ -906,14 +923,40 @@
       <!-- /Layout -->
 
     </div>
+
+    <!-- Preview Modal -->
+    <div v-if="showPreviewModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showPreviewModal = false"></div>
+      <div class="relative bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+        <div class="flex items-center justify-between p-4 border-b border-surface-800">
+          <h3 class="text-sm font-bold text-surface-50 flex items-center gap-2">
+            <span>📄</span> ตัวอย่างบิล (Text Format)
+          </h3>
+          <button @click="showPreviewModal = false" class="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-800 text-surface-400 hover:text-white hover:bg-surface-700 transition-colors">
+            ✕
+          </button>
+        </div>
+        <div class="p-4 overflow-y-auto">
+          <p class="text-xs text-surface-400 mb-3 text-center">นี่คือรูปแบบ Text ที่จะถูกส่งไปยังปริ้นเตอร์ การเว้นวรรคและการจัดชิดขวาจะอิงตามความกว้างที่ตั้งค่าไว้จริง</p>
+          <pre class="bg-black text-green-400 text-[12px] p-4 rounded-xl overflow-x-auto leading-relaxed whitespace-pre font-bold" style="font-family: 'Courier New', Courier, monospace;">{{ previewTextOutput }}</pre>
+        </div>
+        <div class="p-4 border-t border-surface-800 bg-surface-950/50 rounded-b-2xl">
+          <button @click="showPreviewModal = false" class="w-full py-3 bg-surface-800 hover:bg-surface-700 text-surface-50 rounded-xl text-sm font-bold transition-all">
+            ปิดหน้าต่าง
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 
 <script setup lang="ts">
-import { useSettings, type ReceiptSettings } from '~/composables/useSettings'
+import { useSettings, type ReceiptSettings, DEFAULT_RECEIPT_SETTINGS } from '~/composables/useSettings'
 import { useToast } from '~/composables/useToast'
 import { usePrinter } from '~/composables/usePrinter'
+import type { Order } from '~/types'
 
 definePageMeta({ layout: 'admin' })
 
@@ -929,7 +972,7 @@ const tabs: { key: typeof activeTab.value; icon: string; label: string }[] = [
 
 const config = useRuntimeConfig()
 const { receiptSettings, isSaving, loadReceiptSettings, saveReceiptSettings } = useSettings()
-const { checkRawBTStatus, connectUSBPrinter, getUSBPrinter, isUSBSupported, testPrint } = usePrinter()
+const { checkRawBTStatus, connectUSBPrinter, getUSBPrinter, isUSBSupported, testPrint, formatReceiptEscPos } = usePrinter()
 const toast = useToast()
 
 const isRawBTConnected = ref(true)
@@ -974,8 +1017,8 @@ const form = reactive<ReceiptSettings>({
   printKitchenCopy: false,
   receiptMarginLeft: 0,
   receiptMarginRight: 0,
-  receiptQtyWidth: 4,
-  receiptPriceWidth: 7,
+  receiptQtyWidth: 6,
+  receiptPriceWidth: 8,
 })
 
 const printerMethods = [
@@ -1011,10 +1054,10 @@ const receiptNameWidthPreview = computed(() => {
   const marginLeft = form.receiptMarginLeft ?? 0
   const marginRight = form.receiptMarginRight ?? 0
   const effectiveWidth = lineWidth - marginLeft - marginRight
-  const qtyWidth = form.receiptQtyWidth ?? 4
-  const priceWidth = form.receiptPriceWidth ?? 7
+  const qtyWidth = Math.max(form.receiptQtyWidth ?? 6, 6)
+  const priceWidth = Math.max(form.receiptPriceWidth ?? 8, 8)
   const nameWidth = effectiveWidth - qtyWidth - priceWidth
-  const thaiChars = Math.floor(nameWidth / 2)
+  const thaiChars = nameWidth // อัปเดตใหม่: 1 พยัญชนะไทย = 1 คอลัมน์ ไม่ใช่ 2 แล้ว
   return { nameWidth, thaiChars }
 })
 
@@ -1088,8 +1131,42 @@ async function handleSave() {
   }
 }
 
+function handleResetDefaults() {
+  if (confirm('คุณต้องการรีเซ็ตการตั้งค่าใบเสร็จและร้านค้ากลับไปเป็นค่าเริ่มต้นของระบบทั้งหมดหรือไม่?')) {
+    Object.assign(form, DEFAULT_RECEIPT_SETTINGS)
+    toast.success('รีเซ็ตแบบฟอร์มเป็นค่าเริ่มต้นแล้ว (กดบันทึกเพื่อยืนยัน)')
+  }
+}
 
 const isTestingSummary = ref(false)
+const showPreviewModal = ref(false)
+const previewTextOutput = ref('')
+
+function handleShowPreview() {
+  const mockOrder = {
+    _id: 'mock-id',
+    orderNumber: 'YUM-' + new Date().toISOString().slice(2,10).replace(/-/g, '') + '-1200-' + (form.deviceCode || 'D1') + '-0001',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    status: 'completed',
+    paymentMethod: 'cash',
+    items: [
+      { productId: 'p1', productName: 'ยำไข่เยี่ยวม้า', quantity: 1, price: 60, totalPrice: 60, productType: 'product' },
+      { productId: 'p2', productName: 'ยำแซลมอน กุ้งสด', quantity: 2, price: 120, totalPrice: 240, addons: [{ id: 'a1', name: 'เผ็ดน้อย', price: 0 }] }
+    ],
+    subtotal: 300,
+    discountAmount: 0,
+    taxAmount: 0,
+    totalAmount: 300,
+    taxRate: 7,
+    staffName: 'ผู้ดูแลระบบ',
+    staffId: 's1',
+    queueNumber: 1
+  } as unknown as Order
+  
+  previewTextOutput.value = formatReceiptEscPos(mockOrder, false, form).replace(/\x1dV\x42\x00/g, '') // เอาคำสั่งตัดกระดาษออกเพื่อความสวยงามตอน preview
+  showPreviewModal.value = true
+}
 
 async function handleTestLineSummary() {
   isTestingSummary.value = true

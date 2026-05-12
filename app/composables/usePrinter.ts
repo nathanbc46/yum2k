@@ -33,13 +33,20 @@ export function usePrinter() {
 
   // ---------------------------------------------------------------------------
   // Visual Width Helpers
-  // Thai character = 2 columns, ASCII = 1 column (ตาม font ของ thermal printer)
+  // Thai base char/ASCII = 1 column. Vowels/Tones = 0 column (พิมพ์ซ้อนบรรทัดเดิม)
   // ---------------------------------------------------------------------------
-  const isThai = (code: number) => code >= 0x0E00 && code <= 0x0E7F
+  const isZeroWidthThai = (code: number) => {
+    return (code >= 0x0E34 && code <= 0x0E3A) || // สระ ิ ี ึ ื ุ ู ฺ
+           code === 0x0E31 || // ไม้หันอากาศ ั
+           (code >= 0x0E47 && code <= 0x0E4E)    // วรรณยุกต์ ็ ่ ้ ๊ ๋ ์ ํ ๎
+  }
 
   function vw(str: string): number {
     let w = 0
-    for (let i = 0; i < str.length; i++) w += isThai(str.charCodeAt(i)) ? 2 : 1
+    for (let i = 0; i < str.length; i++) {
+      const code = str.charCodeAt(i)
+      if (!isZeroWidthThai(code)) w += 1
+    }
     return w
   }
 
@@ -54,7 +61,8 @@ export function usePrinter() {
   function vwTruncate(str: string, maxWidth: number): string {
     let w = 0, result = ''
     for (let i = 0; i < str.length; i++) {
-      const cw = isThai(str.charCodeAt(i)) ? 2 : 1
+      const code = str.charCodeAt(i)
+      const cw = isZeroWidthThai(code) ? 0 : 1
       if (w + cw > maxWidth) break
       result += str[i]
       w += cw
@@ -113,15 +121,33 @@ export function usePrinter() {
     push(leftPad + line + '\n')
 
     // --- Items ---
-    const combinedWidth = (s.receiptQtyWidth ?? 4) + (s.receiptPriceWidth ?? 7)
-    const nameWidth = effectiveWidth - combinedWidth
+    // บังคับความกว้างขั้นต่ำ (จำนวน = 6, ราคา = 8) เพื่อป้องกันไม่ให้ข้อความล้น
+    const qtyWidth = Math.max(s.receiptQtyWidth ?? 6, 6)
+    const priceWidth = Math.max(s.receiptPriceWidth ?? 8, 8)
+    const nameWidth = effectiveWidth - qtyWidth - priceWidth
 
-    push(leftPad + vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวนราคา', combinedWidth) + '\n')
+    push(leftPad + vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวน', qtyWidth) + vwPadStart('ราคา', priceWidth) + '\n')
 
     order.items.forEach((item: OrderItem) => {
-      const name = vwPadEnd(vwTruncate(item.productName, nameWidth), nameWidth)
-      const combined = vwPadStart(`x${item.quantity} ${item.totalPrice.toLocaleString('en-US')}`, combinedWidth)
-      push(leftPad + `${name}${combined}\n`)
+      let remainingName = item.productName
+      let isFirstLine = true
+
+      while (remainingName.length > 0) {
+        let chunk = vwTruncate(remainingName, nameWidth)
+        if (chunk.length === 0) break // ป้องกัน infinite loop
+        remainingName = remainingName.slice(chunk.length)
+
+        if (isFirstLine) {
+          const name = vwPadEnd(chunk, nameWidth)
+          const qty = vwPadStart(`x${item.quantity}`, qtyWidth)
+          const price = vwPadStart(item.totalPrice.toLocaleString('en-US'), priceWidth)
+          push(leftPad + `${name}${qty}${price}\n`)
+          isFirstLine = false
+        } else {
+          push(leftPad + chunk + '\n')
+        }
+      }
+
       if (item.addons && item.addons.length > 0) {
         item.addons.forEach(addon => push(leftPad + `  + ${addon.name}\n`))
       }
@@ -144,7 +170,6 @@ export function usePrinter() {
     // --- Footer ---
     if (!isKitchenCopy) {
       if (s.footerMessage) push(center(s.footerMessage))
-      push(center('Yum2K POS - Offline First'))
     } else {
       push(center('--- จบใบสั่งงาน ---'))
     }
@@ -509,8 +534,8 @@ export function usePrinter() {
   // ---------------------------------------------------------------------------
   // ESC/POS String Format (สำหรับ RawBT ซึ่งรับ UTF-8 text)
   // ---------------------------------------------------------------------------
-  function formatReceiptEscPos(order: Order, isKitchenCopy = false): string {
-    const s = receiptSettings.value
+  function formatReceiptEscPos(order: Order, isKitchenCopy = false, customSettings?: ReceiptSettings): string {
+    const s = customSettings || receiptSettings.value
     const lineWidth = s.paperSize === '58mm' ? 32 : 42
     const marginLeft = s.receiptMarginLeft ?? 0
     const marginRight = s.receiptMarginRight ?? 0
@@ -545,15 +570,33 @@ export function usePrinter() {
     }
     res += line
 
-    const combinedWidth = (s.receiptQtyWidth ?? 4) + (s.receiptPriceWidth ?? 7)
-    const nameWidth = effectiveWidth - combinedWidth
+    // บังคับความกว้างขั้นต่ำ (จำนวน = 6, ราคา = 8) เพื่อป้องกันไม่ให้ข้อความล้น
+    const qtyWidth = Math.max(s.receiptQtyWidth ?? 6, 6)
+    const priceWidth = Math.max(s.receiptPriceWidth ?? 8, 8)
+    const nameWidth = effectiveWidth - qtyWidth - priceWidth
 
-    res += leftPad + vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวนราคา', combinedWidth) + '\n'
+    res += leftPad + vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวน', qtyWidth) + vwPadStart('ราคา', priceWidth) + '\n'
 
     order.items.forEach((item: OrderItem) => {
-      const name = vwPadEnd(vwTruncate(item.productName, nameWidth), nameWidth)
-      const combined = vwPadStart(`x${item.quantity} ${item.totalPrice.toLocaleString('en-US')}`, combinedWidth)
-      res += leftPad + `${name}${combined}\n`
+      let remainingName = item.productName
+      let isFirstLine = true
+
+      while (remainingName.length > 0) {
+        let chunk = vwTruncate(remainingName, nameWidth)
+        if (chunk.length === 0) break // ป้องกัน infinite loop
+        remainingName = remainingName.slice(chunk.length)
+
+        if (isFirstLine) {
+          const name = vwPadEnd(chunk, nameWidth)
+          const qty = vwPadStart(`x${item.quantity}`, qtyWidth)
+          const price = vwPadStart(item.totalPrice.toLocaleString('en-US'), priceWidth)
+          res += leftPad + `${name}${qty}${price}\n`
+          isFirstLine = false
+        } else {
+          res += leftPad + chunk + '\n'
+        }
+      }
+
       if (item.addons && item.addons.length > 0) {
         item.addons.forEach(addon => { res += leftPad + `  + ${addon.name}\n` })
       }
@@ -572,7 +615,6 @@ export function usePrinter() {
     res += line
     if (!isKitchenCopy) {
       if (s.footerMessage) res += center(s.footerMessage)
-      res += center('Yum2K POS - Offline First')
     } else {
       res += center('--- จบใบสั่งงาน ---')
     }
@@ -647,7 +689,6 @@ export function usePrinter() {
 
     if (!isKitchenCopy) {
       if (s.footerMessage) lines.push({ type: 'text', text: s.footerMessage, align: 'center' })
-      lines.push({ type: 'text', text: 'Yum2K POS', align: 'center' })
     } else {
       lines.push({ type: 'text', text: '--- จบใบสั่งงาน ---', align: 'center' })
     }
@@ -790,5 +831,6 @@ export function usePrinter() {
     getUSBPrinter,
     isUSBSupported,
     checkRawBTStatus,
+    formatReceiptEscPos,
   }
 }
