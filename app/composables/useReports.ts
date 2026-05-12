@@ -144,10 +144,17 @@ export function useReports() {
     for (let i = 0; i <= days; i++) {
       const d = new Date(start)
       d.setDate(d.getDate() + i)
-      dailyMap.set(d.toLocaleDateString('en-CA'), { revenue: 0, profit: 0 })
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      dailyMap.set(`${y}-${m}-${day}`, { revenue: 0, profit: 0 })
     }
     for (const o of orders) {
-      const key = new Date(o.createdAt).toLocaleDateString('en-CA')
+      const d = new Date(o.createdAt)
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      const key = `${y}-${m}-${day}`
       const val = dailyMap.get(key)
       if (val) { val.revenue += o.totalAmount; val.profit += o.profitAmount }
     }
@@ -336,7 +343,11 @@ export function useReports() {
 
     for (const order of orders) {
       if (!order.items) continue
-      const dayKey = new Date(order.createdAt).toLocaleDateString('en-CA')
+      const d = new Date(order.createdAt)
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      const dayKey = `${y}-${m}-${day}`
 
       for (const item of order.items) {
         const key = item.productUuid || `name_${item.productName}`

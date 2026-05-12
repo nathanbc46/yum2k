@@ -143,73 +143,91 @@
             <div class="space-y-6">
               
               <!-- Gemini -->
-              <div class="p-4 bg-primary-500/5 border border-primary-500/10 rounded-xl space-y-3">
+              <div :class="['p-4 border rounded-xl space-y-3 transition-all duration-300', form.geminiEnabled ? 'bg-primary-500/5 border-primary-500/10' : 'bg-surface-800/20 border-surface-700/50 grayscale opacity-60']">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">
                     <span class="text-xl">🤖</span>
                     <span class="text-sm font-bold text-primary-400">Google Gemini</span>
                   </div>
-                  <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[10px] text-primary-400 underline decoration-primary-400/30">รับ API Key</a>
+                  <div class="flex items-center gap-3">
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[10px] text-primary-400 underline decoration-primary-400/30">รับ API Key</a>
+                    <button type="button" @click="form.geminiEnabled = !form.geminiEnabled" :class="['relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors', form.geminiEnabled ? 'bg-primary-500' : 'bg-surface-600']">
+                      <span class="sr-only">Toggle Gemini</span>
+                      <span :class="['pointer-events-none absolute left-0.5 inline-block h-4 w-4 transform rounded-full bg-white transition-transform', form.geminiEnabled ? 'translate-x-4' : 'translate-x-0']"></span>
+                    </button>
+                  </div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3" :class="{ 'pointer-events-none': !form.geminiEnabled }">
                   <div>
                     <label class="form-label !text-[10px]">API Key</label>
-                    <input v-model="form.geminiApiKey" type="password" placeholder="AI_xxxxxxxx" class="form-input font-mono !text-[11px]" />
+                    <input v-model="form.geminiApiKey" type="password" placeholder="AI_xxxxxxxx" class="form-input font-mono !text-[11px]" :disabled="!form.geminiEnabled" />
                     <p v-if="!form.geminiApiKey && config.public.defaultGeminiKey" class="text-[10px] text-green-500 mt-1 flex items-center gap-1">
                       <span>✓</span><span>ใช้ค่าเริ่มต้นจาก ENV</span>
                     </p>
                   </div>
                   <div>
                     <label class="form-label !text-[10px]">Model Name</label>
-                    <input v-model="form.geminiModel" type="text" placeholder="เช่น gemini-3.1-flash-lite-preview" class="form-input font-mono !text-[11px]" />
+                    <input v-model="form.geminiModel" type="text" placeholder="เช่น gemini-3.1-flash-lite-preview" class="form-input font-mono !text-[11px]" :disabled="!form.geminiEnabled" />
                   </div>
                 </div>
               </div>
 
               <!-- OpenRouter -->
-              <div class="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl space-y-3">
+              <div :class="['p-4 border rounded-xl space-y-3 transition-all duration-300', form.openRouterEnabled ? 'bg-amber-500/5 border-amber-500/10' : 'bg-surface-800/20 border-surface-700/50 grayscale opacity-60']">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">
                     <span class="text-xl">🌐</span>
                     <span class="text-sm font-bold text-amber-400">OpenRouter (แนะนำ)</span>
                   </div>
-                  <a href="https://openrouter.ai/keys" target="_blank" class="text-[10px] text-amber-400 underline decoration-amber-400/30">รับ API Key</a>
+                  <div class="flex items-center gap-3">
+                    <a href="https://openrouter.ai/keys" target="_blank" class="text-[10px] text-amber-400 underline decoration-amber-400/30">รับ API Key</a>
+                    <button type="button" @click="form.openRouterEnabled = !form.openRouterEnabled" :class="['relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors', form.openRouterEnabled ? 'bg-amber-500' : 'bg-surface-600']">
+                      <span class="sr-only">Toggle OpenRouter</span>
+                      <span :class="['pointer-events-none absolute left-0.5 inline-block h-4 w-4 transform rounded-full bg-white transition-transform', form.openRouterEnabled ? 'translate-x-4' : 'translate-x-0']"></span>
+                    </button>
+                  </div>
                 </div>
-                <div class="space-y-3">
+                <div class="space-y-3" :class="{ 'pointer-events-none': !form.openRouterEnabled }">
                   <div>
                     <label class="form-label !text-[10px]">API Key</label>
-                    <input v-model="form.openRouterApiKey" type="password" placeholder="sk-or-v1-xxxx..." class="form-input font-mono !text-[11px]" />
+                    <input v-model="form.openRouterApiKey" type="password" placeholder="sk-or-v1-xxxx..." class="form-input font-mono !text-[11px]" :disabled="!form.openRouterEnabled" />
                     <p v-if="!form.openRouterApiKey && config.public.defaultOpenRouterKey" class="text-[10px] text-green-500 mt-1 flex items-center gap-1">
                       <span>✓</span><span>ใช้ค่าเริ่มต้นจาก ENV</span>
                     </p>
                   </div>
                   <div>
                     <label class="form-label !text-[10px]">Models (คั่นด้วยคอมมา สำหรับระบบสำรองอัตโนมัติ)</label>
-                    <textarea v-model="form.openRouterModels" rows="2" placeholder="เช่น qwen/qwen3-32b:free, llama-3.3-70b-versatile:free" class="form-input font-mono !text-[11px] resize-none" />
+                    <textarea v-model="form.openRouterModels" rows="2" placeholder="เช่น qwen/qwen3-32b:free, llama-3.3-70b-versatile:free" class="form-input font-mono !text-[11px] resize-none" :disabled="!form.openRouterEnabled" />
                   </div>
                 </div>
               </div>
 
               <!-- Groq -->
-              <div class="p-4 bg-cyan-500/5 border border-cyan-500/10 rounded-xl space-y-3">
+              <div :class="['p-4 border rounded-xl space-y-3 transition-all duration-300', form.groqEnabled ? 'bg-cyan-500/5 border-cyan-500/10' : 'bg-surface-800/20 border-surface-700/50 grayscale opacity-60']">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">
                     <span class="text-xl">⚡</span>
                     <span class="text-sm font-bold text-cyan-400">Groq (Fallback)</span>
                   </div>
-                  <a href="https://console.groq.com/keys" target="_blank" class="text-[10px] text-cyan-400 underline decoration-cyan-400/30">รับ API Key</a>
+                  <div class="flex items-center gap-3">
+                    <a href="https://console.groq.com/keys" target="_blank" class="text-[10px] text-cyan-400 underline decoration-cyan-400/30">รับ API Key</a>
+                    <button type="button" @click="form.groqEnabled = !form.groqEnabled" :class="['relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors', form.groqEnabled ? 'bg-cyan-500' : 'bg-surface-600']">
+                      <span class="sr-only">Toggle Groq</span>
+                      <span :class="['pointer-events-none absolute left-0.5 inline-block h-4 w-4 transform rounded-full bg-white transition-transform', form.groqEnabled ? 'translate-x-4' : 'translate-x-0']"></span>
+                    </button>
+                  </div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3" :class="{ 'pointer-events-none': !form.groqEnabled }">
                   <div>
                     <label class="form-label !text-[10px]">API Key</label>
-                    <input v-model="form.groqApiKey" type="password" placeholder="gsk_xxxxxxxx" class="form-input font-mono !text-[11px]" />
+                    <input v-model="form.groqApiKey" type="password" placeholder="gsk_xxxxxxxx" class="form-input font-mono !text-[11px]" :disabled="!form.groqEnabled" />
                     <p v-if="!form.groqApiKey && config.public.defaultGroqKey" class="text-[10px] text-green-500 mt-1 flex items-center gap-1">
                       <span>✓</span><span>ใช้ค่าเริ่มต้นจาก ENV</span>
                     </p>
                   </div>
                   <div>
                     <label class="form-label !text-[10px]">Model Name</label>
-                    <input v-model="form.groqModel" type="text" placeholder="เช่น llama-3.3-70b-versatile" class="form-input font-mono !text-[11px]" />
+                    <input v-model="form.groqModel" type="text" placeholder="เช่น llama-3.3-70b-versatile" class="form-input font-mono !text-[11px]" :disabled="!form.groqEnabled" />
                   </div>
                 </div>
               </div>
@@ -1030,10 +1048,13 @@ const form = reactive<ReceiptSettings>({
   showOrderNumber: true,
   showStaffName: true,
   showTaxInfo: false,
+  geminiEnabled: true,
   geminiApiKey: '',
   geminiModel: '',
+  groqEnabled: true,
   groqApiKey: '',
   groqModel: '',
+  openRouterEnabled: true,
   openRouterApiKey: '',
   openRouterModels: '',
   lineNewOrder: false,

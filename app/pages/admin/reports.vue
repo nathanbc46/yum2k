@@ -981,12 +981,43 @@ async function loadData() {
     dailyHistory.value.forEach(d => activeMonths.add(d.date.slice(0, 7)))
 
     const monthlyData: Record<string, number> = {}
-    for (const mKey of activeMonths) {
-      const fullMonthExpenses = await db.expenses
-        .filter(e => !e.isDeleted && e.expenseDate.startsWith(mKey))
-        .toArray()
-      monthlyData[mKey] = fullMonthExpenses.reduce((sum, e) => sum + e.amount, 0)
-    }
+    activeMonths.forEach(mKey => { monthlyData[mKey] = 0 })
+
+    const allExpensesForPeriod = await db.expenses
+      .filter(e => {
+        if (e.isDeleted) return false
+        try {
+          const d = new Date(e.expenseDate)
+          if (!isNaN(d.getTime())) {
+            let y = d.getFullYear()
+            if (y > 2400) y -= 543
+            return d >= start && d <= end
+          }
+          return e.expenseDate >= startStr && e.expenseDate <= endStr
+        } catch {
+          return e.expenseDate >= startStr && e.expenseDate <= endStr
+        }
+      })
+      .toArray()
+
+    allExpensesForPeriod.forEach(e => {
+      let mKey = ''
+      try {
+        const d = new Date(e.expenseDate)
+        if (!isNaN(d.getTime())) {
+          let y = d.getFullYear()
+          if (y > 2400) y -= 543
+          const m = String(d.getMonth() + 1).padStart(2, '0')
+          mKey = `${y}-${m}`
+        } else {
+          mKey = e.expenseDate.slice(0, 7)
+        }
+      } catch {
+        mKey = e.expenseDate.slice(0, 7)
+      }
+
+      monthlyData[mKey] = (monthlyData[mKey] || 0) + e.amount
+    })
 
     const avgs: Record<string, number> = {}
 
@@ -1042,7 +1073,11 @@ async function loadData() {
     // คำนวณสรุปสินค้าแยกตามวันสำหรับ AI
     const stats: Record<string, any> = {}
     for (const o of filteredOrders) {
-      const dateKey = new Date(o.createdAt).toLocaleDateString('en-CA')
+      const d = new Date(o.createdAt)
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      const dateKey = `${y}-${m}-${day}`
       if (!stats[dateKey]) stats[dateKey] = { revenue: 0, items: {} as Record<string, number> }
       stats[dateKey].revenue += o.totalAmount
       for (const item of o.items) {

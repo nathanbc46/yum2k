@@ -64,9 +64,22 @@ export function useProfitability() {
       }
     })
 
-    // 2. ดึงข้อมูลรายจ่ายในช่วงเวลา (ใช้ .filter เพื่อความแม่นยำสูงและรองรับกรณี Index คลาดเคลื่อน)
+    // 2. ดึงข้อมูลรายจ่ายในช่วงเวลา (ใช้ .filter เพื่อรองรับรูปแบบวันที่แบบเก่าที่อาจไม่ตรงกับ YYYY-MM-DD)
     const activeExpenses = await db.expenses
-      .filter(e => !e.isDeleted && e.expenseDate >= startDate && e.expenseDate <= endDate)
+      .filter(e => {
+        if (e.isDeleted) return false
+        try {
+          const expD = new Date(e.expenseDate)
+          if (!isNaN(expD.getTime())) {
+            let y = expD.getFullYear()
+            if (y > 2400) expD.setFullYear(y - 543)
+            return expD >= start && expD <= end
+          }
+          return e.expenseDate >= startDate && e.expenseDate <= endDate
+        } catch {
+          return e.expenseDate >= startDate && e.expenseDate <= endDate
+        }
+      })
       .toArray()
     const totalExpenses = activeExpenses.reduce((sum, exp) => sum + exp.amount, 0)
 

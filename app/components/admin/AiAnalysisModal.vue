@@ -1030,7 +1030,7 @@ async function askQuickQuestion(q: string) {
       try {
         const startMonth = new Date(s).toLocaleDateString('th-TH', { month: 'short' })
         const endMonth = new Date(e).toLocaleDateString('th-TH', { month: 'short' })
-        return startMonth === endMonth ? `เดือน ${startMonth}` : `เดือน ${startMonth} และ ${endMonth}`
+        return startMonth === endMonth ? `เดือน ${startMonth}` : `แต่ละเดือน`
       } catch { return 'แต่ละเดือน' }
     }
 
@@ -1081,7 +1081,7 @@ async function runAnalysis() {
 
   try {
     // 1. ลองใช้ Gemini ก่อน (ตัวหลัก)
-    if (geminiKey?.startsWith('AI')) {
+    if (receiptSettings.value.geminiEnabled !== false && geminiKey?.startsWith('AI')) {
       try {
         activeModelName.value = 'Gemini 3.1 Flash Lite'
         console.log('%c[AI] %cTrying Gemini...', 'color: #4285f4; font-weight: bold', 'color: #888')
@@ -1094,7 +1094,7 @@ async function runAnalysis() {
     }
 
     // 2. ลองใช้ OpenRouter (ศูนย์รวม AI ฟรี)
-    if (orKey) {
+    if (receiptSettings.value.openRouterEnabled !== false && orKey) {
       try {
         analysisMessage.value = 'Gemini เต็ม... กำลังใช้ OpenRouter (Free AI Hub) ประมวลผลเชิงลึก...'
         await analyzeWithOpenRouter(orKey)
@@ -1106,7 +1106,7 @@ async function runAnalysis() {
     }
 
     // 3. ลองใช้ Groq (ความเร็วสูง)
-    if (groqKey?.startsWith('gsk_')) {
+    if (receiptSettings.value.groqEnabled !== false && groqKey?.startsWith('gsk_')) {
       try {
         activeModelName.value = 'Groq (Llama 3.3)'
         analysisMessage.value = 'กำลังใช้ Groq สำรองความเร็วสูง...'
@@ -1523,23 +1523,24 @@ async function sendMessage() {
       (props.includeWeather || isWeatherQuestion) ? fetchWeather() : Promise.resolve()
     ])
     const apiKey = resolveKey(receiptSettings.value.geminiApiKey, aiConfig.defaultGeminiKey as string)
-    if (!apiKey) throw new Error('ไม่พบ API Key')
-    const modelName = await getAvailableModel(apiKey)
-    activeModelName.value = modelName.split('/').pop() || modelName
-    const modelNameFull = modelName.startsWith('models/') ? modelName : `models/${modelName}`
-    const url = `https://generativelanguage.googleapis.com/v1beta/${modelNameFull}:generateContent?key=${apiKey}`
-    // สร้าง Context สำหรับแชท (เพิ่มข้อมูลสินค้าขายดี และแนวโน้มเชิงลึก)
+    const orKey = resolveKey(receiptSettings.value.openRouterApiKey, aiConfig.defaultOpenRouterKey as string)
+    const groqKey = resolveKey(receiptSettings.value.groqApiKey, aiConfig.defaultGroqKey as string)
+    
+    if (receiptSettings.value.geminiEnabled === false && receiptSettings.value.openRouterEnabled === false && receiptSettings.value.groqEnabled === false) {
+      throw new Error('AI ทุกระบบถูกปิดใช้งาน กรุณาเปิดใช้งานในตั้งค่าร้านค้า')
+    }
     // คำนวณกำไร 2 รูปแบบสำหรับระบบแชท
     const productMarginProfit = props.data.revenue - props.data.cost
-    const cashFlowProfit = props.data.revenue - (props.data.actualTotalExpenses || props.data.totalExpenses || 0)
+    const safeAllocated = props.data.allocatedExpenseForPeriod || props.data.totalExpenses || 0
+    const cashFlowProfit = props.data.revenue - safeAllocated
 
     const context = `
       คุณคือที่ปรึกษาธุรกิจร้านยำ (Yum2K) ข้อมูลสำคัญคือร้านนี้ขายเฉพาะ "เมนูยำ" เท่านั้น ห้ามแนะนำน้ำสมุนไพร เครื่องดื่ม หรือสินค้าอื่นๆ ที่ไม่ใช่ยำโดยเด็ดขาด ข้อมูลเชิงลึกของร้านคือ:
       - ช่วงเวลาที่วิเคราะห์: ${props.data.dateRange ? `${props.data.dateRange.start} ถึง ${props.data.dateRange.end}` : 'ไม่ได้ระบุ'}
       - รายได้รวม: ฿${props.data.revenue.toLocaleString()}
       - ต้นทุนสินค้า (COGS): ฿${props.data.cost.toLocaleString()} (ต้นทุนตามสูตร)
-      - รายจ่ายรวม (Expenses): ฿${(props.data.actualTotalExpenses || props.data.totalExpenses || 0).toLocaleString()} (เงินจ่ายออกจริง)
-      - กำไรสุทธิจากกระแสเงินสด (Net Profit): ฿${cashFlowProfit.toLocaleString()}
+      - รายจ่ายปันส่วนรวม (Allocated Expenses): ฿${safeAllocated.toLocaleString()} (รายจ่ายที่ถูกปันส่วนมาในวันเหล่านี้)
+      - กำไรสุทธิ (Net Profit): ฿${cashFlowProfit.toLocaleString()}
       - กำไรจากส่วนต่างสินค้า (Gross Profit): ฿${productMarginProfit.toLocaleString()}
       - ยอดขายแยกตามหมวดหมู่: ${props.data.categoryStats ? props.data.categoryStats.map((c: any) => `${c.categoryName} (฿${c.value.toLocaleString()})`).join(', ') : 'ไม่มีข้อมูล'}
       - ข้อมูลสินค้าทั้งหมด (สรุป): ${props.data.topProducts.map(p => `${p.productName} (ขายได้ ${p.quantitySold} ชุด)`).join(', ')}
@@ -1569,67 +1570,78 @@ async function sendMessage() {
       คำถามล่าสุดจากเจ้าของร้าน: ${text}
       ${props.includeWeather ? `สภาพอากาศปัจจุบัน: ${weatherData.value ? JSON.stringify(weatherData.value.daily) : 'ไม่มีข้อมูล'}` : ''}
     `
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: context }] }] })
-    })
-
-    // ถ้าล้มเหลว (429, 500, 503, ฯลฯ) ให้ลองใช้ Fallback ตัวอื่น
-    if (!response.ok) {
-      console.warn(`[AI-Chat] Gemini failed with status ${response.status}, trying fallback...`)
-      
-      const orKey = resolveKey(receiptSettings.value.openRouterApiKey, aiConfig.defaultOpenRouterKey as string)
-      if (orKey) {
-        try {
-          console.warn('Switching to OpenRouter fallback...')
-          await sendChatToOpenRouter(orKey, context)
-          return
-        } catch (e: any) {
-          console.error('OpenRouter Fallback failed:', e)
+    let response: Response | null = null
+    
+    // 1. ลอง Gemini
+    if (receiptSettings.value.geminiEnabled !== false && apiKey) {
+      try {
+        const modelName = await getAvailableModel(apiKey)
+        activeModelName.value = modelName.split('/').pop() || modelName
+        const modelNameFull = modelName.startsWith('models/') ? modelName : `models/${modelName}`
+        const url = `https://generativelanguage.googleapis.com/v1beta/${modelNameFull}:generateContent?key=${apiKey}`
+        
+        response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: context }] }] })
+        })
+        
+        if (response.ok) {
+          currentProvider.value = 'Gemini'
+          const result = await response.json()
+          if (!result.candidates?.[0]) throw new Error('AI ไม่ส่งข้อมูลกลับมา (Empty response)')
+          const aiResponse = result.candidates[0].content.parts[0].text
+          
+          const parsed = safeJsonParse(aiResponse)
+          const cleanContent = aiResponse
+            .replace(/```json[\s\S]*?```/g, '') // ลบ block json แบบ markdown
+            .replace(/\{[\s\S]*\}/g, '')        // ลบ json ที่อาจไม่มี block
+            .trim()
+            
+          chatHistory.value.push({ 
+            role: 'model', 
+            content: cleanContent || (parsed?.chart ? 'นี่คือผลการวิเคราะห์ข้อมูลที่คุณขอค่ะ:' : aiResponse),
+            chart: parsed?.chart || null 
+          })
+          saveChatMessage('model', cleanContent || aiResponse, parsed?.chart) // บันทึกพร้อมกราฟ
+          await nextTick()
+          scrollToLastMessage()
+          return // สำเร็จแล้ว
         }
+        console.warn(`[AI-Chat] Gemini failed with status ${response.status}, trying fallback...`)
+      } catch (err) {
+        console.warn(`[AI-Chat] Gemini error:`, err)
       }
-
-      const groqKey = resolveKey(receiptSettings.value.groqApiKey, aiConfig.defaultGroqKey as string)
-      if (groqKey?.startsWith('gsk_')) {
-        try {
-          console.warn('Switching to Groq fallback...')
-          await sendChatToGroq(groqKey, context)
-          return
-        } catch (e: any) {
-          console.error('Groq Fallback failed:', e)
-        }
-      }
-
-      // ถ้าไม่มี fallback หรือ fallback พังหมด ให้แจ้ง Error ตามจริง
-      if (response.status === 429) {
-        throw new Error('โควตาการใช้งาน AI ฟรีเต็มชั่วคราว (Limit Exceeded) กรุณารอ 1 นาทีแล้วลองถามใหม่นะคะ')
-      }
-      
-      const errBody = await response.json().catch(() => ({}))
-      throw new Error(errBody?.error?.message || `AI ไม่สามารถให้บริการได้ในขณะนี้ (Error ${response.status})`)
     }
 
-    currentProvider.value = 'Gemini'
-    const result = await response.json()
-    if (!result.candidates?.[0]) throw new Error('AI ไม่ส่งข้อมูลกลับมา (Empty response)')
-    const aiResponse = result.candidates[0].content.parts[0].text
-    
-    // แยกส่วนข้อความกับ Chart JSON (ถ้ามี) ออกจากกันอย่างหมดจด
-    const parsed = safeJsonParse(aiResponse)
-    const cleanContent = aiResponse
-      .replace(/```json[\s\S]*?```/g, '') // ลบ block json แบบ markdown
-      .replace(/\{[\s\S]*\}/g, '')        // ลบ json ที่อาจไม่มี block
-      .trim()
+    // 2. ลอง OpenRouter
+    if (receiptSettings.value.openRouterEnabled !== false && orKey) {
+      try {
+        console.warn('Switching to OpenRouter fallback...')
+        await sendChatToOpenRouter(orKey, context)
+        return
+      } catch (e: any) {
+        console.error('OpenRouter Fallback failed:', e)
+      }
+    }
 
-    chatHistory.value.push({ 
-      role: 'model', 
-      content: cleanContent || (parsed?.chart ? 'นี่คือผลการวิเคราะห์ข้อมูลที่คุณขอค่ะ:' : aiResponse),
-      chart: parsed?.chart || null 
-    })
-    saveChatMessage('model', cleanContent || aiResponse, parsed?.chart) // บันทึกพร้อมกราฟ
-    await nextTick()
-    scrollToLastMessage()
+    // 3. ลอง Groq
+    if (receiptSettings.value.groqEnabled !== false && groqKey?.startsWith('gsk_')) {
+      try {
+        console.warn('Switching to Groq fallback...')
+        await sendChatToGroq(groqKey, context)
+        return
+      } catch (e: any) {
+        console.error('Groq Fallback failed:', e)
+      }
+    }
+
+    // ถ้าไม่มี fallback หรือ fallback พังหมด ให้แจ้ง Error ตามจริง
+    if (response?.status === 429) {
+      throw new Error('โควตาการใช้งาน AI ฟรีเต็มชั่วคราว (Limit Exceeded) กรุณารอ 1 นาทีแล้วลองถามใหม่นะคะ')
+    }
+    
+    throw new Error('AI ไม่สามารถให้บริการได้ในขณะนี้')
   } catch (err: any) {
     console.error('Chat Error:', err)
     chatHistory.value.push({ role: 'model', content: 'ขออภัยค่ะ ฉันไม่สามารถตอบได้ในขณะนี้: ' + err.message })
