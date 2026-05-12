@@ -50,6 +50,7 @@ export interface ReceiptSettings {
   receiptMarginRight?: number      // Margin ขวา (หน่วย: ตัวอักษร) สำหรับ text mode / pixels สำหรับ image mode
   receiptQtyWidth?: number         // ความกว้างคอลัมน์จำนวน (visual columns), default: 6
   receiptPriceWidth?: number       // ความกว้างคอลัมน์ราคา (visual columns), default: 8
+  printerFontSize?: 'standard' | 'small' // ขนาดตัวอักษรสำหรับ ESC/POS (standard=Font A, small=Font B)
 }
 
 // ---------------------------------------------------------------------------
@@ -93,6 +94,7 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   receiptMarginRight: 0,
   receiptQtyWidth: 6,
   receiptPriceWidth: 8,
+  printerFontSize: 'standard',
 }
 
 // compat export สำหรับโค้ดเก่าที่ import DEFAULT_RECEIPT_SETTINGS โดยตรง

@@ -76,7 +76,11 @@ export function usePrinter() {
   // ---------------------------------------------------------------------------
   function buildEscPosBuffer(order: Order, isKitchenCopy = false): Uint8Array {
     const s = receiptSettings.value
-    const lineWidth = s.paperSize === '58mm' ? 32 : 42
+    const isSmall = s.printerFontSize === 'small'
+    // Font A: 58mm=32, 80mm=42 | Font B: 58mm=42, 80mm=56
+    const lineWidth = s.paperSize === '58mm' 
+      ? (isSmall ? 42 : 32) 
+      : (isSmall ? 56 : 42) 
     const marginLeft = s.receiptMarginLeft ?? 0
     const marginRight = s.receiptMarginRight ?? 0
     const effectiveWidth = lineWidth - marginLeft - marginRight
@@ -95,12 +99,16 @@ export function usePrinter() {
 
     // ESC @ - Initialize printer
     pushBytes(0x1B, 0x40)
+    // ESC M n - Select Font (0=Font A, 1=Font B)
+    if (isSmall) pushBytes(0x1B, 0x4D, 0x01)
+    else pushBytes(0x1B, 0x4D, 0x00)
+    
     const codePage = s.printerCodePage ?? 70
     if (codePage > 0) pushBytes(0x1B, 0x74, codePage)
 
     // --- Header ---
     if (isKitchenCopy) {
-      push('\n')
+      // push('\n') // ลดช่องว่างหัวกระดาษ
       push(center('--- ใบสั่งทำอาหาร ---'))
       push(center('(Kitchen Copy)'))
     } else {
@@ -173,7 +181,7 @@ export function usePrinter() {
     } else {
       push(center('--- จบใบสั่งงาน ---'))
     }
-    push('\n\n\n')
+    push('\n') // ลดจาก \n\n\n เหลือแค่ 1 บรรทัดเพื่อให้พอดีรอยตัด
 
     // GS V 66 0 - Partial cut
     pushBytes(0x1D, 0x56, 0x42, 0x00)
@@ -440,7 +448,11 @@ export function usePrinter() {
       await loadReceiptSettings()
       var s = receiptSettings.value
     }
-    const lineWidth = s.paperSize === '58mm' ? 32 : 42
+    // ใช้ Font ตามที่ตั้งค่าไว้
+    const isSmall = s.printerFontSize === 'small'
+    const lineWidth = s.paperSize === '58mm' 
+      ? (isSmall ? 42 : 32) 
+      : (isSmall ? 56 : 42)
     const line = '='.repeat(lineWidth)
     const testLines = [
       line,
@@ -463,7 +475,8 @@ export function usePrinter() {
     const buildTestBuffer = async (): Promise<Uint8Array> => {
       if (useImage) return buildImageEscPos(buildTestReceiptLines(s.shopName, s.paperSize), s.paperSize)
       const parts: Uint8Array[] = [
-        new Uint8Array([0x1B, 0x40]),
+        new Uint8Array([0x1B, 0x40]), // Init
+        new Uint8Array([0x1B, 0x4D, isSmall ? 0x01 : 0x00]), // Font A/B
         codePageCmd,
         encodeThai(testLines),
         new Uint8Array([0x1D, 0x56, 0x42, 0x00])
@@ -603,8 +616,8 @@ export function usePrinter() {
     let html = `<!DOCTYPE html><html><head>
       <meta charset="utf-8">
       <style>
-        body { font-family: 'Sarabun','Noto Sans Thai',monospace; font-size: 13px; padding: 16px; white-space: pre; }
-        .logo { display: block; margin: 0 auto 10px auto; max-height: 80px; filter: grayscale(100%) contrast(1.2); }
+        body { font-family: 'Sarabun','Noto Sans Thai',monospace; font-size: 11px; padding: 0; white-space: pre; }
+        .logo { display: block; margin: 0 auto 5px auto; max-height: 60px; filter: grayscale(100%) contrast(1.2); }
       </style>
     </head><body>`
     
@@ -646,7 +659,11 @@ export function usePrinter() {
   // ---------------------------------------------------------------------------
   function formatReceiptEscPos(order: Order, isKitchenCopy = false, customSettings?: ReceiptSettings): string {
     const s = customSettings || receiptSettings.value
-    const lineWidth = s.paperSize === '58mm' ? 32 : 42
+    // ใช้ Font ตามที่ตั้งค่าไว้
+    const isSmall = s.printerFontSize === 'small'
+    const lineWidth = s.paperSize === '58mm' 
+      ? (isSmall ? 42 : 32) 
+      : (isSmall ? 56 : 42) 
     const marginLeft = s.receiptMarginLeft ?? 0
     const marginRight = s.receiptMarginRight ?? 0
     const effectiveWidth = lineWidth - marginLeft - marginRight
@@ -659,9 +676,9 @@ export function usePrinter() {
       return leftPad + ' '.repeat(padding) + text + '\n'
     }
 
-    let res = ''
+    let res = isSmall ? '\x1bM\x01' : '\x1bM\x00' // ESC M n - Select Font
     if (isKitchenCopy) {
-      res += '\n'
+      // res += '\n' // ลดช่องว่างหัวกระดาษ
       res += center('--- ใบสั่งทำอาหาร ---')
       res += center('(Kitchen Copy)')
     } else {
@@ -728,7 +745,7 @@ export function usePrinter() {
     } else {
       res += center('--- จบใบสั่งงาน ---')
     }
-    res += '\n\n\n'
+    res += '\n' // ลดจาก \n\n\n
     res += '\x1dV\x42\x00'
     return res
   }
@@ -832,15 +849,15 @@ export function usePrinter() {
   async function buildImageEscPos(lines: ReceiptLine[], paperSize: '58mm' | '80mm'): Promise<Uint8Array> {
     const s = receiptSettings.value
     const printWidth = paperSize === '58mm' ? 384 : 576
-    const fontSize = paperSize === '58mm' ? 22 : 26
-    const lineHeight = Math.ceil(fontSize * 1.6)
+    const fontSize = paperSize === '58mm' ? 20 : 24 // ลดขนาดลงจาก 22, 26
+    const lineHeight = Math.ceil(fontSize * 1.5) // ลดความสูงบรรทัดลงนิดนึง
     const charPx = Math.ceil(fontSize / 2)
     const padX = (s.receiptMarginLeft ?? 0) * charPx + 4
     const padXRight = (s.receiptMarginRight ?? 0) * charPx + 4
     const printableWidth = printWidth - padX - padXRight
     const qtyX = padX + Math.round(printableWidth * 0.68)
     const priceX = printWidth - padXRight
-    const canvasHeight = lines.length * lineHeight + 20
+    const canvasHeight = lines.length * lineHeight + 5 // ลด padding ท้ายกระดาษลงจาก 20
 
     const canvas = document.createElement('canvas')
     canvas.width = printWidth

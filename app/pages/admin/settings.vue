@@ -267,6 +267,36 @@
                 </div>
               </div>
 
+              <!-- Font Size (เฉพาะ WiFi/USB/RawBT) -->
+              <div>
+                <label class="form-label">ขนาดตัวอักษร (WiFi/USB/RawBT)</label>
+                <div class="grid grid-cols-2 gap-3 mt-1">
+                  <button
+                    v-for="opt in [
+                      { key: 'standard', label: 'ปกติ (Font A)', desc: '12x24 px' },
+                      { key: 'small', label: 'เล็ก (Font B)', desc: '9x17 px' }
+                    ]"
+                    :key="opt.key"
+                    type="button"
+                    @click="form.printerFontSize = opt.key as any"
+                    :class="[
+                      'py-3 rounded-xl border font-semibold text-sm transition-all',
+                      form.printerFontSize === opt.key
+                        ? 'border-primary-500 bg-primary-500/10 text-primary-400'
+                        : 'border-surface-700 bg-surface-950 text-surface-400 hover:border-surface-500'
+                    ]"
+                  >
+                    {{ opt.label }}
+                    <div class="text-[10px] font-normal opacity-70 mt-0.5">
+                      {{ opt.desc }}
+                    </div>
+                  </button>
+                </div>
+                <p class="text-xs text-surface-500 mt-2 italic">
+                  * ใช้ได้เฉพาะโหมด Text (WiFi, USB, RawBT) ช่วยให้ประหยัดกระดาษได้มากขึ้น
+                </p>
+              </div>
+
               <!-- Margin ซ้าย/ขวา -->
               <div>
                 <label class="form-label">Margin ใบเสร็จ (ตัวอักษร)</label>
@@ -1068,6 +1098,7 @@ const form = reactive<ReceiptSettings>({
   receiptMarginRight: 0,
   receiptQtyWidth: 6,
   receiptPriceWidth: 8,
+  printerFontSize: 'standard',
   shopLogo: '',
 })
 
@@ -1143,7 +1174,10 @@ const summaryHourOptions = Array.from({ length: 8 }, (_, i) => {
 })
 
 const receiptNameWidthPreview = computed(() => {
-  const lineWidth = form.paperSize === '58mm' ? 32 : 42
+  const isSmall = form.printerFontSize === 'small'
+  const lineWidth = form.paperSize === '58mm' 
+    ? (isSmall ? 42 : 32) 
+    : (isSmall ? 56 : 42)
   const marginLeft = form.receiptMarginLeft ?? 0
   const marginRight = form.receiptMarginRight ?? 0
   const effectiveWidth = lineWidth - marginLeft - marginRight
@@ -1257,7 +1291,9 @@ function handleShowPreview() {
     queueNumber: 1
   } as unknown as Order
   
-  previewTextOutput.value = formatReceiptEscPos(mockOrder, false, form).replace(/\x1dV\x42\x00/g, '') // เอาคำสั่งตัดกระดาษออกเพื่อความสวยงามตอน preview
+  previewTextOutput.value = formatReceiptEscPos(mockOrder, false, form)
+    .replace(/\x1dV\x42\x00/g, '') // เอาคำสั่งตัดกระดาษออก
+    .replace(/\x1bM[\x00\x01]/g, '') // เอาคำสั่งเลือกฟอนต์ออก (ESC M n)
   showPreviewModal.value = true
 }
 
