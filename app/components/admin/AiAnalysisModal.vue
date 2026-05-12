@@ -576,7 +576,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, computed, onMounted } from 'vue'
+import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue'
 import { Maximize2, Minimize2, ChevronUp, ChevronDown, Menu, Trash2, Plus, ArrowDown, MessageCircle, Send, Share2, Copy } from 'lucide-vue-next'
 import { useSettings } from '~/composables/useSettings'
 import { useToast } from '~/composables/useToast'
@@ -985,6 +985,8 @@ const thinkingMessages = [
 ]
 
 function close() {
+  window.speechSynthesis.cancel()
+  speakingText.value = ''
   emit('close')
 }
 
@@ -1994,6 +1996,11 @@ onMounted(() => {
   runAnalysis()
   // โหลดเสียงเผื่อไว้
   window.speechSynthesis.getVoices()
+})
+
+onUnmounted(() => {
+  window.speechSynthesis.cancel()
+  speakingText.value = ''
 })
 </script>
 

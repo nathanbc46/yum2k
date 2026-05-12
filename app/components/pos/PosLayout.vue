@@ -35,7 +35,7 @@
         class="md:w-[30%] md:min-w-[320px] md:max-w-[400px] border-r border-surface-800 bg-surface-900 flex flex-col transition-all"
         :class="[activeTab === 'cart' ? 'fixed inset-0 z-40 md:relative' : 'hidden md:flex']"
       >
-        <slot name="cart" :active-tab="activeTab" @close-mobile="activeTab = 'grid'" />
+        <slot name="cart" :active-tab="activeTab" :close-mobile="() => activeTab = 'grid'" />
       </aside>
 
       <!-- ตรงกลาง: กริดสินค้า (Desktop: 55%, Mobile: Full/Hidden) -->

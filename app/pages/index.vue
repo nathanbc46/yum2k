@@ -28,7 +28,9 @@
       <PrinterStatusBanner class="print:hidden" />
       <div class="flex-1 min-h-0 overflow-hidden bg-surface-950 relative print:hidden">
         <PosLayout v-if="posStore.viewMode === 'pos'">
-          <template #cart><PosCart /></template>
+          <template #cart="{ closeMobile }">
+            <PosCart @close-mobile="closeMobile" />
+          </template>
           <template #grid><PosProductGrid /></template>
           <template #categories><PosCategories /></template>
         </PosLayout>

@@ -248,6 +248,7 @@
 </template>
 
 <script setup lang="ts">
+const emit = defineEmits(['close-mobile'])
 import { 
   History, 
   Trash2, 
