@@ -20,6 +20,45 @@
           <BarChart3 :size="20" />
           <span>รายงานรายเดือน</span>
         </button>
+
+        <!-- Excel Actions -->
+        <div class="relative">
+          <button
+            @click="showExcelMenu = !showExcelMenu"
+            class="h-12 px-5 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all border border-surface-700 flex items-center gap-2"
+          >
+            <span>📊 Excel</span>
+            <span class="text-[10px] opacity-50">▼</span>
+          </button>
+
+          <!-- Backdrop -->
+          <div v-if="showExcelMenu" @click="showExcelMenu = false" class="fixed inset-0 z-10"></div>
+
+          <div v-if="showExcelMenu" class="absolute right-0 mt-2 w-48 bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+            <button @click="handleDownloadTemplate(); showExcelMenu = false" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 border-b border-surface-800 flex items-center gap-2">
+              <span>📄</span> ดาวน์โหลด Template
+            </button>
+            <button @click="handleExportExcel(); showExcelMenu = false" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 border-b border-surface-800 flex items-center gap-2">
+              <span>📤</span> ส่งออกรายจ่าย (Export)
+            </button>
+            <button 
+              @click="isOnline ? (triggerImport(), showExcelMenu = false) : null" 
+              class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 flex items-center gap-2"
+              :class="isOnline ? 'text-primary-400' : 'text-surface-600 cursor-not-allowed opacity-50'"
+              :title="isOnline ? '' : 'ต้องใช้อินเทอร์เน็ต'"
+            >
+              <span>📥</span> นำเข้ารายจ่าย (Import)
+            </button>
+          </div>
+          <input 
+            ref="excelInput"
+            type="file"
+            accept=".xlsx,.xls"
+            class="hidden"
+            @change="handleImportExcel"
+          />
+        </div>
+
         <button 
           @click="showAddModal = true"
           class="h-12 px-6 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-primary-900/20"
@@ -371,6 +410,13 @@
         </div>
       </Transition>
     </Teleport>
+
+    <AdminExpenseImportPreviewModal
+      :is-open="isImportPreviewOpen"
+      :items="importPreviewItems"
+      @close="closeImportPreview"
+      @confirm="handleConfirmImport"
+    />
   </div>
 </template>
 
@@ -382,6 +428,8 @@ import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
 import { useConfirm } from '~/composables/useConfirm'
+import { useSync } from '~/composables/useSync'
+import { useExpenseExcel, type ExpenseImportPreviewItem } from '~/composables/useExpenseExcel'
 import { db } from '~/db'
 import type { Expense, ExpenseCategory } from '~/types'
 
@@ -394,8 +442,11 @@ const authStore = useAuthStore()
 const toast = useToast()
 const { confirm } = useConfirm()
 const { lastPullTimestamp } = useMasterDataSync()
+const { isOnline } = useSync()
+const { exportExpenses, prepareImportData, executeImport, downloadTemplate } = useExpenseExcel()
 
 // --- State ---
+const showExcelMenu = ref(false)
 const showAddModal = ref(false)
 const showReportModal = ref(false)
 const editingId = ref<number | null>(null)
@@ -407,6 +458,10 @@ const endDate = ref(`${currentYear}-12-31`)
 const filterCategory = ref('')
 const currentPage = ref(1)
 const itemsPerPage = 10
+
+const excelInput = ref<HTMLInputElement | null>(null)
+const isImportPreviewOpen = ref(false)
+const importPreviewItems = ref<ExpenseImportPreviewItem[]>([])
 
 const form = ref({
   expenseDate: new Date().toISOString().slice(0, 10),
@@ -661,6 +716,69 @@ async function handleDelete(expense: Expense) {
 watch(lastPullTimestamp, () => {
   loadExpenses()
 })
+
+// --- Excel Handlers ---
+async function handleExportExcel() {
+  try {
+    toast.info('กำลังเตรียมไฟล์ Excel...')
+    await exportExpenses()
+    toast.success('ส่งออกสำเร็จ')
+  } catch (err: any) {
+    toast.error('ไม่สามารถส่งออกได้: ' + err.message)
+  }
+}
+
+function handleDownloadTemplate() {
+  downloadTemplate()
+}
+
+function triggerImport() {
+  excelInput.value?.click()
+}
+
+async function handleImportExcel(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (!input.files?.length) return
+
+  const file = input.files[0]
+  if (!file) return
+
+  try {
+    toast.info('กำลังตรวจสอบข้อมูล Excel...')
+    const items = await prepareImportData(file)
+    importPreviewItems.value = items
+    isImportPreviewOpen.value = true
+  } catch (err: any) {
+    toast.error('เกิดข้อผิดพลาดในการอ่านไฟล์: ' + err.message)
+  } finally {
+    input.value = '' // Reset input
+  }
+}
+
+function closeImportPreview() {
+  isImportPreviewOpen.value = false
+  importPreviewItems.value = []
+}
+
+async function handleConfirmImport() {
+  try {
+    toast.info('กำลังบันทึกข้อมูลรายจ่าย...')
+    const result = await executeImport(importPreviewItems.value)
+    
+    if (result.success > 0) {
+      toast.success(`นำเข้าสำเร็จ ${result.success} รายการ`)
+    }
+    
+    if (result.failed > 0) {
+      toast.error(`ล้มเหลว ${result.failed} รายการ`)
+    }
+    
+    closeImportPreview()
+    await loadExpenses()
+  } catch (err: any) {
+    toast.error('เกิดข้อผิดพลาดในการนำเข้า: ' + err.message)
+  }
+}
 
 onMounted(() => {
   loadExpenses()

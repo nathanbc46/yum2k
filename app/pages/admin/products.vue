@@ -20,22 +20,27 @@
           </button>
           
           <!-- Excel Actions -->
-          <div class="relative group">
+          <div class="relative">
             <button
+              @click="showExcelMenu = !showExcelMenu"
               class="flex items-center gap-2 px-4 py-2.5 bg-surface-800 hover:bg-surface-700 text-surface-200 text-sm font-bold rounded-xl transition-all border border-surface-700"
             >
               <span>📊 Excel</span>
               <span class="text-[10px] opacity-50">▼</span>
             </button>
-            <div class="absolute right-0 mt-2 w-48 bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20">
-              <button @click="downloadTemplate" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 border-b border-surface-800 flex items-center gap-2">
+
+            <!-- Backdrop -->
+            <div v-if="showExcelMenu" @click="showExcelMenu = false" class="fixed inset-0 z-10"></div>
+
+            <div v-if="showExcelMenu" class="absolute right-0 mt-2 w-48 bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+              <button @click="downloadTemplate(); showExcelMenu = false" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 border-b border-surface-800 flex items-center gap-2">
                 <span>📄</span> ดาวน์โหลด Template
               </button>
-              <button @click="handleExportExcel" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 border-b border-surface-800 flex items-center gap-2">
+              <button @click="handleExportExcel(); showExcelMenu = false" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 border-b border-surface-800 flex items-center gap-2">
                 <span>📤</span> ส่งออกสินค้า (Export)
               </button>
               <button 
-                @click="isOnline ? triggerImport() : null" 
+                @click="isOnline ? (triggerImport(), showExcelMenu = false) : null" 
                 class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 flex items-center gap-2"
                 :class="isOnline ? 'text-primary-400' : 'text-surface-600 cursor-not-allowed opacity-50'"
                 :title="isOnline ? '' : 'ต้องใช้อินเทอร์เน็ต'"
@@ -415,6 +420,7 @@ const { exportProducts, prepareImportData, executeImport, downloadTemplate } = u
 const { confirm } = useConfirm()
 
 // --- State ---
+const showExcelMenu = ref(false)
 const products = ref<Product[]>([])
 const categories = ref<Category[]>([])
 const isLoading = ref(true)
