@@ -647,6 +647,7 @@ async function handleDelete(expense: Expense) {
   try {
     await db.expenses.update(expense.id!, { 
       isDeleted: true,
+      syncStatus: 'pending',
       updatedAt: new Date()
     })
     toast.success('ลบรายการเรียบร้อยแล้ว')
