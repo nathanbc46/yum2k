@@ -328,10 +328,24 @@ export function useSync() {
 
     try {
       const { id, createdAt, updatedAt, syncedAt, ...baseInfo } = expense
+      // ดึงหมวดหมู่เพื่อเอา UUID (ระบบใหม่)
+      let categoryUuid = baseInfo.categoryUuid
+      if (!categoryUuid && baseInfo.categoryId) {
+        const cat = await db.expenseCategories.get(baseInfo.categoryId)
+        if (cat) categoryUuid = cat.uuid
+      }
+
+      // ตรวจสอบความถูกต้องของวันที่ก่อนเรียก toISOString
+      const safeIsoDate = (d: any) => {
+        const date = new Date(d)
+        return isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString()
+      }
+
       const { error } = await withTimeout(
         supabase.from('expenses').upsert({
           uuid: baseInfo.uuid,
           category: baseInfo.category,
+          category_uuid: categoryUuid,
           amount: baseInfo.amount,
           description: baseInfo.description,
           expense_date: baseInfo.expenseDate,
@@ -339,8 +353,8 @@ export function useSync() {
           staff_id: baseInfo.staffId,
           staff_uuid: baseInfo.staffUuid,
           is_deleted: baseInfo.isDeleted ? 1 : 0,
-          created_at: new Date(createdAt).toISOString(),
-          updated_at: new Date(updatedAt).toISOString()
+          created_at: safeIsoDate(createdAt),
+          updated_at: safeIsoDate(updatedAt)
         }, { onConflict: 'uuid' })
       )
 
@@ -502,9 +516,15 @@ export function useSync() {
     const existingExpenses = await db.expenses.where('uuid').anyOf(remoteUuids).toArray()
     const existingUuids = new Set(existingExpenses.map(e => e.uuid))
 
+    // ดึงหมวดหมู่ทั้งหมดมาเพื่อ Map UUID -> ID
+    const allCats = await db.expenseCategories.toArray()
+    const catUuidToId = new Map(allCats.map(c => [c.uuid, c.id!]))
+
     let count = 0
     await db.transaction('rw', db.expenses, async () => {
       for (const remote of remoteExpenses) {
+        const categoryId = remote.category_uuid ? catUuidToId.get(remote.category_uuid) : undefined
+        
         if (existingUuids.has(remote.uuid)) {
           // อัปเดตข้อมูลเดิมที่มีอยู่ (ถ้ามี)
           const localExp = existingExpenses.find(e => e.uuid === remote.uuid)
@@ -516,6 +536,8 @@ export function useSync() {
             if (remoteDate > localDate) {
               await db.expenses.update(localExp.id!, {
                 category: remote.category,
+                categoryId: categoryId,
+                categoryUuid: remote.category_uuid,
                 amount: Number(remote.amount),
                 description: remote.description,
                 expenseDate: remote.expense_date,
@@ -535,6 +557,8 @@ export function useSync() {
           await db.expenses.add({
             uuid: remote.uuid,
             category: remote.category,
+            categoryId: categoryId,
+            categoryUuid: remote.category_uuid,
             amount: Number(remote.amount),
             description: remote.description,
             expenseDate: remote.expense_date,

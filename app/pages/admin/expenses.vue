@@ -66,6 +66,14 @@
           <Plus :size="20" />
           <span>เพิ่มรายจ่าย</span>
         </button>
+
+        <button 
+          @click="showCategoryModal = true"
+          class="h-12 px-6 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all border border-surface-700 flex items-center gap-2"
+        >
+          <Calendar :size="20" />
+          <span>จัดการหมวดหมู่</span>
+        </button>
       </div>
     </div>
 
@@ -96,8 +104,8 @@
             class="bg-transparent border-none text-surface-50 focus:ring-0 w-full text-sm"
           >
             <option value="">ทุกหมวดหมู่</option>
-            <option v-for="(label, key) in categoryLabels" :key="key" :value="key">
-              {{ label }}
+            <option v-for="cat in expenseCategories" :key="cat.id" :value="cat.id">
+              {{ cat.name }}
             </option>
           </select>
         </div>
@@ -137,9 +145,9 @@
               <td class="px-6 py-4">
                 <span 
                   class="px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider"
-                  :class="getCategoryStyles(expense.category)"
+                  :style="getCategoryStyles(expense)"
                 >
-                  {{ categoryLabels[expense.category] }}
+                  {{ getCategoryName(expense) }}
                 </span>
               </td>
               <td class="px-6 py-4 text-sm text-surface-200 font-bold">
@@ -274,14 +282,24 @@
                 <div class="grid grid-cols-2 gap-4">
                   <!-- Category -->
                   <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-surface-500 px-1">หมวดหมู่</label>
+                    <div class="flex items-center justify-between px-1">
+                      <label class="text-[10px] font-black uppercase tracking-widest text-surface-500">หมวดหมู่</label>
+                      <button 
+                        type="button"
+                        @click="showCategoryModal = true"
+                        class="text-[10px] font-bold text-primary-500 hover:underline"
+                      >
+                        + จัดการ
+                      </button>
+                    </div>
                     <select 
-                      v-model="form.category"
+                      v-model="form.categoryId"
                       required
-                      class="w-full h-14 bg-surface-800 border border-surface-700 rounded-2xl px-4 text-surface-50 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all outline-none"
+                      class="w-full h-14 bg-surface-800 border border-surface-700 rounded-2xl px-4 text-surface-50 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all outline-none appearance-none"
+                      @change="onCategoryChange"
                     >
-                      <option v-for="(label, key) in categoryLabels" :key="key" :value="key">
-                        {{ label }}
+                      <option v-for="cat in expenseCategories" :key="cat.id" :value="cat.id">
+                        {{ cat.name }}
                       </option>
                     </select>
                   </div>
@@ -411,11 +429,14 @@
       </Transition>
     </Teleport>
 
-    <AdminExpenseImportPreviewModal
-      :is-open="isImportPreviewOpen"
-      :items="importPreviewItems"
-      @close="closeImportPreview"
       @confirm="handleConfirmImport"
+    />
+
+    <!-- Modal: Manage Expense Categories -->
+    <ExpenseCategoryFormModal 
+      :is-open="showCategoryModal"
+      @close="showCategoryModal = false"
+      @updated="loadCategories"
     />
   </div>
 </template>
@@ -428,10 +449,11 @@ import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
 import { useConfirm } from '~/composables/useConfirm'
-import { useSync } from '~/composables/useSync'
 import { useExpenseExcel, type ExpenseImportPreviewItem } from '~/composables/useExpenseExcel'
+import { useExpenseCategories } from '~/composables/useExpenseCategories'
 import { db } from '~/db'
-import type { Expense, ExpenseCategory } from '~/types'
+import type { Expense, ExpenseCategoryRecord } from '~/types'
+import ExpenseCategoryFormModal from '~/components/admin/ExpenseCategoryFormModal.vue'
 
 definePageMeta({
   layout: 'admin'
@@ -444,11 +466,13 @@ const { confirm } = useConfirm()
 const { lastPullTimestamp } = useMasterDataSync()
 const { isOnline } = useSync()
 const { exportExpenses, prepareImportData, executeImport, downloadTemplate } = useExpenseExcel()
+const { categories: expenseCategories, fetchAll: fetchExpenseCategories } = useExpenseCategories()
 
 // --- State ---
 const showExcelMenu = ref(false)
 const showAddModal = ref(false)
 const showReportModal = ref(false)
+const showCategoryModal = ref(false)
 const editingId = ref<number | null>(null)
 const isSubmitting = ref(false)
 const expenses = ref<Expense[]>([])
@@ -465,12 +489,15 @@ const importPreviewItems = ref<ExpenseImportPreviewItem[]>([])
 
 const form = ref({
   expenseDate: new Date().toISOString().slice(0, 10),
-  category: 'ingredient' as ExpenseCategory,
+  categoryId: undefined as number | undefined,
+  categoryUuid: '',
+  category: undefined as any, // fallback
   amount: 0,
   description: ''
 })
 
-const categoryLabels: Record<ExpenseCategory, string> = {
+// Map รหัสเดิม (Legacy) -> ชื่อไทย (สำหรับข้อมูลเก่า)
+const legacyLabels: Record<string, string> = {
   ingredient: 'วัตถุดิบ',
   utility: 'ค่าน้ำ/ไฟ/แก๊ส',
   wage: 'ค่าจ้างพนักงาน',
@@ -481,16 +508,31 @@ const categoryLabels: Record<ExpenseCategory, string> = {
 
 // --- Methods ---
 async function loadExpenses() {
-  // กรองรายการที่ยังไม่ได้ถูกลบ (isDeleted เป็น false หรือ 0)
   const all = await db.expenses.reverse().toArray()
   expenses.value = all.filter(e => !e.isDeleted)
+}
+
+async function loadCategories() {
+  await fetchExpenseCategories()
+  // ตั้งค่าเริ่มต้นถ้ายังไม่มี
+  const firstCat = expenseCategories.value[0]
+  if (!form.value.categoryId && firstCat) {
+    form.value.categoryId = firstCat.id
+    form.value.categoryUuid = firstCat.uuid
+  }
 }
 
 const filteredExpenses = computed(() => {
   return expenses.value.filter(exp => {
     const matchStart = !startDate.value || exp.expenseDate >= startDate.value
     const matchEnd = !endDate.value || exp.expenseDate <= endDate.value
-    const matchCat = !filterCategory.value || exp.category === filterCategory.value
+    
+    // กรองหมวดหมู่ (รองรับทั้ง ID และ Legacy Category)
+    let matchCat = true
+    if (filterCategory.value) {
+      matchCat = exp.categoryId === Number(filterCategory.value) || exp.category === filterCategory.value
+    }
+    
     return matchStart && matchEnd && matchCat
   })
 })
@@ -509,24 +551,25 @@ const pageTotalAmount = computed(() => {
 
 // --- Chart Data & Options ---
 const monthlyChartData = computed(() => {
-  const monthMap: Record<string, Record<ExpenseCategory, number>> = {}
-  const allCats = Object.keys(categoryLabels) as ExpenseCategory[]
+  const monthMap: Record<string, Record<string, number>> = {}
   
   expenses.value.forEach(e => {
     const month = e.expenseDate.slice(0, 7)
     if (!monthMap[month]) {
-      const newMonthData = {} as Record<ExpenseCategory, number>
-      allCats.forEach(c => newMonthData[c] = 0)
-      monthMap[month] = newMonthData
+      monthMap[month] = {}
     }
-    monthMap[month]![e.category] += e.amount
+    
+    const catName = getCategoryName(e)
+    if (!monthMap[month][catName]) monthMap[month][catName] = 0
+    monthMap[month][catName] += e.amount
   })
   
   const sortedMonths = Object.keys(monthMap).sort().slice(-12)
+  const uniqueCatNames = Array.from(new Set(expenses.value.map(e => getCategoryName(e))))
   
-  const series = allCats.map(cat => ({
-    name: categoryLabels[cat],
-    data: sortedMonths.map(m => monthMap[m]![cat] || 0)
+  const series = uniqueCatNames.map(name => ({
+    name,
+    data: sortedMonths.map(m => monthMap[m]?.[name] || 0)
   }))
     
   return {
@@ -600,16 +643,35 @@ watch([startDate, endDate, filterCategory], () => {
   currentPage.value = 1
 })
 
-function getCategoryStyles(category: ExpenseCategory) {
-  const styles: Record<ExpenseCategory, string> = {
-    ingredient: 'bg-primary-500/10 text-primary-400',
-    utility: 'bg-blue-500/10 text-blue-400',
-    wage: 'bg-orange-500/10 text-orange-400',
-    rent: 'bg-purple-500/10 text-purple-400',
-    supplies: 'bg-cyan-500/10 text-cyan-400',
-    other: 'bg-surface-700 text-surface-400'
+function getCategoryName(expense: Expense) {
+  if (expense.categoryId) {
+    const cat = expenseCategories.value.find(c => c.id === expense.categoryId)
+    if (cat) return cat.name
   }
-  return styles[category] || styles.other
+  return legacyLabels[expense.category!] || 'อื่นๆ'
+}
+
+function getCategoryStyles(expense: Expense) {
+  let color = '#6366f1'
+  if (expense.categoryId) {
+    const cat = expenseCategories.value.find(c => c.id === expense.categoryId)
+    if (cat?.color) color = cat.color
+  } else {
+    // Legacy colors
+    const colors: Record<string, string> = {
+      ingredient: '#ef4444',
+      utility: '#3b82f6',
+      wage: '#f59e0b',
+      rent: '#8b5cf6',
+      supplies: '#06b6d4',
+      other: '#64748b'
+    }
+    color = colors[expense.category!] || '#64748b'
+  }
+  return {
+    backgroundColor: `${color}1A`, // 10% opacity
+    color: color
+  }
 }
 
 function formatThaiDate(dateStr: string) {
@@ -619,6 +681,13 @@ function formatThaiDate(dateStr: string) {
     month: 'short', 
     year: '2-digit' 
   })
+}
+
+function onCategoryChange() {
+  const cat = expenseCategories.value.find(c => c.id === form.value.categoryId)
+  if (cat) {
+    form.value.categoryUuid = cat.uuid
+  }
 }
 
 async function handleSubmit() {
@@ -664,9 +733,12 @@ async function handleSubmit() {
 
 function resetForm() {
   editingId.value = null
+  const defaultCat = expenseCategories.value[0]
   form.value = {
     expenseDate: new Date().toISOString().slice(0, 10),
-    category: 'ingredient',
+    categoryId: defaultCat?.id,
+    categoryUuid: defaultCat?.uuid || '',
+    category: undefined as any,
     amount: 0,
     description: ''
   }
@@ -676,7 +748,9 @@ function openEditModal(expense: Expense) {
   editingId.value = expense.id!
   form.value = {
     expenseDate: expense.expenseDate,
-    category: expense.category,
+    categoryId: expense.categoryId,
+    categoryUuid: expense.categoryUuid || '',
+    category: expense.category, // fallback
     amount: expense.amount,
     description: expense.description
   }
@@ -780,7 +854,8 @@ async function handleConfirmImport() {
   }
 }
 
-onMounted(() => {
-  loadExpenses()
+onMounted(async () => {
+  await loadCategories()
+  await loadExpenses()
 })
 </script>

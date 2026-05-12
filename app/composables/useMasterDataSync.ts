@@ -11,7 +11,7 @@
 // =============================================================================
 
 import { db, getSetting, setSetting } from '~/db'
-import type { Category, Product, User, UserRole, StockAuditLog } from '~/types'
+import type { Category, Product, User, UserRole, StockAuditLog, ExpenseCategoryRecord } from '~/types'
 import { hashSHA256, isAlreadyHashed } from '~/utils/crypto'
 import { useDailyStockSnapshot } from './useDailyStockSnapshot'
 
@@ -237,6 +237,59 @@ export function useMasterDataSync() {
         }
       }
     }
+
+    return count
+  }
+
+  /**
+   * Pull หมวดหมู่รายจ่ายจาก Supabase ลงเครื่อง (Merge by uuid)
+   */
+  async function pullExpenseCategories(force = false): Promise<number> {
+    const supabase = useSupabaseClient<any>()
+    const lastPullAt = force ? null : await getLastPullAt()
+
+    let query = supabase.from('expense_categories').select('*')
+    if (lastPullAt) {
+      query = query.gt('updated_at', lastPullAt.toISOString())
+    }
+
+    const { data: remoteCats, error } = await withTimeout(
+      query.order('sort_order', { ascending: true })
+    )
+
+    if (error) throw new Error(`Pull Expense Categories ล้มเหลว: ${error.message}`)
+    if (!remoteCats?.length) return 0
+
+    let count = 0
+    await db.transaction('rw', db.expenseCategories, async () => {
+      for (const remote of remoteCats) {
+        let existing = await db.expenseCategories.where('uuid').equals(remote.uuid).first()
+        if (!existing) {
+          existing = await db.expenseCategories.where('name').equals(remote.name).first()
+        }
+
+        const remoteUpdatedAt = new Date(remote.updated_at)
+        if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) continue
+
+        const localCategory: Omit<ExpenseCategoryRecord, 'id'> = {
+          uuid:        remote.uuid,
+          name:        remote.name,
+          color:       remote.color ?? '#6366f1',
+          sortOrder:   remote.sort_order,
+          isActive:    remote.is_active,
+          isDeleted:   remote.is_deleted,
+          createdAt:   new Date(remote.created_at),
+          updatedAt:   remoteUpdatedAt,
+        }
+
+        if (existing?.id) {
+          await db.expenseCategories.update(existing.id, { ...localCategory, uuid: remote.uuid })
+        } else {
+          await db.expenseCategories.add(localCategory as ExpenseCategoryRecord)
+        }
+        count++
+      }
+    })
 
     return count
   }
@@ -526,8 +579,8 @@ export function useMasterDataSync() {
   // Orchestration: Push All / Pull All / Sync All
   // -----------------------------------------------------------------------
 
-  async function pushAll(force = false): Promise<{ categories: number; products: number; stockLogs: number }> {
-    if (isSyncingMaster.value) return { categories: 0, products: 0, stockLogs: 0 }
+  async function pushAll(force = false): Promise<{ categories: number; products: number; expenseCategories: number; stockLogs: number }> {
+    if (isSyncingMaster.value) return { categories: 0, products: 0, expenseCategories: 0, stockLogs: 0 }
     isSyncingMaster.value = true
     masterSyncError.value = null
     const syncStartTime = new Date()
@@ -539,7 +592,7 @@ export function useMasterDataSync() {
       
       await updateLastPushAt(syncStartTime)
       lastMasterSyncAt.value = new Date()
-      return { categories: 0, products: 0, stockLogs }
+      return { categories: 0, products: 0, expenseCategories: 0, stockLogs }
     } catch (e: any) {
       masterSyncError.value = e.message
       throw e
@@ -548,17 +601,18 @@ export function useMasterDataSync() {
     }
   }
 
-  async function pullAll(force = false): Promise<{ categories: number; products: number; users: number; stockLogs: number; stockSnapshots: number }> {
-    if (isSyncingMaster.value) return { categories: 0, products: 0, users: 0, stockLogs: 0, stockSnapshots: 0 }
+  async function pullAll(force = false): Promise<{ categories: number; products: number; expenseCategories: number; users: number; stockLogs: number; stockSnapshots: number }> {
+    if (isSyncingMaster.value) return { categories: 0, products: 0, expenseCategories: 0, users: 0, stockLogs: 0, stockSnapshots: 0 }
     isSyncingMaster.value = true
     masterSyncError.value = null
     const syncStartTime = new Date()
     try {
-      const categories     = await pullCategories(force)
-      const products       = await pullProducts(force)
-      const users          = await pullUsers(force)
-      const stockLogs      = await pullStockAuditLogs(force)
-      const stockSnapshots = await useDailyStockSnapshot().pullSnapshots(force).catch(err => {
+      const categories        = await pullCategories(force)
+      const products          = await pullProducts(force)
+      const expenseCategories = await pullExpenseCategories(force)
+      const users             = await pullUsers(force)
+      const stockLogs         = await pullStockAuditLogs(force)
+      const stockSnapshots    = await useDailyStockSnapshot().pullSnapshots(force).catch(err => {
         console.warn('⚠️ Pull Snapshots Error:', err)
         return 0
       })
@@ -570,7 +624,7 @@ export function useMasterDataSync() {
 
       lastMasterSyncAt.value = new Date()
       lastPullTimestamp.value = Date.now()
-      return { categories, products, users, stockLogs, stockSnapshots }
+      return { categories, products, expenseCategories, users, stockLogs, stockSnapshots }
     } catch (e: any) {
       masterSyncError.value = e.message
       throw e
@@ -591,6 +645,7 @@ export function useMasterDataSync() {
   async function getPendingCounts(): Promise<{
     categories: number; categoryNames: string[]
     products: number; productNames: string[]
+    expenseCategories: number; expenseCategoryNames: string[]
     orders: number; orderNumbers: string[]
     stockLogs: number; stockLogDetails: string[]
     expenses: number; expenseDetails: string[]
@@ -624,6 +679,8 @@ export function useMasterDataSync() {
       categoryNames: [],
       products: 0,
       productNames: [],
+      expenseCategories: 0,
+      expenseCategoryNames: [],
       orders: pendingOrders.length,
       orderNumbers: pendingOrders.map(o => o.orderNumber),
       stockLogs: pendingStocks.length,
@@ -676,6 +733,7 @@ export function useMasterDataSync() {
   async function getPendingPullCounts(): Promise<{
     categories: number, categoryNames: string[],
     products: number, productNames: string[],
+    expenseCategories: number, expenseCategoryNames: string[],
     users: number, userNames: string[],
     stockLogs: number, stockLogDetails: string[],
     orders: number, orderNumbers: string[],
@@ -686,6 +744,7 @@ export function useMasterDataSync() {
     const lastPullAt = await getLastPullAt()
     const emptyResult = {
       categories: 0, categoryNames: [], products: 0, productNames: [],
+      expenseCategories: 0, expenseCategoryNames: [],
       users: 0, userNames: [], stockLogs: 0, stockLogDetails: [], orders: 0, orderNumbers: [],
       expenses: 0, expenseDetails: [], stockSnapshots: 0, stockSnapshotDetails: []
     }
@@ -769,9 +828,10 @@ export function useMasterDataSync() {
         return { count: 0, names: [] }
       }
 
-      const [catRes, prodRes, userRes, stockRes, orderRes, expenseRes, snapshotRes] = await Promise.all([
+      const [catRes, prodRes, expCatRes, userRes, stockRes, orderRes, expenseRes, snapshotRes] = await Promise.all([
         checkMasterUpdates('categories', 'categories'),
         checkMasterUpdates('products', 'products'),
+        checkMasterUpdates('expense_categories', 'expenseCategories' as any),
         checkMasterUpdates('pos_users', 'users', 'display_name'),
         checkAppendOnlyUpdates('stock_audit_logs', 'stockAuditLogs', 'product_name'),
         checkAppendOnlyUpdates('orders', 'orders', 'order_number'),
@@ -782,6 +842,7 @@ export function useMasterDataSync() {
       return {
         categories: catRes.count, categoryNames: catRes.names,
         products: prodRes.count, productNames: prodRes.names,
+        expenseCategories: expCatRes.count, expenseCategoryNames: expCatRes.names,
         users: userRes.count, userNames: userRes.names,
         stockLogs: stockRes.count, stockLogDetails: stockRes.names,
         orders: orderRes.count, orderNumbers: orderRes.names,

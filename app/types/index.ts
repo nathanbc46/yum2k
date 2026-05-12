@@ -54,6 +54,14 @@ export type ExpenseCategory =
   | 'supplies'    // วัสดุสิ้นเปลือง (ถุง, กล่อง, ทิชชู่)
   | 'other'       // อื่นๆ
 
+/** ข้อมูลหมวดหมู่รายจ่าย (Dynamic) */
+export interface ExpenseCategoryRecord extends BaseEntity {
+  name: string           // ชื่อหมวดหมู่ (เช่น "วัตถุดิบ", "ค่าการตลาด")
+  color?: string         // สีสำหรับแสดงผล UI (เช่น "#ef4444")
+  sortOrder: number      // ลำดับการแสดงผล
+  isActive: boolean      // แสดง/ซ่อนหมวดหมู่
+}
+
 // ---------------------------------------------------------------------------
 // Base Interface: คุณสมบัติพื้นฐานที่ทุก Entity มี
 // ---------------------------------------------------------------------------
@@ -324,7 +332,9 @@ export interface StockAuditLog extends BaseEntity {
 /** บันทึกรายจ่ายของร้าน */
 export interface Expense extends BaseEntity {
   amount: number             // ยอดเงินที่จ่าย
-  category: ExpenseCategory  // หมวดหมู่รายจ่าย
+  categoryId?: number        // FK -> ExpenseCategoryRecord.id (ระบบใหม่)
+  categoryUuid?: string      // UUID ของหมวดหมู่ (สำหรับ Sync)
+  category?: ExpenseCategory // หมวดหมู่รายจ่าย (ระบบเก่า/Fallback)
   description: string        // คำอธิบาย (เช่น "ซื้อมะนาว 5 กิโล")
   expenseDate: string        // วันที่จ่าย (YYYY-MM-DD)
   recordedBy: string         // ชื่อหรือ UUID ของคนบันทึก

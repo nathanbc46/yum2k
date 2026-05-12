@@ -10,16 +10,7 @@ export interface ExpenseImportPreviewItem {
   error?: string
 }
 
-const CATEGORY_LABELS: Record<string, ExpenseCategory> = {
-  'วัตถุดิบ': 'ingredient',
-  'ค่าน้ำ/ไฟ/แก๊ส': 'utility',
-  'ค่าจ้างพนักงาน': 'wage',
-  'ค่าเช่าที่': 'rent',
-  'วัสดุสิ้นเปลือง': 'supplies',
-  'อื่นๆ': 'other'
-}
-
-const CATEGORY_NAMES: Record<ExpenseCategory, string> = {
+const CATEGORY_NAMES_LEGACY: Record<string, string> = {
   ingredient: 'วัตถุดิบ',
   utility: 'ค่าน้ำ/ไฟ/แก๊ส',
   wage: 'ค่าจ้างพนักงาน',
@@ -34,8 +25,7 @@ export function useExpenseExcel() {
     { label: 'วันที่ (YYYY-MM-DD)', key: 'expenseDate' },
     { label: 'หมวดหมู่', key: 'category' },
     { label: 'คำอธิบาย', key: 'description' },
-    { label: 'จำนวนเงิน', key: 'amount' },
-    { label: 'ผู้บันทึก', key: 'recordedBy' }
+    { label: 'จำนวนเงิน', key: 'amount' }
   ]
 
   async function exportExpenses() {
@@ -44,11 +34,20 @@ export function useExpenseExcel() {
     // เรียงวันที่ใหม่สุดขึ้นก่อน
     expenses.sort((a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime())
 
+    const categories = await db.expenseCategories.toArray()
+    const catIdToName = new Map(categories.map(c => [c.id, c.name]))
+
     const data = expenses.map(e => {
       const row: any = {}
       COLUMNS.forEach(col => {
         if (col.key === 'category') {
-          row[col.label] = CATEGORY_NAMES[e.category] || 'อื่นๆ'
+          let name = 'อื่นๆ'
+          if (e.categoryId) {
+            name = catIdToName.get(e.categoryId) || 'อื่นๆ'
+          } else if (e.category) {
+            name = CATEGORY_NAMES_LEGACY[e.category] || 'อื่นๆ'
+          }
+          row[col.label] = name
         } else {
           row[col.label] = (e as any)[col.key] ?? ''
         }
@@ -71,16 +70,14 @@ export function useExpenseExcel() {
         [COLUMNS[1]!.label]: today,
         [COLUMNS[2]!.label]: 'วัตถุดิบ',
         [COLUMNS[3]!.label]: 'ซื้อหมูสับ 5 กก.',
-        [COLUMNS[4]!.label]: 500,
-        [COLUMNS[5]!.label]: 'ผู้จัดการ'
+        [COLUMNS[4]!.label]: 500
       },
       {
         [COLUMNS[0]!.label]: '',
         [COLUMNS[1]!.label]: today,
         [COLUMNS[2]!.label]: 'ค่าน้ำ/ไฟ/แก๊ส',
         [COLUMNS[3]!.label]: 'ค่าไฟเดือนนี้',
-        [COLUMNS[4]!.label]: 1500,
-        [COLUMNS[5]!.label]: 'ผู้จัดการ'
+        [COLUMNS[4]!.label]: 1500
       }
     ]
     const worksheet = XLSX.utils.json_to_sheet(data)
@@ -129,8 +126,19 @@ export function useExpenseExcel() {
               }
             }
 
-            const categoryRaw = row[COLUMNS[2]!.label]?.toString().trim()
-            const category = CATEGORY_LABELS[categoryRaw] || 'other'
+            const categoryName = row[COLUMNS[2]!.label]?.toString().trim() || 'อื่นๆ'
+            
+            // ค้นหาหมวดหมู่ที่มีอยู่
+            const categories = await db.expenseCategories.toArray()
+            let targetCat = categories.find(c => c.name === categoryName)
+            
+            // ถ้าไม่พบ ให้เตรียมข้อมูลเพื่อไปสร้างใหม่ตอน execute
+            const categoryData = targetCat ? {
+              categoryId: targetCat.id,
+              categoryUuid: targetCat.uuid
+            } : {
+              categoryName // ฝากชื่อไว้เพื่อไปสร้างใหม่
+            }
             const description = row[COLUMNS[3]!.label]?.toString().trim()
             
             if (!description) {
@@ -144,12 +152,12 @@ export function useExpenseExcel() {
               continue
             }
 
-            const recordedBy = row[COLUMNS[5]!.label]?.toString().trim() || currentUser?.displayName || 'Unknown'
+            const recordedBy = currentUser?.displayName || 'Unknown'
 
             const expenseData: any = {
               uuid: uuid || undefined,
               expenseDate,
-              category,
+              ...(categoryData as any),
               description,
               amount,
               recordedBy,
@@ -196,14 +204,50 @@ export function useExpenseExcel() {
 
         const expenseUuid = item.expense.uuid || uuidv4()
 
+        // จัดการเรื่องหมวดหมู่ก่อนบันทึก
+        let categoryId = item.expense.categoryId
+        let categoryUuid = item.expense.categoryUuid
+
+        if (!categoryId && (item.expense as any).categoryName) {
+          const name = (item.expense as any).categoryName
+          // เช็คอีกครั้งว่ามีใครสร้างไปยัง (เผื่อในไฟล์เดียวกันมีชื่อซ้ำ)
+          let cat = await db.expenseCategories.where('name').equals(name).first()
+          if (!cat) {
+            const newCatUuid = uuidv4()
+            const newCatId = await db.expenseCategories.add({
+              uuid: newCatUuid,
+              name,
+              color: '#6366f1',
+              sortOrder: (await db.expenseCategories.count()) + 1,
+              isActive: true,
+              isDeleted: false,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            } as any)
+            categoryId = newCatId
+            categoryUuid = newCatUuid
+          } else {
+            categoryId = cat.id
+            categoryUuid = cat.uuid
+          }
+        }
+
         if (item.status === 'update' && item.expense.id) {
-          await db.expenses.put({ ...finalData, id: item.expense.id })
+          await db.expenses.put({ 
+            ...finalData, 
+            id: item.expense.id,
+            categoryId,
+            categoryUuid
+          })
         } else {
           delete (finalData as any).id
+          delete (finalData as any).categoryName
           
           await db.expenses.add({
             ...finalData,
             uuid: expenseUuid,
+            categoryId,
+            categoryUuid,
             createdAt: finalData.createdAt ? new Date(finalData.createdAt) : new Date()
           } as Expense)
         }
