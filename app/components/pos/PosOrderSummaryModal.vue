@@ -62,6 +62,27 @@ const addCash = (value: number) => {
   cashHistory.value.push(value)
 }
 
+const appendNumber = (num: number) => {
+  const currentStr = amountReceived.value.toString()
+  if (amountReceived.value === 0) {
+    amountReceived.value = num
+  } else {
+    // จำกัดความยาวไม่เกิน 7 หลักเพื่อป้องกันตัวเลขใหญ่เกินไป
+    if (currentStr.length < 7) {
+      amountReceived.value = Number(currentStr + num.toString())
+    }
+  }
+}
+
+const deleteNumber = () => {
+  const currentStr = amountReceived.value.toString()
+  if (currentStr.length <= 1) {
+    amountReceived.value = 0
+  } else {
+    amountReceived.value = Number(currentStr.slice(0, -1))
+  }
+}
+
 const undoCash = () => {
   const lastValue = cashHistory.value.pop()
   if (lastValue !== undefined) {
@@ -116,7 +137,7 @@ watch(selectedPayment, (newVal) => {
           <div :class="selectedPayment === 'cash' ? 'grid grid-cols-1 lg:grid-cols-12 gap-8 items-start' : 'space-y-6'">
             
             <!-- Left Column: Order Summary & Payment Type -->
-            <div :class="selectedPayment === 'cash' ? 'lg:col-span-5 space-y-6' : 'space-y-6'">
+            <div :class="selectedPayment === 'cash' ? 'lg:col-span-4 space-y-6' : 'space-y-6'">
               <!-- Items List -->
               <div class="space-y-3">
                 <h4 class="text-xs uppercase tracking-widest text-surface-500 font-bold">รายการสินค้า</h4>
@@ -204,80 +225,109 @@ watch(selectedPayment, (newVal) => {
             </div>
 
             <!-- Right Column: Cash Payment Details (แสดงเมื่อเลือกเงินสด) -->
-            <div v-if="selectedPayment === 'cash'" class="lg:col-span-7">
-              <div class="p-6 bg-surface-950/40 rounded-3xl border border-surface-800 space-y-6 sticky top-0">
-                <div class="flex justify-between items-end">
-                  <h4 class="text-sm uppercase tracking-widest text-surface-500 font-bold">รับเงินสด</h4>
-                  <div class="flex gap-2">
-                    <button @click="clearCash" class="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl hover:bg-red-500/20 transition-colors text-xs font-bold">ล้าง</button>
-                    <button @click="undoCash" class="px-3 py-1.5 bg-surface-800 text-surface-400 border border-surface-700 rounded-xl hover:bg-surface-700 transition-colors text-xs font-bold">ย้อนกลับ (⌫)</button>
-                  </div>
-                </div>
-
-                <!-- Input & Change Display -->
-                <div class="grid grid-cols-3 gap-4">
-                  <!-- ยอดที่ต้องจ่าย -->
-                  <div class="space-y-2">
-                    <span class="text-xs text-surface-500 font-bold">ยอดสุทธิ</span>
-                    <div class="bg-surface-900/50 border-2 border-surface-800 rounded-2xl py-4 px-5 flex items-center justify-between">
-                      <span class="text-primary-500/50 font-bold text-xl">฿</span>
-                      <span class="text-3xl font-black text-primary-400">
-                        {{ totalAmount.toLocaleString() }}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div class="space-y-2">
-                    <span class="text-xs text-surface-500 font-bold">จำนวนเงินที่รับ</span>
-                    <div class="relative">
-                      <span class="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500 font-bold text-xl pointer-events-none">฿</span>
-                      <input 
-                        v-model.number="amountReceived"
-                        type="number"
-                        ref="cashInput"
-                        class="w-full bg-surface-900 border-2 border-surface-700 rounded-2xl py-4 pl-10 pr-4 text-3xl font-black text-success focus:border-success outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div class="space-y-2">
-                    <span class="text-xs text-surface-500 font-bold">เงินทอน</span>
-                    <div class="bg-surface-900 border-2 border-dashed border-surface-700 rounded-2xl py-4 px-5 flex items-center justify-between">
-                      <span class="text-surface-500 font-bold text-xl">฿</span>
-                      <span class="text-3xl font-black" :class="changeAmount > 0 ? 'text-blue-400' : 'text-surface-600'">
-                        {{ changeAmount.toLocaleString() }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Denominations Grid -->
-                <div class="grid grid-cols-5 gap-3">
-                  <button 
-                    v-for="val in [1, 2, 5, 10, 20, 50, 100, 500, 1000]" 
-                    :key="val"
-                    @click="addCash(val)"
-                    class="py-3 rounded-2xl bg-surface-800 border border-surface-700 text-surface-200 font-bold hover:bg-surface-700 active:scale-95 transition-all flex flex-col items-center justify-center shadow-sm relative overflow-hidden"
-                  >
-                    <span class="text-[9px] text-surface-500 uppercase tracking-tighter leading-none mb-1">{{ val < 20 ? 'เหรียญ' : 'ธนบัตร' }}</span>
-                    <span class="text-lg leading-none">{{ val.toLocaleString() }}</span>
+            <div v-if="selectedPayment === 'cash'" class="lg:col-span-8 flex flex-col">
+              <div class="p-6 bg-surface-950/40 rounded-3xl border border-surface-800 flex-1 flex flex-col justify-between">
+                
+                <div class="flex flex-col lg:flex-row gap-6 h-full">
+                  
+                  <!-- Left Side (Amounts) -->
+                  <div class="flex-1 flex flex-col justify-between h-full">
                     
-                    <!-- จำนวนที่กด (แสดงใต้ปุ่ม) -->
-                    <div v-if="cashDenominationsMap?.[val.toString()]" class="mt-1 px-1.5 py-0.5 bg-primary-600/20 text-primary-400 text-[10px] font-black rounded-lg border border-primary-500/20">
-                      × {{ cashDenominationsMap[val.toString()] }}
+                    <!-- Header -->
+                    <div class="flex justify-between items-center mb-4">
+                      <h4 class="text-sm uppercase tracking-widest text-surface-500 font-bold">รับเงินสด</h4>
+                      <div class="flex gap-2">
+                        <button @click="undoCash" class="px-3 py-1.5 bg-surface-800 text-surface-400 border border-surface-700 rounded-xl hover:bg-surface-700 transition-colors text-xs font-bold">ย้อนกลับ (⌫)</button>
+                      </div>
                     </div>
-                  </button>
-                  <button 
-                    @click="setExactAmount"
-                    class="py-4 rounded-2xl bg-primary-600/20 border border-primary-500/30 text-primary-400 font-bold text-lg hover:bg-primary-600/30 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-primary-900/10"
-                  >
-                    จ่ายพอดี
-                  </button>
-                </div>
 
-                <!-- Warning if not enough -->
-                <div v-if="amountReceived > 0 && amountReceived < totalAmount" class="text-center py-2 bg-red-500/10 rounded-2xl border border-red-500/20">
-                  <span class="text-xs text-red-400 font-bold animate-pulse italic">⚠️ ยอดเงินรับไม่เพียงพอ ขาดอีก ฿{{ (totalAmount - amountReceived).toLocaleString() }}</span>
+                    <!-- ยอดสุทธิ (เด่นขึ้น) -->
+                    <div class="bg-primary-900/20 border-2 border-primary-500/50 rounded-3xl py-5 px-6 text-center shadow-lg shadow-primary-900/20 mb-4 flex-1 flex flex-col justify-center min-h-[110px]">
+                      <div class="text-primary-400 font-bold mb-1 text-sm">ยอดสุทธิที่ต้องชำระ</div>
+                      <div class="text-5xl font-black text-primary-400">฿{{ totalAmount.toLocaleString() }}</div>
+                    </div>
+
+                    <div class="space-y-4">
+                      <!-- จำนวนเงินที่รับ -->
+                      <div class="space-y-2">
+                        <span class="text-xs text-surface-500 font-bold">จำนวนเงินที่รับ</span>
+                        <div class="relative">
+                          <span class="absolute left-5 top-1/2 -translate-y-1/2 text-surface-500 font-bold text-3xl pointer-events-none">฿</span>
+                          <input 
+                            v-model.number="amountReceived"
+                            type="number"
+                            ref="cashInput"
+                            class="w-full bg-surface-900 border-2 border-surface-700 rounded-2xl py-4 pl-14 pr-6 text-right text-4xl font-black text-success focus:border-success outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none h-[80px]"
+                          />
+                        </div>
+                      </div>
+
+                      <!-- เงินทอน -->
+                      <div class="space-y-2">
+                        <span class="text-xs text-surface-500 font-bold">เงินทอน</span>
+                        <div class="bg-surface-900 border-2 border-dashed border-surface-700 rounded-2xl py-4 px-6 flex items-center justify-between h-[80px]">
+                          <span class="text-surface-500 font-bold text-3xl">฿</span>
+                          <span class="text-4xl font-black" :class="changeAmount > 0 ? 'text-blue-400' : 'text-surface-600'">
+                            {{ changeAmount.toLocaleString() }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- Warning if not enough -->
+                    <div class="h-[38px] mt-4">
+                      <div v-if="amountReceived > 0 && amountReceived < totalAmount" class="h-full flex items-center justify-center bg-red-500/10 rounded-2xl border border-red-500/20 px-4">
+                        <span class="text-xs text-red-400 font-bold animate-pulse italic">⚠️ ยอดเงินรับไม่เพียงพอ ขาดอีก ฿{{ (totalAmount - amountReceived).toLocaleString() }}</span>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <!-- Right Side (Keypad) -->
+                  <div class="w-full lg:w-[320px] shrink-0 flex flex-col justify-end">
+                    <!-- Quick Cash & Numpad Layout -->
+                    <div class="space-y-3">
+                      <!-- Quick Cash Buttons -->
+                      <div class="grid grid-cols-2 gap-3">
+                        <button 
+                          v-for="val in [100, 500, 1000]" 
+                          :key="val"
+                          @click="addCash(val)"
+                          class="py-3 rounded-2xl bg-surface-800 border border-surface-700 text-surface-200 font-bold hover:bg-surface-700 active:scale-95 transition-all flex flex-col items-center justify-center shadow-sm relative overflow-hidden h-[64px]"
+                        >
+                          <span class="text-2xl leading-none">{{ val.toLocaleString() }}</span>
+                          
+                          <!-- จำนวนที่กด (แสดงมุมปุ่ม) -->
+                          <div v-if="cashDenominationsMap?.[val.toString()]" class="absolute bottom-1 right-2 px-1 bg-primary-600 text-white text-[10px] font-black rounded-full border border-primary-500 min-w-[18px] text-center">
+                            {{ cashDenominationsMap[val.toString()] }}
+                          </div>
+                        </button>
+                        <button 
+                          @click="setExactAmount"
+                          class="py-3 rounded-2xl bg-primary-600/20 border border-primary-500/30 text-primary-400 font-bold text-lg hover:bg-primary-600/30 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-primary-900/10 h-[64px]"
+                        >
+                          จ่ายพอดี
+                        </button>
+                      </div>
+
+                      <!-- Numpad -->
+                      <div class="grid grid-cols-3 gap-3">
+                        <button v-for="num in [7, 8, 9, 4, 5, 6, 1, 2, 3]" :key="num" @click="appendNumber(num)" class="py-4 bg-surface-900 border border-surface-700 rounded-2xl text-2xl font-black text-surface-100 hover:bg-surface-800 hover:border-surface-600 active:scale-95 active:bg-surface-700 transition-all shadow-sm">
+                          {{ num }}
+                        </button>
+                        <button @click="clearCash" class="py-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl text-lg font-bold text-orange-400 hover:bg-orange-500/20 active:scale-95 transition-all shadow-sm flex items-center justify-center">
+                          ล้าง
+                        </button>
+                        <button @click="appendNumber(0)" class="py-4 bg-surface-900 border border-surface-700 rounded-2xl text-2xl font-black text-surface-100 hover:bg-surface-800 hover:border-surface-600 active:scale-95 active:bg-surface-700 transition-all shadow-sm">
+                          0
+                        </button>
+                        <button @click="deleteNumber" class="py-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-xl font-bold text-red-400 hover:bg-red-500/20 active:scale-95 transition-all shadow-sm flex items-center justify-center">
+                          ⌫ ลบ
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
                 </div>
               </div>
             </div>
