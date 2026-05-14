@@ -118,9 +118,9 @@
     <!-- Mass Edit Action Bar -->
     <div
       v-if="selectedProductIds.length > 0 && !showTrash && !canDrag"
-      class="shrink-0 px-6 py-3 bg-primary-900/30 border-b border-primary-700/30 flex items-center gap-4"
+      class="shrink-0 px-6 py-3 bg-primary-500/10 border-b border-primary-500/20 flex items-center gap-4"
     >
-      <span class="text-sm font-bold text-primary-300">
+      <span class="text-sm font-bold text-primary-600 dark:text-primary-400">
         เลือกแล้ว {{ selectedProductIds.length }} รายการ
       </span>
       <button
