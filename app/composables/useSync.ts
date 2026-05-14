@@ -296,7 +296,10 @@ export function useSync() {
           total_price: item.totalPrice,
           addons: item.addons,
           addons_total: item.addonsTotal,
-          inventory_deductions: item.inventoryDeductions
+          inventory_deductions: item.inventoryDeductions,
+          is_free_item: item.isFreeItem ?? false,
+          promotion_id: item.promotionId ?? null,
+          promotion_name: item.promotionName ?? null,
         }))
         const { error: itemsError } = await withTimeout(
           supabase.from('order_items').insert(orderItemsData)

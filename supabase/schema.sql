@@ -153,6 +153,9 @@ CREATE TABLE order_items (
   addons              JSONB,                        -- รายการ addons ที่ลูกค้าเลือก
   addons_total        DECIMAL(10, 2) DEFAULT 0,
   inventory_deductions JSONB,                       -- Snapshot การตัดสต็อกจริง
+  is_free_item        BOOLEAN DEFAULT FALSE,        -- สินค้าแถมฟรีจากโปรโมชัน
+  promotion_id        INT,                          -- ID ของโปรโมชันที่แถม
+  promotion_name      TEXT,                         -- ชื่อโปรโมชัน (snapshot)
   created_at          TIMESTAMPTZ DEFAULT NOW()
 );
 

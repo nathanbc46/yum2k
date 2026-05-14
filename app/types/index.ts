@@ -225,6 +225,11 @@ export interface OrderItem {
    * เช่น โปร 10 แถม 1 → [{ sourceProductId: 5, quantity: 11 }]
    */
   inventoryDeductions: InventoryDeduction[]
+
+  // --- โปรโมชัน ---
+  isFreeItem?: boolean       // true = ของแถม (ราคา 0)
+  promotionId?: number       // FK → Promotion.id
+  promotionName?: string     // ชื่อโปรโมชัน (snapshot)
 }
 
 /**
@@ -289,7 +294,7 @@ export interface Order extends BaseEntity {
 // ---------------------------------------------------------------------------
 
 /** ประเภทของ Entity ที่จะ Sync */
-export type SyncEntityType = 'order' | 'product' | 'category' | 'user' | 'expense'
+export type SyncEntityType = 'order' | 'product' | 'category' | 'user' | 'expense' | 'promotion'
 
 /** รายการที่รอ Sync ขึ้น Server */
 export interface SyncQueueItem extends BaseEntity {
@@ -410,6 +415,51 @@ export interface DailySummary {
     other: number
   }
   expenses?: Expense[]       // รายการรายจ่ายย่อย (ถ้ามี)
+}
+
+// ---------------------------------------------------------------------------
+// Promotion: โปรโมชัน
+// ---------------------------------------------------------------------------
+
+/** ประเภทของโปรโมชัน */
+export type PromotionType = 'buyXGetY' | 'birthday'
+
+/** Config สำหรับโปรซื้อ X แถม Y */
+export interface BuyXGetYConfig {
+  buyQty: number    // จำนวนที่ต้องซื้อ (เช่น 10)
+  freeQty: number   // จำนวนที่ได้ฟรี (เช่น 1)
+}
+
+/** Config สำหรับโปรวันเกิด */
+export interface BirthdayConfig {
+  freeQty: number       // จำนวนที่ให้ฟรีต่อการยืนยัน 1 ครั้ง
+  maxGiven: number      // จำนวนสูงสุดที่แจกได้ทั้งหมด
+  totalGiven: number    // จำนวนที่แจกไปแล้ว (เพิ่มทุก checkout)
+  startDate?: string    // YYYY-MM-DD
+  endDate?: string      // YYYY-MM-DD
+}
+
+export type PromotionConfig = BuyXGetYConfig | BirthdayConfig
+
+/** โปรโมชัน */
+export interface Promotion extends BaseEntity {
+  name: string                    // ชื่อโปรโมชัน (เช่น "ซื้อ 10 แถม 1 ลูกชิ้น")
+  type: PromotionType
+  isActive: boolean
+  eligibleProductIds: number[]    // local IDs (สร้างใหม่เมื่อ sync)
+  eligibleProductUuids: string[]  // UUIDs สำหรับ sync ข้ามเครื่อง
+  config: PromotionConfig
+  syncStatus: SyncStatus
+  syncedAt?: Date
+  syncError?: string
+  syncRetryCount: number
+}
+
+/** Payload สำหรับ Mass Edit สินค้า */
+export interface MassEditPayload {
+  categoryId?: number
+  isActive?: boolean
+  priceAdjustPercent?: number   // +10 = เพิ่ม 10%, -5 = ลด 5%
 }
 
 // ---------------------------------------------------------------------------

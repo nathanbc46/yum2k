@@ -16,6 +16,12 @@
         <span class="text-2xl opacity-20">🍋</span>
       </div>
 
+      <!-- Promotion Badge — บนซ้าย -->
+      <span
+        v-if="hasPromotion"
+        class="absolute top-1.5 left-1.5 text-lg z-10 drop-shadow-md leading-none"
+      >{{ isBirthday ? '🎂' : '🎁' }}</span>
+
       <!-- Badge สินค้าโปร / สต็อกหมด / เตือนใกล้หมด -->
       <div class="absolute top-1.5 right-1.5 flex flex-col gap-1 items-end">
         <span
@@ -76,7 +82,7 @@ import type { ProductWithCategory } from '~/types'
 import { Heart } from 'lucide-vue-next'
 import { useFavorites } from '~/composables/useFavorites'
 
-const props = defineProps<{ product: ProductWithCategory }>()
+const props = defineProps<{ product: ProductWithCategory; hasPromotion?: boolean; isBirthday?: boolean }>()
 defineEmits<{ (e: 'add', item: ProductWithCategory): void }>()
 
 const { isFavorite, toggleFavorite } = useFavorites()

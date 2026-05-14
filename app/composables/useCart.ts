@@ -7,6 +7,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { db, getSetting, setSetting } from '~/db'
 import { useInventory } from '~/composables/useInventory'
+import { usePromotions } from '~/composables/usePromotions'
 import type {
   Product,
   ProductWithCategory,
@@ -15,6 +16,8 @@ import type {
   PaymentMethod,
   InventoryDeduction,
   AddonOption,
+  Promotion,
+  BuyXGetYConfig,
 } from '~/types'
 
 // --- Cart Item ที่ใช้ใน RAM (ขณะขายของ) ---
@@ -26,6 +29,9 @@ export interface CartItem {
   addons: AddonOption[]     // ตัวเลือกเสริมที่เลือก
   addonsTotal: number       // ราคารวม addons ต่อชิ้น
   totalPrice: number        // (unitPrice + addonsTotal) * qty - discount
+  isFreeItem?: boolean      // true = ของแถมจากโปรโมชัน (ราคา 0)
+  promotionId?: number      // FK → Promotion.id ที่ทำให้รายการนี้เป็นของแถม
+  promotionName?: string    // ชื่อโปรโมชัน (snapshot)
 }
 
 // กุญแจสำหรับบันทึก Cart ลง AppSettings (Persist ระหว่าง Session)
@@ -105,9 +111,9 @@ export function useCart() {
     addons: AddonOption[] = [],
     addonsTotal: number = 0
   ): Promise<boolean> {
-    // ตรวจสอบสต็อก
+    // ตรวจสอบสต็อก (ไม่นับ free items เป็น existing item เพื่อให้เพิ่มเป็น row ปกติแยกต่างหาก)
     const existingItem = cartItems.value.find(
-      i => i.product.id === product.id && i.addons.length === 0 && addons.length === 0
+      i => i.product.id === product.id && i.addons.length === 0 && addons.length === 0 && !i.isFreeItem
     )
     const currentQty = existingItem?.quantity ?? 0
     const hasStock = await checkStock(product, currentQty + qty)
@@ -207,14 +213,16 @@ export function useCart() {
 
   /**
    * ลบสินค้าออกจากตะกร้า
-
    * @param productId - ID ของสินค้าที่จะลบ
    * @param addonKey - key ของ addons (ถ้ามีหลาย row ของสินค้าเดียวกัน)
+   * @param itemIndex - index ตรง ๆ ในอาเรย์ (ใช้เมื่อรู้ตำแหน่งแน่นอน เพื่อป้องกันลบผิดตัวเมื่อ productId ซ้ำ)
    */
-  async function removeItem(productId: number, addonKey?: string): Promise<void> {
-    const index = addonKey
-      ? cartItems.value.findIndex(i => i.product.id === productId && getAddonKey(i) === addonKey)
-      : cartItems.value.findIndex(i => i.product.id === productId)
+  async function removeItem(productId: number, addonKey?: string, itemIndex?: number): Promise<void> {
+    const index = itemIndex !== undefined
+      ? itemIndex
+      : addonKey
+        ? cartItems.value.findIndex(i => i.product.id === productId && getAddonKey(i) === addonKey)
+        : cartItems.value.findIndex(i => i.product.id === productId)
     if (index !== -1) {
       cartItems.value.splice(index, 1)
       schedulePersist()
@@ -224,6 +232,30 @@ export function useCart() {
   /** สร้าง unique key สำหรับ CartItem ที่มี addons */
   function getAddonKey(item: CartItem): string {
     return item.addons.map(a => a.id).sort().join('|')
+  }
+
+  /**
+   * เพิ่มสินค้าแถมจากโปรโมชันลงตะกร้า (ราคา 0, ไม่ตรวจสต็อก)
+   */
+  async function addFreeItem(
+    product: ProductWithCategory,
+    promotionId: number,
+    promotionName: string,
+    qty: number = 1,
+  ): Promise<void> {
+    cartItems.value.push({
+      product,
+      quantity: qty,
+      unitPrice: 0,
+      discount: 0,
+      addons: [],
+      addonsTotal: 0,
+      totalPrice: 0,
+      isFreeItem: true,
+      promotionId,
+      promotionName,
+    })
+    schedulePersist()
   }
 
   /**
@@ -264,7 +296,9 @@ export function useCart() {
 
     try {
       // 1. ตรวจสอบสต็อกรอบสุดท้ายก่อน Checkout (reads เท่านั้น)
+      // ข้ามการตรวจสต็อกสำหรับ free items (isFreeItem = true)
       for (const item of cartItems.value) {
+        if (item.isFreeItem) continue
         const hasStock = await checkStock(item.product, item.quantity)
         if (!hasStock) {
           alert(`สินค้า "${item.product.name}" สต็อกไม่เพียงพอ`)
@@ -293,6 +327,7 @@ export function useCart() {
         // 2. สร้าง OrderItems พร้อมตัดสต็อก
         const orderItems: OrderItem[] = []
         for (const item of snapshot) {
+          // free items ตัดสต็อกปกติ แต่ราคา = 0
           const deductions: InventoryDeduction[] = await deductStock(item.product, item.quantity)
           const category = posStore.categories.find(c => c.id === item.product.categoryId)
           orderItems.push({
@@ -309,7 +344,10 @@ export function useCart() {
             addons: item.addons,
             addonsTotal: item.addonsTotal,
             totalPrice: item.totalPrice,
-            inventoryDeductions: JSON.parse(JSON.stringify(deductions))
+            inventoryDeductions: JSON.parse(JSON.stringify(deductions)),
+            isFreeItem: item.isFreeItem ?? false,
+            promotionId: item.promotionId,
+            promotionName: item.promotionName,
           })
         }
 
@@ -378,6 +416,19 @@ export function useCart() {
       const { checkAfterCheckout } = useStockAlert()
       checkAfterCheckout(snapshot)
 
+      // 9.1 อัพเดทโควต้าโปรวันเกิด (eventual consistency — หลัง commit)
+      const birthdayItems = snapshot.filter(item => item.isFreeItem && item.promotionId)
+      if (birthdayItems.length > 0) {
+        const { incrementTotalGiven } = usePromotions()
+        const grouped = new Map<number, number>()
+        for (const item of birthdayItems) {
+          grouped.set(item.promotionId!, (grouped.get(item.promotionId!) ?? 0) + item.quantity)
+        }
+        for (const [promoId, qty] of grouped) {
+          incrementTotalGiven(promoId, qty).catch(() => {})
+        }
+      }
+
       // 10. แจ้งเตือน LINE OA (fire-and-forget)
       if (savedOrder) {
         const { notifyNewOrder } = useLineNotify()
@@ -413,6 +464,9 @@ export function useCart() {
         addons: item.addons,
         addonsTotal: item.addonsTotal,
         totalPrice: item.totalPrice,
+        isFreeItem: item.isFreeItem,
+        promotionId: item.promotionId,
+        promotionName: item.promotionName,
       })),
       note: note.value,
       discount: discount.value,
@@ -435,6 +489,9 @@ export function useCart() {
         addons: AddonOption[]
         addonsTotal: number
         totalPrice: number
+        isFreeItem?: boolean
+        promotionId?: number
+        promotionName?: string
       }>
       note: string
       discount: number
@@ -472,6 +529,9 @@ export function useCart() {
         addons: saved_item.addons ?? [],
         addonsTotal: saved_item.addonsTotal ?? 0,
         totalPrice: saved_item.totalPrice,
+        isFreeItem: saved_item.isFreeItem,
+        promotionId: saved_item.promotionId,
+        promotionName: saved_item.promotionName,
       })
     }
 
@@ -513,6 +573,46 @@ export function useCart() {
     return `YUM-${dateStr}-${timeStr}-${device}-${seq}`
   }
 
+  /**
+   * ลบ free items ที่ไม่ผ่านเงื่อนไขโปรอีกต่อไปออกจากตะกร้าอัตโนมัติ
+   * เรียกหลัง removeItem / updateQuantity เพื่อ sync free items กับ eligible count
+   */
+  function cleanupOrphanedFreeItems(promotions: Promotion[]): void {
+    const buyXGetYPromos = promotions.filter(p => p.type === 'buyXGetY' && p.isActive && !p.isDeleted)
+    let changed = false
+
+    for (const promo of buyXGetYPromos) {
+      const config = promo.config as BuyXGetYConfig
+      const eligibleCount = cartItems.value
+        .filter(i => !i.isFreeItem && promo.eligibleProductIds.includes(i.product.id!))
+        .reduce((sum, i) => sum + i.quantity, 0)
+
+      const completedRounds = Math.floor(eligibleCount / config.buyQty)
+      const allowedFreeQty = completedRounds * config.freeQty
+
+      const freeItemsForPromo = cartItems.value.filter(i => i.isFreeItem && i.promotionId === promo.id)
+      const currentFreeQty = freeItemsForPromo.reduce((sum, i) => sum + i.quantity, 0)
+
+      if (currentFreeQty > allowedFreeQty) {
+        let toRemove = currentFreeQty - allowedFreeQty
+        for (let i = cartItems.value.length - 1; i >= 0 && toRemove > 0; i--) {
+          const item = cartItems.value[i]
+          if (!item.isFreeItem || item.promotionId !== promo.id) continue
+          if (item.quantity <= toRemove) {
+            toRemove -= item.quantity
+            cartItems.value.splice(i, 1)
+          } else {
+            item.quantity -= toRemove
+            toRemove = 0
+          }
+          changed = true
+        }
+      }
+    }
+
+    if (changed) schedulePersist()
+  }
+
   return {
     // State
     cartItems,
@@ -534,6 +634,7 @@ export function useCart() {
 
     // Methods
     addItem,
+    addFreeItem,
     updateQuantity,
     removeItem,
     updateItemAddons,
@@ -541,5 +642,6 @@ export function useCart() {
     clearCart,
     checkout,
     loadCart,
+    cleanupOrphanedFreeItems,
   }
 }

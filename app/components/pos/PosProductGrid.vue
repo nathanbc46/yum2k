@@ -17,7 +17,7 @@
         </div>
 
         <h2 class="text-2xl font-bold text-surface-50">
-          {{ store.activeCategory?.name ?? 'สินค้าทั้งหมด' }}
+          {{ store.activePromotionFilter?.name ?? store.activeCategory?.name ?? 'สินค้าทั้งหมด' }}
         </h2>
       </div>
 
@@ -38,6 +38,25 @@
       </div>
     </header>
 
+    <!-- Promo Filter Mode Header -->
+    <div
+      v-if="store.activePromotionFilter"
+      class="shrink-0 mb-2 flex items-center gap-3 px-4 py-2.5 bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 rounded-xl"
+    >
+      <span class="text-lg">🎁</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-[10px] text-amber-700 dark:text-amber-400/70 font-semibold uppercase tracking-wide">กรองตามโปรโมชัน</div>
+        <div class="text-sm font-black text-amber-900 dark:text-amber-300 truncate">{{ store.activePromotionFilter.name }}</div>
+      </div>
+      <span class="text-xs text-amber-600 dark:text-amber-400/60 shrink-0">{{ store.filteredProducts.length }} รายการ</span>
+      <button
+        @click="store.setPromotionFilter(null)"
+        class="w-8 h-8 flex items-center justify-center rounded-lg bg-amber-200 dark:bg-amber-500/20 hover:bg-amber-300 dark:hover:bg-amber-500/30 text-amber-700 dark:text-amber-400 transition-colors shrink-0"
+      >
+        <X :size="14" />
+      </button>
+    </div>
+
     <!-- Content Switcher -->
     <div class="flex-1 overflow-hidden">
       <!-- 1. ปกติ: แสดงรายการสินค้า หรือ หมวดหมู่ -->
@@ -49,7 +68,7 @@
           </div>
 
           <!-- ยังไม่ได้เลือกหมวดหมู่ → แสดงเฉพาะสินค้า Favorite -->
-          <div v-else-if="!store.activeCategoryId">
+          <div v-else-if="!store.activeCategoryId && !store.activePromotionFilter">
             <div v-if="favoriteProducts.length > 0">
               <div class="flex items-center gap-2 mb-3">
                 <Heart :size="16" fill="currentColor" class="text-red-500" />
@@ -61,6 +80,8 @@
                   v-for="product in favoriteProducts"
                   :key="product.id"
                   :product="product"
+                  :has-promotion="store.promotedProductIds.has(product.id!)"
+                  :is-birthday="store.birthdayProductIds.has(product.id!)"
                   @add="handleAddProduct(product)"
                 />
               </div>
@@ -81,6 +102,8 @@
               v-for="product in store.filteredProducts"
               :key="product.id"
               :product="product"
+              :has-promotion="store.promotedProductIds.has(product.id!)"
+              :is-birthday="store.birthdayProductIds.has(product.id!)"
               @add="handleAddProduct(product)"
             />
           </div>
@@ -115,48 +138,39 @@
       @cancel="addonModalOpen = false"
       @confirm="handleAddonConfirm"
     />
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { usePosStore } from '~/stores/pos'
 import { useCart } from '~/composables/useCart'
-import type { Product, AddonOption } from '~/types'
+import type { ProductWithCategory, AddonOption } from '~/types'
 import PosAddonSelection from './PosAddonSelection.vue'
-import { ChevronRight, Heart } from 'lucide-vue-next'
+import { Heart, X } from 'lucide-vue-next'
 import { useFavorites } from '~/composables/useFavorites'
 
 const store = usePosStore()
 const { favoriteIds } = useFavorites()
 
-const hasSubcategories = (catId: number | undefined) => {
-  if (!catId) return false
-  return store.categories.some(c => c.parentId === catId)
-}
-
 const favoriteProducts = computed(() =>
   store.products.filter(p => p.id != null && favoriteIds.value.has(p.id))
 )
-
-// ไม่ต้องเรียก loadData() ที่นี่ — index.vue จัดการโหลดข้อมูลแล้ว
-// การเรียกที่นี่ทำให้เกิด mount→unmount loop (isLoading ทำให้ v-else ปิด → unmount → mount อีก)
 
 const cart = useCart()
 
 // --- จัดการ Add-on Modal ---
 const addonModalOpen = ref(false)
-const pendingProduct = ref<Product | null>(null)
+const pendingProduct = ref<ProductWithCategory | null>(null)
 
 /** เมื่อกดปุ่มเพิ่มสินค้า ตรวจว่ามี Add-ons หรือไม่ */
-function handleAddProduct(product: Product) {
+function handleAddProduct(product: ProductWithCategory) {
   const hasRequiredAddons = product.addonGroups?.some(g => g.isRequired)
-  
+
   if (product.addonGroups && product.addonGroups.length > 0 && hasRequiredAddons) {
-    // มี Add-ons ที่ "บังคับเลือก" → เปิด Modal ให้เลือก
     pendingProduct.value = product
     addonModalOpen.value = true
   } else {
-    // ไม่มี Add-ons เลย หรือมีแต่ "ไม่บังคับ" → เพิ่มลงตะกร้าเลยแบบไม่มี Addon
     cart.addItem(product, 1)
   }
 }

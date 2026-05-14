@@ -18,12 +18,13 @@ import type {
   AIChat,
   AIConversation,
   DailyStockSnapshot,
+  Promotion,
 } from '~/types'
 
 // ---------------------------------------------------------------------------
 // กำหนด Version ของ Database (เพิ่มทุกครั้งที่เปลี่ยน Schema)
 // ---------------------------------------------------------------------------
-const DB_VERSION = 9
+const DB_VERSION = 10
 const DB_NAME = 'Yum2K_POS_DB'
 
 // ---------------------------------------------------------------------------
@@ -43,6 +44,7 @@ class Yum2KDatabase extends Dexie {
   aiConversations!: EntityTable<AIConversation, 'id'>
   aiChats!: EntityTable<AIChat, 'id'>
   dailyStockSnapshots!: EntityTable<DailyStockSnapshot, 'id'>
+  promotions!: EntityTable<Promotion, 'id'>
 
   // AppSettings ใช้ key เป็น Primary Key แทน id
   appSettings!: Dexie.Table<AppSetting, string>
@@ -79,8 +81,8 @@ class Yum2KDatabase extends Dexie {
       dailyStockSnapshots: '++id, &uuid, [snapshotDate+productUuid], snapshotDate, productUuid, productId, syncStatus, capturedAt, isDeleted',
     })
 
-    // Version 8: เพิ่มตาราง dailyStockSnapshots
-    this.version(DB_VERSION).stores({
+    // Version 9: schema ล่าสุดก่อน promotions
+    this.version(9).stores({
       /**
        * users: ผู้ใช้งาน
        * - id: Auto-increment Primary Key
@@ -175,6 +177,23 @@ class Yum2KDatabase extends Dexie {
       aiChats: '++id, &uuid, conversationUuid, role, createdAt, isDeleted',
       dailyStockSnapshots: '++id, &uuid, [snapshotDate+productUuid], snapshotDate, productUuid, productId, syncStatus, capturedAt, isDeleted',
     })
+
+    // Version 10: เพิ่มตาราง promotions
+    this.version(DB_VERSION).stores({
+      users: '++id, &uuid, &username, role, isActive, isDeleted, updatedAt',
+      categories: '++id, &uuid, name, parentId, parentUuid, isActive, sortOrder, isDeleted, updatedAt',
+      products: '++id, &uuid, categoryId, name, sku, isActive, sortOrder, totalSold, stockQuantity, mappingType, isDeleted, updatedAt',
+      orders: '++id, &uuid, &orderNumber, staffId, status, kitchenStatus, syncStatus, createdAt, updatedAt, paymentMethod, isDeleted',
+      syncQueue: '++id, &uuid, entityType, entityId, syncStatus, retryCount, isDeleted',
+      appSettings: '&key',
+      stockAuditLogs: '++id, &uuid, productId, staffId, syncStatus, createdAt, isDeleted',
+      expenses: '++id, &uuid, categoryId, category, expenseDate, syncStatus, isDeleted',
+      expenseCategories: '++id, &uuid, name, isActive, sortOrder, isDeleted, updatedAt',
+      aiConversations: '++id, &uuid, source, title, createdAt, updatedAt, isDeleted',
+      aiChats: '++id, &uuid, conversationUuid, role, createdAt, isDeleted',
+      dailyStockSnapshots: '++id, &uuid, [snapshotDate+productUuid], snapshotDate, productUuid, productId, syncStatus, capturedAt, isDeleted',
+      promotions: '++id, &uuid, type, isActive, isDeleted, updatedAt, syncStatus',
+    })
   }
 }
 
@@ -193,7 +212,7 @@ export const db = new Yum2KDatabase()
  * Hook: ตั้งค่า createdAt และ updatedAt อัตโนมัติเมื่อเพิ่มข้อมูลใหม่
  * รองรับ: users, categories, products, orders, syncQueue
  */
-const tablesWithTimestamps = ['users', 'categories', 'products', 'orders', 'syncQueue', 'stockAuditLogs', 'expenses', 'expenseCategories', 'aiConversations', 'aiChats', 'dailyStockSnapshots']
+const tablesWithTimestamps = ['users', 'categories', 'products', 'orders', 'syncQueue', 'stockAuditLogs', 'expenses', 'expenseCategories', 'aiConversations', 'aiChats', 'dailyStockSnapshots', 'promotions']
 
 tablesWithTimestamps.forEach((tableName) => {
   const table = db.table(tableName)

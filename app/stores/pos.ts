@@ -2,7 +2,8 @@ import { defineStore } from 'pinia'
 import { db } from '~/db'
 import { seedDatabase } from '~/db/seedData'
 import { useSettings } from '~/composables/useSettings'
-import type { Category, ProductWithCategory, Order } from '~/types'
+import { usePromotions } from '~/composables/usePromotions'
+import type { Category, ProductWithCategory, Order, Promotion } from '~/types'
 
 export const usePosStore = defineStore('pos', () => {
   // โหลด Settings (singleton ref จาก useSettings)
@@ -20,6 +21,8 @@ export const usePosStore = defineStore('pos', () => {
   const pendingOrdersCount = ref<number>(0)
   const viewMode = ref<'pos' | 'kds'>('pos')
   const kitchenFilter = ref<'all' | 'ready'>('all')
+  const activePromotions = ref<Promotion[]>([])
+  const activePromotionFilter = ref<Promotion | null>(null)
 
   // Computed
   const activeCategory = computed(() => 
@@ -77,8 +80,13 @@ export const usePosStore = defineStore('pos', () => {
   }
 
   const filteredProducts = computed(() => {
+    // Promotion filter มีความสำคัญสูงสุด override category
+    if (activePromotionFilter.value) {
+      const ids = new Set(activePromotionFilter.value.eligibleProductIds)
+      return products.value.filter(p => ids.has(p.id!))
+    }
+
     // อ่าน setting ว่าจะรวมหมวดหมู่ย่อยหรือไม่ (default: true)
-    // receiptSettings เป็น singleton ref โหลดจาก loadData() แล้ว
     const includeSubcategories = receiptSettings.value.showSubcategoryProducts ?? true
 
     // 1. ไม่ได้เลือกหมวดหมู่ → แสดงทั้งหมดเรียงตามขายดี
@@ -99,6 +107,24 @@ export const usePosStore = defineStore('pos', () => {
         .filter(p => p.categoryId === activeCategoryId.value)
         .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
     }
+  })
+
+  const promotedProductIds = computed(() => {
+    const ids = new Set<number>()
+    for (const promo of activePromotions.value) {
+      for (const id of promo.eligibleProductIds) ids.add(id)
+    }
+    return ids
+  })
+
+  const birthdayProductIds = computed(() => {
+    const ids = new Set<number>()
+    for (const promo of activePromotions.value) {
+      if (promo.type === 'birthday') {
+        for (const id of promo.eligibleProductIds) ids.add(id)
+      }
+    }
+    return ids
   })
 
   // สร้างรายชื่อหมวดหมู่ตามลำดับชั้น (Breadcrumbs)
@@ -173,7 +199,11 @@ export const usePosStore = defineStore('pos', () => {
         }
       })
 
-      // 4. โหลดจำนวนคิวค้างจ่าย
+      // 4. โหลดโปรโมชันที่ active
+      const { getActivePromotions } = usePromotions()
+      activePromotions.value = await getActivePromotions()
+
+      // 5. โหลดจำนวนคิวค้างจ่าย
       await refreshPendingOrdersCount()
 
     } catch (e: any) {
@@ -184,7 +214,16 @@ export const usePosStore = defineStore('pos', () => {
     }
   }
 
+  function setPromotionFilter(promo: Promotion | null) {
+    activePromotionFilter.value = promo
+    if (promo) {
+      activeCategoryId.value = null
+      currentParentId.value = null
+    }
+  }
+
   function setActiveCategory(id: number | null) {
+    activePromotionFilter.value = null
     // ถ้ากดอันเดิม ให้ย้อนกลับไปหาระดับบน (Toggle to Parent)
     if (activeCategoryId.value === id) {
       const current = categories.value.find(c => c.id === id)
@@ -226,6 +265,7 @@ export const usePosStore = defineStore('pos', () => {
   function resetNavigation() {
     activeCategoryId.value = null
     currentParentId.value = null
+    activePromotionFilter.value = null
   }
 
   function setLastOrder(order: Order | null) {
@@ -260,6 +300,7 @@ export const usePosStore = defineStore('pos', () => {
     pendingOrdersCount,
     viewMode,
     kitchenFilter,
+    activePromotions,
     
     // computed
     activeCategory,
@@ -268,10 +309,14 @@ export const usePosStore = defineStore('pos', () => {
     parentCategory,
     filteredProducts,
     categoryPath,
+    activePromotionFilter,
+    promotedProductIds,
+    birthdayProductIds,
 
     // methods
     loadData,
     setActiveCategory,
+    setPromotionFilter,
     goBack,
     resetNavigation,
     setLastOrder,

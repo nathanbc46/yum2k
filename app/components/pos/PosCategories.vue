@@ -31,6 +31,28 @@
 
       <!-- ปุ่มจัดการด้านล่าง (toggle popover) -->
       <div class="p-2 border-t border-surface-800 shrink-0 relative">
+        <!-- ปุ่มโปรโมชันที่เปิดอยู่ -->
+        <div v-if="displayedPromos.length > 0" class="mb-2 space-y-1.5">
+          <button
+            v-for="promo in displayedPromos"
+            :key="promo.id"
+            @click="handlePromoClick(promo)"
+            class="w-full h-11 rounded-xl px-3 flex items-center gap-2 font-semibold text-sm transition-all active:scale-[0.98]"
+            :class="promo.type === 'birthday'
+              ? 'bg-pink-100 dark:bg-pink-600/20 border border-pink-300 dark:border-pink-500/30 text-pink-700 dark:text-pink-400 hover:bg-pink-200 dark:hover:bg-pink-600/30'
+              : store.activePromotionFilter?.id === promo.id
+                ? 'bg-amber-200 dark:bg-amber-500/30 border border-amber-400 dark:border-amber-400/60 text-amber-800 dark:text-amber-300'
+                : 'bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20'"
+          >
+            <span class="shrink-0 text-base">{{ promoIcon(promo) }}</span>
+            <span class="truncate flex-1 text-left text-xs">{{ promo.name }}</span>
+            <span
+              v-if="promo.type !== 'birthday' && store.activePromotionFilter?.id === promo.id"
+              class="shrink-0 text-[9px] font-black bg-amber-400 dark:bg-amber-500/30 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded-full"
+            >ON</span>
+          </button>
+        </div>
+
         <Transition
           enter-active-class="transition duration-200 ease-out"
           enter-from-class="translate-y-4 opacity-0 scale-95"
@@ -142,6 +164,28 @@
 
       <!-- ปุ่มจัดการด้านล่าง (toggle popover) -->
       <div class="p-2 border-t border-surface-800 shrink-0 relative">
+        <!-- ปุ่มโปรโมชันที่เปิดอยู่ -->
+        <div v-if="displayedPromos.length > 0" class="mb-2 space-y-1.5">
+          <button
+            v-for="promo in displayedPromos"
+            :key="promo.id"
+            @click="handlePromoClick(promo)"
+            class="w-full h-11 rounded-xl px-3 flex items-center gap-2 font-semibold text-sm transition-all active:scale-[0.98]"
+            :class="promo.type === 'birthday'
+              ? 'bg-pink-100 dark:bg-pink-600/20 border border-pink-300 dark:border-pink-500/30 text-pink-700 dark:text-pink-400 hover:bg-pink-200 dark:hover:bg-pink-600/30'
+              : store.activePromotionFilter?.id === promo.id
+                ? 'bg-amber-200 dark:bg-amber-500/30 border border-amber-400 dark:border-amber-400/60 text-amber-800 dark:text-amber-300'
+                : 'bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20'"
+          >
+            <span class="shrink-0 text-base">{{ promoIcon(promo) }}</span>
+            <span class="truncate flex-1 text-left text-xs">{{ promo.name }}</span>
+            <span
+              v-if="promo.type !== 'birthday' && store.activePromotionFilter?.id === promo.id"
+              class="shrink-0 text-[9px] font-black bg-amber-400 dark:bg-amber-500/30 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded-full"
+            >ON</span>
+          </button>
+        </div>
+
         <Transition
           enter-active-class="transition duration-200 ease-out"
           enter-from-class="translate-y-4 opacity-0 scale-95"
@@ -206,6 +250,14 @@
       </div>
     </template>
 
+    <!-- โปรวันเกิด Modal -->
+    <PosBirthdayModal
+      :is-open="showBirthdayModal"
+      :birthday-promotions="displayedPromos.filter(p => p.type === 'birthday')"
+      @close="showBirthdayModal = false"
+      @confirm="handleFreeItemConfirm"
+    />
+
     <!-- Modal ยืนยันออกจากระบบ -->
     <Teleport to="body">
       <Transition
@@ -257,16 +309,50 @@
 import { usePosStore } from '~/stores/pos'
 import { useAuthStore } from '~/stores/auth'
 import { useTheme } from '~/composables/useTheme'
+import { useCart } from '~/composables/useCart'
 import { LogOut, ChevronLeft, ChevronRight, Menu, X } from 'lucide-vue-next'
+import type { BirthdayConfig, ProductWithCategory, Promotion } from '~/types'
 
 const store = usePosStore()
 const authUser = useAuthStore()
 const router = useRouter()
 const { theme, toggleTheme } = useTheme()
+const cart = useCart()
 
 const showMenu = ref(false)
 const showMenuNoCategory = ref(false)
 const showLogoutConfirm = ref(false)
+const showBirthdayModal = ref(false)
+
+const displayedPromos = computed(() =>
+  store.activePromotions.filter(p => {
+    if (p.type === 'birthday') {
+      const c = p.config as BirthdayConfig
+      return (c.totalGiven || 0) < c.maxGiven
+    }
+    return true
+  })
+)
+
+function handlePromoClick(promo: Promotion) {
+  if (promo.type === 'birthday') {
+    showBirthdayModal.value = true
+  } else {
+    const isSame = store.activePromotionFilter?.id === promo.id
+    store.setPromotionFilter(isSame ? null : promo)
+  }
+}
+
+function promoIcon(promo: Promotion) {
+  return promo.type === 'birthday' ? '🎂' : '🎁'
+}
+
+async function handleFreeItemConfirm(items: Array<{ product: ProductWithCategory, qty: number, promotionId: number, promotionName: string }>) {
+  for (const item of items) {
+    await cart.addFreeItem(item.product, item.promotionId, item.promotionName, item.qty)
+  }
+  showBirthdayModal.value = false
+}
 
 if (process.client) {
   window.addEventListener('click', (e) => {

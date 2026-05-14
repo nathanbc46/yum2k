@@ -115,6 +115,28 @@
       </div>
     </header>
 
+    <!-- Mass Edit Action Bar -->
+    <div
+      v-if="selectedProductIds.length > 0 && !showTrash && !canDrag"
+      class="shrink-0 px-6 py-3 bg-primary-900/30 border-b border-primary-700/30 flex items-center gap-4"
+    >
+      <span class="text-sm font-bold text-primary-300">
+        เลือกแล้ว {{ selectedProductIds.length }} รายการ
+      </span>
+      <button
+        @click="isMassEditOpen = true"
+        class="h-9 px-4 bg-primary-600 hover:bg-primary-500 text-white text-sm font-bold rounded-xl transition-colors flex items-center gap-2"
+      >
+        ✏️ แก้ไขหมู่
+      </button>
+      <button
+        @click="selectedProductIds = []"
+        class="h-9 px-4 bg-surface-700 hover:bg-surface-600 text-surface-300 text-sm font-medium rounded-xl transition-colors"
+      >
+        ยกเลิกการเลือก
+      </button>
+    </div>
+
     <!-- Content -->
     <main class="flex-1 overflow-auto p-6">
       <!-- Loading -->
@@ -153,6 +175,15 @@
           <table class="w-full text-left text-sm border-collapse">
             <thead class="bg-surface-950 text-surface-500 text-[10px] uppercase tracking-widest border-b border-surface-800">
               <tr>
+                <th v-if="!canDrag && !showTrash" class="px-4 py-4 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    :checked="isAllSelected"
+                    :indeterminate="isIndeterminate"
+                    @change="toggleSelectAll"
+                    class="w-4 h-4 accent-primary-500 rounded"
+                  />
+                </th>
                 <th v-if="canDrag" class="px-6 py-4 w-12 text-center"></th>
                 <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-surface-500">สินค้า</th>
                 <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-surface-500">หมวดหมู่</th>
@@ -179,6 +210,16 @@
                   class="hover:bg-surface-800/40 transition-colors"
                   :class="{ 'opacity-50': !product.isActive }"
                 >
+                  <!-- Checkbox -->
+                  <td v-if="!canDrag && !showTrash" class="px-4 py-4 text-center w-10">
+                    <input
+                      type="checkbox"
+                      :checked="selectedProductIds.includes(product.id!)"
+                      @change="toggleSelectProduct(product.id!)"
+                      class="w-4 h-4 accent-primary-500 rounded"
+                    />
+                  </td>
+
                   <!-- Drag Handle -->
                   <td v-if="canDrag" class="px-4 py-4 text-center w-12 border-r border-surface-800/50">
                     <button class="drag-handle cursor-grab active:cursor-grabbing text-surface-600 hover:text-surface-300 transition-colors p-1">
@@ -395,6 +436,14 @@
       @close="closeImportPreview"
       @confirm="handleConfirmImport"
     />
+
+    <AdminProductMassEditModal
+      :is-open="isMassEditOpen"
+      :product-ids="selectedProductIds"
+      :categories="categories"
+      @close="isMassEditOpen = false"
+      @saved="onMassEditSaved"
+    />
   </div>
 </template>
 
@@ -437,6 +486,39 @@ const isProductModalOpen = ref(false)
 const isAdjustModalOpen = ref(false)
 const selectedProduct = ref<Product | null>(null)
 const excelInput = ref<HTMLInputElement | null>(null)
+
+// mass edit state
+const selectedProductIds = ref<number[]>([])
+const isMassEditOpen = ref(false)
+
+const isAllSelected = computed(() =>
+  filteredProducts.value.length > 0
+  && filteredProducts.value.every(p => selectedProductIds.value.includes(p.id!))
+)
+
+const isIndeterminate = computed(() =>
+  selectedProductIds.value.length > 0 && !isAllSelected.value
+)
+
+function toggleSelectAll() {
+  if (isAllSelected.value) {
+    selectedProductIds.value = []
+  } else {
+    selectedProductIds.value = filteredProducts.value.map(p => p.id!)
+  }
+}
+
+function toggleSelectProduct(id: number) {
+  const idx = selectedProductIds.value.indexOf(id)
+  if (idx >= 0) selectedProductIds.value.splice(idx, 1)
+  else selectedProductIds.value.push(id)
+}
+
+async function onMassEditSaved(count: number) {
+  await loadData()
+  selectedProductIds.value = []
+  toast.success(`แก้ไขสินค้าสำเร็จ ${count} รายการ`)
+}
 
 // Excel Import Preview State
 const isImportPreviewOpen = ref(false)

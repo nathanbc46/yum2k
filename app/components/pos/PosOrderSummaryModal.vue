@@ -144,7 +144,10 @@ watch(selectedPayment, (newVal) => {
                 <div class="bg-surface-950/50 rounded-2xl border border-surface-800 p-4 space-y-3">
                   <div v-for="item in items" :key="item.product.id" class="flex justify-between items-start text-sm">
                     <div class="flex-1 pr-4">
-                      <div class="text-surface-100 font-medium leading-tight">{{ item.product.name }}</div>
+                      <div class="flex items-center gap-1.5">
+                        <div class="text-surface-100 font-medium leading-tight">{{ item.product.name }}</div>
+                        <span v-if="item.isFreeItem" class="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/30 shrink-0">แถม</span>
+                      </div>
                       
                       <!-- แสดง Add-ons ที่เลือก -->
                       <div v-if="item.addons && item.addons.length > 0" class="flex flex-wrap gap-1 mt-1.5 mb-1">
@@ -157,9 +160,15 @@ watch(selectedPayment, (newVal) => {
                         </span>
                       </div>
 
-                      <div class="text-xs text-surface-500 mt-1">฿{{ item.unitPrice + item.addonsTotal }} x {{ item.quantity }}</div>
+                      <div class="text-xs text-surface-500 mt-1">
+                        <span v-if="item.isFreeItem" class="text-green-400">ฟรี x {{ item.quantity }}</span>
+                        <span v-else>฿{{ item.unitPrice + item.addonsTotal }} x {{ item.quantity }}</span>
+                      </div>
                     </div>
-                    <div class="font-bold text-surface-100 text-right">฿{{ item.totalPrice.toLocaleString() }}</div>
+                    <div class="font-bold text-right">
+                      <span v-if="item.isFreeItem" class="text-green-400">฿0</span>
+                      <span v-else class="text-surface-100">฿{{ item.totalPrice.toLocaleString() }}</span>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -40,7 +40,7 @@
       <div class="flex flex-col gap-2.5">
         <!-- สถานะออนไลน์ (ขนาดกะทัดรัด) -->
         <div class="flex items-center justify-between">
-          <div 
+          <div
             class="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-black border transition-colors"
             :class="isOnline ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'"
           >
@@ -49,6 +49,13 @@
           </div>
           <div class="text-[10px] text-surface-500 font-bold uppercase tracking-widest">ทางลัดด่วน</div>
         </div>
+
+        <!-- Buy X Get Y Banner -->
+        <PosBuyXGetYBanner
+          v-if="buyXGetYEligibilities.length > 0"
+          :eligibilities="buyXGetYEligibilities"
+          @open-selector="onOpenFreeItemSelector"
+        />
 
         <!-- ปุ่มทางลัดขนาดใหญ่ (Touch-friendly) - จะแสดงเฉพาะเมื่อมีรายการค้าง -->
         <div 
@@ -145,7 +152,10 @@
 
           <!-- ชื่อสินค้า + addons -->
           <div class="flex-1 min-w-0">
-            <div class="font-semibold text-sm text-surface-50 truncate leading-tight">{{ item.product.name }}</div>
+            <div class="flex items-center gap-1.5">
+              <div class="font-semibold text-sm text-surface-50 truncate leading-tight">{{ item.product.name }}</div>
+              <span v-if="item.isFreeItem" class="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">แถม</span>
+            </div>
             <!-- Addons row -->
             <div v-if="item.addons && item.addons.length > 0" class="flex flex-wrap gap-1 mt-0.5 pointer-events-auto">
               <span
@@ -174,7 +184,12 @@
           </div>
 
           <!-- ราคารวม -->
-          <span class="font-black text-sm text-primary-400 shrink-0">฿{{ item.totalPrice }}</span>
+          <div class="shrink-0 text-right">
+            <span v-if="item.isFreeItem" class="font-black text-sm text-green-400">฿0</span>
+            <template v-else>
+              <span class="font-black text-sm text-primary-400">฿{{ item.totalPrice }}</span>
+            </template>
+          </div>
         </div>
 
         <!-- ปุ่มลบ -->
@@ -244,6 +259,27 @@
       @cancel="isAddonModalOpen = false"
       @confirm="handleConfirmAddons"
     />
+
+    <!-- Free Item Selector Modal (เลือกของแถม เมื่อครบจำนวน) -->
+    <PosFreeItemModal
+      :is-open="freeItemModalOpen"
+      :promotion="freeItemPromotion"
+      :eligible-products="freeItemEligibleProducts"
+      :free-qty="freeItemQty"
+      @close="freeItemModalOpen = false"
+      @confirm="handleFreeItemConfirm"
+    />
+
+    <!-- Info Modal (ดูสินค้าในโปร ก่อนครบจำนวน) -->
+    <PosFreeItemModal
+      :is-open="infoModalOpen"
+      :promotion="freeItemPromotion"
+      :eligible-products="freeItemEligibleProducts"
+      :free-qty="freeItemQty"
+      :info-only="true"
+      @close="infoModalOpen = false"
+      @confirm="() => {}"
+    />
   </div>
 </template>
 
@@ -267,13 +303,17 @@ import { db } from '~/db'
 import { useCart } from '~/composables/useCart'
 import { useAuthStore } from '~/stores/auth'
 import type { CartItem } from '~/composables/useCart'
-import type { Product, AddonOption, Order } from '~/types'
+import type { Product, AddonOption, Order, Promotion, ProductWithCategory } from '~/types'
 import { usePosStore } from '~/stores/pos'
 import { usePrinter } from '~/composables/usePrinter'
 import { useToast } from '~/composables/useToast'
 import PosOrderSummaryModal from './PosOrderSummaryModal.vue'
 import PosAddonModal from './PosAddonModal.vue'
+import PosBuyXGetYBanner from './PosBuyXGetYBanner.vue'
+import PosFreeItemModal from './PosFreeItemModal.vue'
 import type { PaymentMethod } from '~/types'
+import { checkBuyXGetYEligibility } from '~/composables/useBuyXGetY'
+import type { BuyXGetYEligibility } from '~/composables/useBuyXGetY'
 
 const router = useRouter()
 const authUser = useAuthStore()
@@ -303,22 +343,82 @@ onUnmounted(() => {
   if (kitchenSub) kitchenSub.unsubscribe()
 })
 
-const { 
-  cartItems, 
-  totalItems, 
-  subtotal, 
-  discount, 
-  totalAmount, 
-  updateQuantity, 
-  removeItem, 
+const {
+  cartItems,
+  totalItems,
+  subtotal,
+  discount,
+  totalAmount,
+  updateQuantity,
+  removeItem,
   updateItemAddons,
   getAddonKey,
-  clearCart, 
+  clearCart,
   checkout,
   loadCart,
+  cleanupOrphanedFreeItems,
   note,
   deliveryRef
 } = useCart()
+
+// --- Buy X Get Y Banner ---
+const buyXGetYEligibilities = computed(() =>
+  checkBuyXGetYEligibility(cartItems.value, posStore.activePromotions.filter(p => p.type === 'buyXGetY'))
+    .filter(e =>
+      e.eligibleCountInCart > 0 &&
+      (e.isTriggered || e.eligibleCountInCart % e.buyQty > 0)
+    )
+)
+
+const freeItemModalOpen = ref(false)
+const infoModalOpen = ref(false)
+const freeItemPromotion = ref<Promotion | null>(null)
+const freeItemEligibleProducts = ref<ProductWithCategory[]>([])
+const freeItemQty = ref(1)
+
+async function loadEligibleProducts(elig: BuyXGetYEligibility): Promise<ProductWithCategory[]> {
+  const ids = elig.promotion.eligibleProductIds
+  if (ids.length === 0) return []
+  const products = await db.products.where('id').anyOf(ids).filter(p => !p.isDeleted && p.isActive).toArray()
+  const catIds = [...new Set(products.map(p => p.categoryId))]
+  const cats = await db.categories.where('id').anyOf(catIds).toArray()
+  const catMap = new Map(cats.map(c => [c.id!, c]))
+  return products.map(p => ({ ...p, category: catMap.get(p.categoryId)! }))
+}
+
+async function onOpenFreeItemSelector(elig: BuyXGetYEligibility) {
+  freeItemPromotion.value = elig.promotion
+  freeItemQty.value = elig.freeQty
+  freeItemEligibleProducts.value = await loadEligibleProducts(elig)
+  if (elig.isTriggered) {
+    infoModalOpen.value = false
+    freeItemModalOpen.value = true
+  } else {
+    freeItemModalOpen.value = false
+    infoModalOpen.value = true
+  }
+}
+
+async function handleFreeItemConfirm(items: Array<{ product: ProductWithCategory, qty: number, promotionId: number, promotionName: string }>) {
+  const { addFreeItem } = useCart()
+  for (const item of items) {
+    await addFreeItem(item.product, item.promotionId, item.promotionName, item.qty)
+  }
+}
+
+// auto-open เมื่อครบจำนวน
+watch(buyXGetYEligibilities, async (newElig, oldElig) => {
+  for (const elig of newElig) {
+    const prev = oldElig?.find(e => e.promotion.id === elig.promotion.id)
+    if (elig.isTriggered && !prev?.isTriggered && !freeItemModalOpen.value && !infoModalOpen.value) {
+      freeItemPromotion.value = elig.promotion
+      freeItemQty.value = elig.freeQty
+      freeItemEligibleProducts.value = await loadEligibleProducts(elig)
+      freeItemModalOpen.value = true
+      break
+    }
+  }
+})
 
 async function handleClearCart() {
   await clearCart()
@@ -349,15 +449,19 @@ function editAddons(item: CartItem) {
 function handleRemoveItem(idx: number) {
   const item = cartItems.value[idx]
   if (!item) return
-  
-  removeItem(item.product.id!, getAddonKey(item))
-  
-  // Reset selection ถ้าตัวที่โดนลบคึอตัวที่เลือกอยู่
+
+  removeItem(item.product.id!, getAddonKey(item), idx)
+
+  // Reset selection ถ้าตัวที่โดนลบคือตัวที่เลือกอยู่
   if (posStore.selectedCartItemIndex === idx) {
     posStore.setSelectedCartItemIndex(null)
   } else if (posStore.selectedCartItemIndex !== null && posStore.selectedCartItemIndex > idx) {
-    // เลื่อน index ขึ้นถ้าลบตัวก่อนหน้า
     posStore.setSelectedCartItemIndex(posStore.selectedCartItemIndex - 1)
+  }
+
+  // ลบ free items ที่ไม่ครบเงื่อนไขอีกต่อไปออกอัตโนมัติ
+  if (!item.isFreeItem) {
+    cleanupOrphanedFreeItems(posStore.activePromotions)
   }
 }
 
