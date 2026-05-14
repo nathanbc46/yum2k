@@ -481,7 +481,7 @@ function openSummaryModal() {
   isSummaryModalOpen.value = true
 }
 
-async function handleConfirmOrder(paymentMethod: PaymentMethod, amountReceived: number, cashDenominations?: Record<string, number>) {
+async function handleConfirmOrder(paymentMethod: PaymentMethod, amountReceived: number, cashDenominations?: Record<string, number>, shouldPrint: boolean = true) {
   if (isProcessing.value) return
   isProcessing.value = true
   
@@ -498,9 +498,11 @@ async function handleConfirmOrder(paymentMethod: PaymentMethod, amountReceived: 
       isSummaryModalOpen.value = false
       posStore.setLastOrder(order)
 
-      const success = await print(order)
-      if (!success) {
-        toast.error('ไม่สามารถพิมพ์ใบเสร็จได้ กรุณาตรวจสอบเครื่องพิมพ์ใน Settings')
+      if (shouldPrint) {
+        const success = await print(order)
+        if (!success) {
+          toast.error('ไม่สามารถพิมพ์ใบเสร็จได้ กรุณาตรวจสอบเครื่องพิมพ์ใน Settings')
+        }
       }
     }
     

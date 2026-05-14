@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
+import { liveQuery } from 'dexie'
 import { db } from '~/db'
 import { seedDatabase } from '~/db/seedData'
 import { useSettings } from '~/composables/useSettings'
-import { usePromotions } from '~/composables/usePromotions'
+import { useAuthStore } from '~/stores/auth'
 import type { Category, ProductWithCategory, Order, Promotion } from '~/types'
 
 export const usePosStore = defineStore('pos', () => {
@@ -23,6 +24,7 @@ export const usePosStore = defineStore('pos', () => {
   const kitchenFilter = ref<'all' | 'ready'>('all')
   const activePromotions = ref<Promotion[]>([])
   const activePromotionFilter = ref<Promotion | null>(null)
+  let _promotionsSub: { unsubscribe(): void } | null = null
 
   // Computed
   const activeCategory = computed(() => 
@@ -199,9 +201,14 @@ export const usePosStore = defineStore('pos', () => {
         }
       })
 
-      // 4. โหลดโปรโมชันที่ active
-      const { getActivePromotions } = usePromotions()
-      activePromotions.value = await getActivePromotions()
+      // 4. Subscribe โปรโมชัน active แบบ realtime (liveQuery)
+      if (!_promotionsSub) {
+        _promotionsSub = liveQuery(() =>
+          db.promotions.filter(p => !p.isDeleted && !!p.isActive).toArray()
+        ).subscribe((promos) => {
+          activePromotions.value = promos
+        })
+      }
 
       // 5. โหลดจำนวนคิวค้างจ่าย
       await refreshPendingOrdersCount()

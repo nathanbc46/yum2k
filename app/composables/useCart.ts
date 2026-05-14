@@ -424,9 +424,10 @@ export function useCart() {
         for (const item of birthdayItems) {
           grouped.set(item.promotionId!, (grouped.get(item.promotionId!) ?? 0) + item.quantity)
         }
-        for (const [promoId, qty] of grouped) {
-          incrementTotalGiven(promoId, qty).catch(() => {})
-        }
+        await Promise.all(
+          [...grouped.entries()].map(([promoId, qty]) => incrementTotalGiven(promoId, qty))
+        )
+        // liveQuery ใน pos.ts จะ sync activePromotions อัตโนมัติหลัง DB เปลี่ยน
       }
 
       // 10. แจ้งเตือน LINE OA (fire-and-forget)

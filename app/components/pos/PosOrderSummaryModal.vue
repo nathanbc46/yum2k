@@ -15,7 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'close'): void
-  (e: 'confirm', paymentMethod: PaymentMethod, amountReceived: number, cashDenominations?: Record<string, number>): void
+  (e: 'confirm', paymentMethod: PaymentMethod, amountReceived: number, cashDenominations?: Record<string, number>, shouldPrint?: boolean): void
 }>()
 
 const selectedPayment = ref<PaymentMethod>('cash')
@@ -103,7 +103,12 @@ const setExactAmount = () => {
 const confirmSale = () => {
   // สำหรับ PromptPay หรือ Unpaid ให้ใช้ยอดพอดี (เพื่อความสมบูรณ์ของข้อมูล)
   const finalAmount = selectedPayment.value === 'cash' ? amountReceived.value : props.totalAmount
-  emit('confirm', selectedPayment.value, finalAmount, cashDenominationsMap.value)
+  emit('confirm', selectedPayment.value, finalAmount, cashDenominationsMap.value, true)
+}
+
+const confirmSaleNoPrint = () => {
+  const finalAmount = selectedPayment.value === 'cash' ? amountReceived.value : props.totalAmount
+  emit('confirm', selectedPayment.value, finalAmount, cashDenominationsMap.value, false)
 }
 
 // เมื่อเปลี่ยนวิธีการชำระเงิน ให้รีเซ็ตค่าถ้าเป็น Cash
@@ -352,9 +357,17 @@ watch(selectedPayment, (newVal) => {
             กลับไปแก้ไข
           </button>
           <button 
+            @click="confirmSaleNoPrint"
+            :disabled="!isAmountEnough"
+            class="flex-1 btn-touch text-primary-400 font-bold rounded-2xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed border border-primary-500/30 hover:bg-primary-500/10"
+            :class="!isAmountEnough ? 'bg-surface-800 text-surface-500 border-surface-700' : 'bg-surface-900'"
+          >
+            <span>ยืนยัน</span>
+          </button>
+          <button 
             @click="confirmSale"
             :disabled="!isAmountEnough"
-            class="flex-[2] btn-touch text-white font-bold text-lg rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
+            class="flex-[1.5] btn-touch text-white font-bold text-lg rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
             :class="isAmountEnough ? 'bg-primary-600 hover:bg-primary-500 shadow-primary-900/30' : 'bg-surface-700 text-surface-400'"
           >
             <span>ยืนยันและปริ้น</span>
