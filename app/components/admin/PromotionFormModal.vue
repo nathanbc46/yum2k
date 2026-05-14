@@ -170,12 +170,22 @@
                   <span class="text-surface-500 font-normal ml-1">(เลือกแล้ว {{ selectedProductIds.size }} รายการ)</span>
                 </label>
                 <!-- Search -->
-                <input
-                  v-model="productSearch"
-                  type="text"
-                  placeholder="ค้นหาสินค้า..."
-                  class="w-full h-10 bg-surface-800 border border-surface-700 rounded-xl px-4 mb-2 text-surface-50 placeholder-surface-500 focus:border-primary-500 focus:outline-none transition-colors text-sm"
-                />
+                <div class="relative mb-2">
+                  <input
+                    v-model="productSearch"
+                    type="text"
+                    placeholder="ค้นหาสินค้า..."
+                    class="w-full h-10 bg-surface-800 border border-surface-700 rounded-xl pl-4 pr-10 text-surface-50 placeholder-surface-500 focus:border-primary-500 focus:outline-none transition-colors text-sm"
+                  />
+                  <button
+                    v-if="productSearch"
+                    @click="productSearch = ''"
+                    type="button"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-200 p-1.5 rounded-full hover:bg-surface-700 transition-colors"
+                  >
+                    <X :size="16" />
+                  </button>
+                </div>
                 <!-- Product List -->
                 <div class="max-h-52 overflow-y-auto space-y-1 bg-surface-800/30 rounded-xl p-2 border border-surface-700">
                   <div v-if="filteredProducts.length === 0" class="text-center text-surface-500 text-sm py-6">

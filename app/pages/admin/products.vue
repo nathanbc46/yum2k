@@ -79,8 +79,16 @@
             v-model="searchQuery"
             type="text"
             placeholder="ค้นหาสินค้า..."
-            class="w-full bg-surface-800 border border-surface-700 text-surface-50 rounded-xl pl-9 pr-4 py-2 text-sm focus:border-primary-500 outline-none transition-all placeholder:text-surface-500"
+            class="w-full bg-surface-800 border border-surface-700 text-surface-50 rounded-xl pl-9 pr-10 py-2 text-sm focus:border-primary-500 outline-none transition-all placeholder:text-surface-500"
           />
+          <button
+            v-if="searchQuery"
+            @click="searchQuery = ''"
+            type="button"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-200 p-1.5 rounded-full hover:bg-surface-700 transition-colors"
+          >
+            <X :size="16" />
+          </button>
         </div>
 
         <!-- Category Filter -->
@@ -449,6 +457,7 @@
 
 <script setup lang="ts">
 import { db } from '~/db'
+import { X } from 'lucide-vue-next'
 import draggable from 'vuedraggable'
 import { useProducts } from '~/composables/useProducts'
 import { useCategories } from '~/composables/useCategories'
