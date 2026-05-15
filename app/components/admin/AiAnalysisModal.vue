@@ -869,6 +869,14 @@ async function fetchWeather() {
 /** ฟังก์ชันสำหรับสร้าง Options ของกราฟ */
 function getChartOptions(data: any) {
   const isDarkVal = isDark.value
+  const isPie = data.type === 'pie' || data.type === 'donut'
+
+  // formatter ใส่ comma และ \u0e2bน่วย
+  const numFormatter = (val: number) => {
+    if (val === null || val === undefined) return ''
+    return Number(val).toLocaleString('th-TH')
+  }
+
   return {
     chart: {
       toolbar: { show: false },
@@ -883,15 +891,48 @@ function getChartOptions(data: any) {
     xaxis: {
       categories: data.labels || [],
     },
+    yaxis: {
+      labels: {
+        formatter: numFormatter
+      }
+    },
     theme: {
       mode: isDarkVal ? 'dark' : 'light',
       palette: 'palette1'
     },
     colors: ['#8b5cf6', '#06b6d4', '#f97316', '#10b981', '#f43f5e', '#eab308'],
     stroke: { width: 2, curve: 'smooth' },
-    dataLabels: { enabled: data.type === 'pie' },
+    dataLabels: {
+      enabled: true,
+      formatter: isPie
+        // Pie: แสดง label + % 
+        ? (val: number, opts: any) => {
+            const label = (data.labels || [])[opts.seriesIndex] || ''
+            return `${label}\n${Number(val).toFixed(1)}%`
+          }
+        // Bar/Line: แสดงตัวเลขใส่ comma
+        : (val: number) => numFormatter(val),
+      style: {
+        fontSize: '11px',
+        fontWeight: 'bold',
+        // Bar ใช้สีขาวเพื่อเห็นชัดบนแท่งสีม่วง
+        colors: data.type === 'bar' ? ['#ffffff'] : undefined,
+      },
+      dropShadow: { enabled: false },
+      offsetY: 0,
+    },
+    plotOptions: data.type === 'bar' ? {
+      bar: {
+        // center ทำให้ label อยู่กึ่งกลางแท่ง ไม่หลุดออก
+        dataLabels: { position: 'center' },
+        borderRadius: 4,
+      }
+    } : {},
     legend: { position: 'bottom' },
-    tooltip: { theme: isDarkVal ? 'dark' : 'light' }
+    tooltip: {
+      theme: isDarkVal ? 'dark' : 'light',
+      y: { formatter: numFormatter }
+    }
   }
 }
 
@@ -1085,7 +1126,7 @@ async function runAnalysis() {
     // 1. ลองใช้ Gemini ก่อน (ตัวหลัก)
     if (receiptSettings.value.geminiEnabled !== false && geminiKey?.startsWith('AI')) {
       try {
-        activeModelName.value = 'Gemini 3.1 Flash Lite'
+        // activeModelName จะถูก set ใน analyzeWithGemini() หลังจากรู้ model จริง
         console.log('%c[AI] %cTrying Gemini...', 'color: #4285f4; font-weight: bold', 'color: #888')
         await analyzeWithGemini(geminiKey)
         isRealAi.value = true
@@ -1110,7 +1151,9 @@ async function runAnalysis() {
     // 3. ลองใช้ Groq (ความเร็วสูง)
     if (receiptSettings.value.groqEnabled !== false && groqKey?.startsWith('gsk_')) {
       try {
-        activeModelName.value = 'Groq (Llama 3.3)'
+        // แสดงชื่อ model จาก settings จริง ไม่ hardcode
+        const groqDisplayModel = receiptSettings.value.groqModel || 'llama-3.3-70b-versatile'
+        activeModelName.value = `Groq (${groqDisplayModel})`
         analysisMessage.value = 'กำลังใช้ Groq สำรองความเร็วสูง...'
         console.log('%c[AI] %cSwitching to Groq fallback...', 'color: #10b981; font-weight: bold', 'color: #888')
         await analyzeWithGroq(groqKey)
@@ -1136,8 +1179,22 @@ async function runAnalysis() {
 
 const cachedModel = ref<string | null>(null)
 
-/** ค้นหาโมเดลที่ใช้งานได้จริงสำหรับ API Key นี้ */
+/** ค้นหาโมเดลที่ใช้งานได้จริงสำหรับ API Key นี้
+ *  ถ้า user ตั้งค่า geminiModel ไว้แล้ว จะใช้ค่านั้นทันที (Source of Truth)
+ *  ถ้าไม่มี จึงค่อย auto-detect จาก API
+ */
 async function getAvailableModel(apiKey: string): Promise<string> {
+  // ✅ user setting มีความสำคัญสูงสุด — ใช้ทันทีโดยไม่ต้อง call API
+  const userModel = receiptSettings.value.geminiModel
+  if (userModel) {
+    const modelFull = userModel.startsWith('models/') ? userModel : `models/${userModel}`
+    // clear cache เพื่อไม่ให้ค้างข้ามรอบ
+    if (cachedModel.value !== modelFull) cachedModel.value = null
+    console.log(`[AI] Using user-configured model: ${modelFull}`)
+    return modelFull
+  }
+
+  // fallback: auto-detect (มี cache เพื่อลด API call)
   if (cachedModel.value) return cachedModel.value
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
@@ -1159,7 +1216,7 @@ async function getAvailableModel(apiKey: string): Promise<string> {
     
     const found = flash31?.name || flash30?.name || flash25?.name || flash20Lite?.name || flash15?.name || 'models/gemini-3.1-flash-lite-preview'
     cachedModel.value = found
-    console.log(`[AI] Selected Gemini Model: ${found}`)
+    console.log(`[AI] Auto-detected Gemini Model: ${found}`)
     return found
   } catch {
     return 'models/gemini-3.1-flash-lite-preview'
@@ -1309,6 +1366,8 @@ async function analyzeWithGemini(apiKey: string) {
   let modelToUse = receiptSettings.value.geminiModel || await getAvailableModel(apiKey)
   let modelNameFull = modelToUse.startsWith('models/') ? modelToUse : `models/${modelToUse}`
   let url = `https://generativelanguage.googleapis.com/v1beta/${modelNameFull}:generateContent?key=${apiKey}`
+  // อัปเดต display name ให้ตรงกับ model ที่ใช้จริง
+  activeModelName.value = modelNameFull.replace(/^models\//, '')
   
   const systemInstruction = getSystemInstruction()
 
@@ -1329,9 +1388,10 @@ async function analyzeWithGemini(apiKey: string) {
     }
     
     console.warn(`[AI] Gemini ${modelNameFull} hit error ${response.status}, trying stable fallback...`)
-    const fallbackModel = 'models/gemini-3.1-flash-lite-preview' // ใช้ตัวที่กำหนดเป็นค่าเริ่มต้นล่าสุด
+    // ใช้ค่า fallback จาก settings ถ้ามี หรือ auto-detect จาก API
+    const fallbackModel = await getAvailableModel(apiKey)
     
-    modelNameFull = fallbackModel
+    modelNameFull = fallbackModel.startsWith('models/') ? fallbackModel : `models/${fallbackModel}`
     url = `https://generativelanguage.googleapis.com/v1beta/${modelNameFull}:generateContent?key=${apiKey}`
     
     response = await fetch(url, {
@@ -1577,8 +1637,14 @@ async function sendMessage() {
     // 1. ลอง Gemini
     if (receiptSettings.value.geminiEnabled !== false && apiKey) {
       try {
-        const modelName = await getAvailableModel(apiKey)
-        activeModelName.value = modelName.split('/').pop() || modelName
+        // ใช้ model ที่ user ตั้งค่าไว้ก่อน ถ้าไม่มีค่อย auto-detect
+        const modelName = receiptSettings.value.geminiModel
+          ? (receiptSettings.value.geminiModel.startsWith('models/')
+              ? receiptSettings.value.geminiModel
+              : `models/${receiptSettings.value.geminiModel}`)
+          : await getAvailableModel(apiKey)
+        const displayName = modelName.replace(/^models\//, '')
+        activeModelName.value = displayName
         const modelNameFull = modelName.startsWith('models/') ? modelName : `models/${modelName}`
         const url = `https://generativelanguage.googleapis.com/v1beta/${modelNameFull}:generateContent?key=${apiKey}`
         
@@ -1812,10 +1878,75 @@ function formatMarkdown(text: string) {
   let tableBuffer: string[] = []
 
   const flushTable = () => {
-    if (tableBuffer.length > 0) {
-      result.push(`<div class="font-mono text-[11px] whitespace-pre overflow-x-auto bg-surface-900/20 px-3 py-2 rounded-xl my-2 border border-surface-800/50 shadow-inner">${tableBuffer.join('\n')}</div>`)
-      tableBuffer = []
+    if (tableBuffer.length === 0) return
+    const rows = tableBuffer.filter(r => r.trim())
+    // แยกแถว separator (---) ออก
+    const dataRows = rows.filter(r => !/^\s*\|?\s*[-:]+[-|:\s]*$/.test(r))
+    
+    if (dataRows.length === 0) { tableBuffer = []; return }
+
+    // parse header vs body
+    const parseRow = (r: string) =>
+      r.split('|').map(c => c.trim()).filter((_, i, arr) => i > 0 && i < arr.length - 1)
+
+    const isHeaderRow = (r: string) => !(/^\s*\|?\s*[-:]+[-|:\s]*$/.test(r))
+    const filteredRows = dataRows.filter(r => isHeaderRow(r))
+    const headerRow = filteredRows[0] ? parseRow(filteredRows[0]) : []
+    const bodyRows  = filteredRows.slice(1).map(parseRow)
+
+    /** แปลง **bold** ภายในเซลล์ และ number format */
+    const processCellContent = (c: string): { html: string; isNum: boolean } => {
+      // ตรวจว่าทั้งเซลล์เป็น **...** (summary row cell)
+      const boldWrap = c.match(/^\*\*(.*)\*\*$/)
+      // boldWrap[1] อาจเป็น undefined ตาม TypeScript type → ใช้ ?? c เป็น fallback
+      const rawValue: string = boldWrap ? (boldWrap[1] ?? c) : c
+
+      // ตรวจตัวเลข (อนุญาต ฿ % , -)
+      const stripped = rawValue.replace(/[฿%,\s]/g, '').trim()
+      const isNum = /^-?[\d.]+$/.test(stripped)
+
+      let display = rawValue
+      if (isNum) {
+        const num = Number(rawValue.replace(/[฿%,]/g, '').trim())
+        const numStr = num.toLocaleString('th-TH')
+        display = rawValue.includes('฿') ? `฿${numStr}` : rawValue.includes('%') ? `${numStr}%` : numStr
+      }
+
+      // wrap bold ถ้าต้องการ
+      const html = boldWrap ? `<strong>${display}</strong>` : display
+      return { html, isNum }
     }
+
+    /** ตรวจว่าเป็นแถวสรุป/รวม (เซลล์แรกมี **...** หรือมีคำว่า รวม/Total) */
+    const isSummaryRow = (cells: string[]) => {
+      const first = (cells[0] || '').trim()
+      return /^\*\*.*\*\*$/.test(first) || /รวม|total|sum/i.test(first)
+    }
+
+    const thCells = headerRow.map(h => {
+      const { html } = processCellContent(h)
+      return `<th class="px-4 py-2.5 text-left text-[12px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 border-b-2 border-purple-200 dark:border-purple-800/60 whitespace-nowrap">${html}</th>`
+    }).join('')
+
+    const trRows = bodyRows.map((cells, ri) => {
+      const summary = isSummaryRow(cells)
+      const stripe = ri % 2 === 0 ? 'bg-white dark:bg-surface-900/10' : 'bg-gray-50/80 dark:bg-surface-800/20'
+      const rowClass = summary
+        ? 'bg-purple-50/60 dark:bg-purple-950/20 border-t border-purple-200 dark:border-purple-800/40'
+        : `${stripe} hover:bg-purple-50/40 dark:hover:bg-surface-800/30 transition-colors`
+      const tds = cells.map((c, ci) => {
+        const { html, isNum } = processCellContent(c)
+        const align = ci > 0 && isNum ? 'text-right' : 'text-left'
+        const textClass = summary
+          ? 'font-bold text-purple-800 dark:text-purple-200'
+          : 'text-gray-700 dark:text-surface-200'
+        return `<td class="px-4 py-2 text-[12px] ${align} ${textClass} border-b border-gray-100 dark:border-surface-800/40">${html}</td>`
+      }).join('')
+      return `<tr class="${rowClass}">${tds}</tr>`
+    }).join('')
+
+    result.push(`<div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-surface-700/60 my-3 shadow-sm"><table class="w-full border-collapse text-sm bg-white dark:bg-transparent"><thead><tr>${thCells}</tr></thead><tbody>${trRows}</tbody></table></div>`)
+    tableBuffer = []
   }
 
   for (let line of lines) {

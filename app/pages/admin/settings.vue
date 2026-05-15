@@ -168,6 +168,17 @@
                   <div>
                     <label class="form-label !text-[10px]">Model Name</label>
                     <input v-model="form.geminiModel" type="text" placeholder="เช่น gemini-3.1-flash-lite-preview" class="form-input font-mono !text-[11px]" :disabled="!form.geminiEnabled" />
+                    <div class="flex items-center gap-1.5 mt-1.5">
+                      <button
+                        type="button"
+                        @click="fetchModels('gemini')"
+                        :disabled="!form.geminiEnabled || modelPickerLoading === 'gemini'"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-primary-500/10 text-primary-400 border border-primary-500/20 hover:bg-primary-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                      >
+                        <span :class="modelPickerLoading === 'gemini' ? 'animate-spin' : ''">🔄</span>
+                        ดึงรายชื่อโมเดลล่าสุด
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -198,6 +209,17 @@
                   <div>
                     <label class="form-label !text-[10px]">Models (คั่นด้วยคอมมา สำหรับระบบสำรองอัตโนมัติ)</label>
                     <textarea v-model="form.openRouterModels" rows="2" placeholder="เช่น qwen/qwen3-32b:free, llama-3.3-70b-versatile:free" class="form-input font-mono !text-[11px] resize-none" :disabled="!form.openRouterEnabled" />
+                    <div class="flex items-center gap-1.5 mt-1.5">
+                      <button
+                        type="button"
+                        @click="fetchModels('openrouter')"
+                        :disabled="!form.openRouterEnabled || modelPickerLoading === 'openrouter'"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                      >
+                        <span :class="modelPickerLoading === 'openrouter' ? 'animate-spin' : ''">🔄</span>
+                        ดึงรายชื่อโมเดลล่าสุด
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -228,6 +250,17 @@
                   <div>
                     <label class="form-label !text-[10px]">Model Name</label>
                     <input v-model="form.groqModel" type="text" placeholder="เช่น llama-3.3-70b-versatile" class="form-input font-mono !text-[11px]" :disabled="!form.groqEnabled" />
+                    <div class="flex items-center gap-1.5 mt-1.5">
+                      <button
+                        type="button"
+                        @click="fetchModels('groq')"
+                        :disabled="!form.groqEnabled || modelPickerLoading === 'groq'"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                      >
+                        <span :class="modelPickerLoading === 'groq' ? 'animate-spin' : ''">🔄</span>
+                        ดึงรายชื่อโมเดลล่าสุด
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1025,6 +1058,85 @@
     </div>
 
   </div>
+
+  <!-- ====== Model Picker Modal ====== -->
+  <Teleport to="body">
+    <Transition name="modal-fade">
+      <div v-if="modelPickerModal.show" class="fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="modelPickerModal.show = false" />
+
+        <!-- Modal -->
+        <div class="relative bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200">
+          <!-- Header -->
+          <div class="flex items-center justify-between px-5 py-4 border-b border-surface-800">
+            <div>
+              <h3 class="text-sm font-bold text-surface-50 flex items-center gap-2">
+                <span>{{ modelPickerModal.providerIcon }}</span>
+                <span>เลือก Model — {{ modelPickerModal.providerLabel }}</span>
+              </h3>
+              <p class="text-[10px] text-surface-500 mt-0.5">{{ modelPickerModal.models.length }} โมเดล — คลิกเพื่อเลือก</p>
+            </div>
+            <button
+              @click="modelPickerModal.show = false"
+              class="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-800 text-surface-400 hover:text-white hover:bg-surface-700 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+
+          <!-- Search -->
+          <div class="px-5 py-3 border-b border-surface-800">
+            <input
+              v-model="modelPickerSearch"
+              type="text"
+              placeholder="ค้นหาโมเดล..."
+              class="form-input !text-sm"
+              autofocus
+            />
+          </div>
+
+          <!-- Model List -->
+          <div class="flex-1 overflow-y-auto p-3 space-y-1">
+            <div v-if="filteredPickerModels.length === 0" class="text-center py-8 text-surface-500 text-sm">
+              ไม่พบโมเดลที่ตรงกับการค้นหา
+            </div>
+            <button
+              v-for="model in filteredPickerModels"
+              :key="model.id"
+              type="button"
+              @click="selectModel(model)"
+              class="w-full text-left px-4 py-2.5 rounded-xl border transition-all group"
+              :class="isCurrentModel(model.id) ? 'border-primary-500/50 bg-primary-500/10 text-primary-300' : 'border-transparent bg-surface-800/50 hover:bg-surface-800 text-surface-300 hover:text-surface-50'"
+            >
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1 min-w-0">
+                  <p class="text-[12px] font-mono font-semibold truncate">{{ model.id }}</p>
+                  <p v-if="model.name && model.name !== model.id" class="text-[10px] text-surface-500 truncate mt-0.5">{{ model.name }}</p>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <span v-if="model.isFree" class="text-[9px] font-bold bg-green-500/15 text-green-400 border border-green-500/20 px-1.5 py-0.5 rounded-md">ฟรี</span>
+                  <span v-if="isCurrentModel(model.id)" class="text-[9px] font-bold bg-primary-500/15 text-primary-400 border border-primary-500/20 px-1.5 py-0.5 rounded-md">ใช้งานอยู่</span>
+                </div>
+              </div>
+              <p v-if="model.contextLength" class="text-[9px] text-surface-600 mt-0.5">Context: {{ (model.contextLength / 1000).toFixed(0) }}K tokens</p>
+            </button>
+          </div>
+
+          <!-- Footer -->
+          <div class="px-5 py-3 border-t border-surface-800 bg-surface-950/50 rounded-b-2xl">
+            <button
+              @click="modelPickerModal.show = false"
+              class="w-full py-2.5 bg-surface-800 hover:bg-surface-700 text-surface-50 rounded-xl text-sm font-bold transition-all"
+            >
+              ปิด
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
 </template>
 
 
@@ -1316,6 +1428,163 @@ async function handleTestLineSummary() {
 }
 
 
+
+// ==========================================
+// Model Picker State & Logic
+// ==========================================
+
+type AiProvider = 'gemini' | 'groq' | 'openrouter'
+
+interface PickerModel {
+  id: string
+  name: string
+  isFree?: boolean
+  contextLength?: number
+}
+
+const modelPickerLoading = ref<AiProvider | null>(null)
+const modelPickerSearch = ref('')
+
+const modelPickerModal = reactive({
+  show: false,
+  provider: '' as AiProvider | '',
+  providerLabel: '',
+  providerIcon: '',
+  models: [] as PickerModel[],
+})
+
+const filteredPickerModels = computed(() => {
+  const q = modelPickerSearch.value.toLowerCase().trim()
+  if (!q) return modelPickerModal.models
+  return modelPickerModal.models.filter(m =>
+    m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)
+  )
+})
+
+/** ตรวจสอบว่า model ที่แสดงเป็น model ปัจจุบันที่ตั้งค่าไว้หรือเปล่า */
+function isCurrentModel(modelId: string): boolean {
+  const p = modelPickerModal.provider
+  if (p === 'gemini') return form.geminiModel === modelId
+  if (p === 'groq') return form.groqModel === modelId
+  if (p === 'openrouter') {
+    // OpenRouter มีหลาย model คั่นด้วยคอมมา
+    return (form.openRouterModels || '').split(',').map(s => s.trim()).includes(modelId)
+  }
+  return false
+}
+
+/** เลือก model แล้ว set ลง form */
+function selectModel(model: PickerModel) {
+  const p = modelPickerModal.provider
+  if (p === 'gemini') {
+    form.geminiModel = model.id
+  } else if (p === 'groq') {
+    form.groqModel = model.id
+  } else if (p === 'openrouter') {
+    // OpenRouter: เพิ่ม model เข้าไปในรายการ (ถ้ายังไม่มี)
+    const current = (form.openRouterModels || '').split(',').map(s => s.trim()).filter(Boolean)
+    if (!current.includes(model.id)) {
+      form.openRouterModels = [...current, model.id].join(', ')
+    }
+  }
+  modelPickerModal.show = false
+}
+
+/** ดึงรายชื่อ Model จาก API ของแต่ละ provider */
+async function fetchModels(provider: AiProvider) {
+  modelPickerLoading.value = provider
+  modelPickerSearch.value = ''
+  let models: PickerModel[] = []
+
+  try {
+    if (provider === 'gemini') {
+      // ใช้ API Key ที่ user กรอก หรือ ENV default
+      const apiKey = form.geminiApiKey || config.public.defaultGeminiKey as string || ''
+      if (!apiKey) {
+        toast.error('กรุณากรอก Gemini API Key ก่อน')
+        return
+      }
+      // เรียก Gemini models.list API
+      const res = await $fetch<{ models: Array<{ name: string; displayName?: string; description?: string; inputTokenLimit?: number }> }>(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=100`
+      )
+      models = (res.models || []).map(m => ({
+        // ชื่อในรูปแบบ "models/gemini-xxx" — ตัด prefix ออก
+        id: m.name.replace(/^models\//, ''),
+        name: m.displayName || m.name.replace(/^models\//, ''),
+        contextLength: m.inputTokenLimit,
+      }))
+
+    } else if (provider === 'groq') {
+      const apiKey = form.groqApiKey || config.public.defaultGroqKey as string || ''
+      if (!apiKey) {
+        toast.error('กรุณากรอก Groq API Key ก่อน')
+        return
+      }
+      // เรียก Groq models list API (OpenAI compatible)
+      const res = await $fetch<{ data: Array<{ id: string; owned_by?: string; context_window?: number }> }>(
+        'https://api.groq.com/openai/v1/models',
+        { headers: { Authorization: `Bearer ${apiKey}` } }
+      )
+      models = (res.data || []).map(m => ({
+        id: m.id,
+        name: m.id,
+        contextLength: m.context_window,
+      }))
+      // เรียงตามชื่อ
+      models.sort((a, b) => a.id.localeCompare(b.id))
+
+    } else if (provider === 'openrouter') {
+      // OpenRouter: ไม่ต้องใช้ API Key เพื่อดูรายชื่อ model
+      // แต่ถ้ามี key จะดึง user-filtered models
+      const apiKey = form.openRouterApiKey || config.public.defaultOpenRouterKey as string || ''
+      const endpoint = apiKey
+        ? 'https://openrouter.ai/api/v1/models'
+        : 'https://openrouter.ai/api/v1/models'
+      const headers: Record<string, string> = {}
+      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
+
+      const res = await $fetch<{ data: Array<{ id: string; name?: string; context_length?: number; pricing?: { prompt: string; completion: string } }> }>(
+        endpoint, { headers }
+      )
+      models = (res.data || []).map(m => ({
+        id: m.id,
+        name: m.name || m.id,
+        contextLength: m.context_length,
+        // ถ้า pricing.prompt === '0' = ฟรี
+        isFree: m.pricing?.prompt === '0' || m.id.includes(':free'),
+      }))
+      // เรียง: ฟรีก่อน แล้วเรียงตามชื่อ
+      models.sort((a, b) => {
+        if (a.isFree && !b.isFree) return -1
+        if (!a.isFree && b.isFree) return 1
+        return a.id.localeCompare(b.id)
+      })
+    }
+
+    // แสดง modal
+    modelPickerModal.provider = provider
+    modelPickerModal.providerLabel = {
+      gemini: 'Google Gemini',
+      groq: 'Groq',
+      openrouter: 'OpenRouter',
+    }[provider]
+    modelPickerModal.providerIcon = { gemini: '🤖', groq: '⚡', openrouter: '🌐' }[provider]
+    modelPickerModal.models = models
+    modelPickerModal.show = true
+
+    if (models.length === 0) {
+      toast.error('ไม่พบรายชื่อโมเดล กรุณาตรวจสอบ API Key')
+      modelPickerModal.show = false
+    }
+  } catch (e: any) {
+    const msg = e?.data?.error?.message || e?.message || 'เกิดข้อผิดพลาด'
+    toast.error(`ดึงรายชื่อโมเดลไม่สำเร็จ: ${msg}`)
+  } finally {
+    modelPickerLoading.value = null
+  }
+}
+
 </script>
 
 <style scoped>
@@ -1354,6 +1623,12 @@ async function handleTestLineSummary() {
 .expand-enter-to, .expand-leave-from {
   opacity: 1;
   max-height: 120px;
+}
+.modal-fade-enter-active, .modal-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.modal-fade-enter-from, .modal-fade-leave-to {
+  opacity: 0;
 }
 .hide-scrollbar::-webkit-scrollbar {
   display: none;

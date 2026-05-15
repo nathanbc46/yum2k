@@ -39,15 +39,17 @@
       <!-- แถบสถานะและทางลัด (Status & Shortcuts) -->
       <div class="flex flex-col gap-2.5">
         <!-- สถานะออนไลน์ (ขนาดกะทัดรัด) -->
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-2">
           <div
-            class="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-black border transition-colors"
+            class="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-black border transition-colors shrink-0"
             :class="isOnline ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'"
           >
             <span class="w-1.5 h-1.5 rounded-full" :class="isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'"></span>
             {{ isOnline ? 'ONLINE' : 'OFFLINE' }}
           </div>
-          <div class="text-[10px] text-surface-500 font-bold uppercase tracking-widest">ทางลัดด่วน</div>
+          <!-- พยากรณ์อากาศวันนี้ -->
+          <PosWeatherBadge v-if="isOnline" />
+          <div class="text-[10px] text-surface-500 font-bold uppercase tracking-widest" v-if="!isOnline">ทางลัดด่วน</div>
         </div>
 
         <!-- Buy X Get Y Banner -->
@@ -311,6 +313,7 @@ import PosOrderSummaryModal from './PosOrderSummaryModal.vue'
 import PosAddonModal from './PosAddonModal.vue'
 import PosBuyXGetYBanner from './PosBuyXGetYBanner.vue'
 import PosFreeItemModal from './PosFreeItemModal.vue'
+import PosWeatherBadge from './PosWeatherBadge.vue'
 import type { PaymentMethod } from '~/types'
 import { checkBuyXGetYEligibility } from '~/composables/useBuyXGetY'
 import type { BuyXGetYEligibility } from '~/composables/useBuyXGetY'
