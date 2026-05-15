@@ -10,7 +10,11 @@
       <div class="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 class="text-xl font-bold flex items-center gap-2">🏪 สรุปยอดปิดร้าน</h1>
-          <p class="text-xs text-surface-500 mt-0.5">{{ displayDate }}</p>
+          <div class="flex items-center gap-2 mt-0.5">
+            <p class="text-xs text-surface-500">{{ displayDate }}</p>
+            <span class="text-surface-700">|</span>
+            <PosWeatherBadge v-if="selectedDate === today" />
+          </div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
           <input v-model="selectedDate" type="date" @change="loadData"
@@ -472,6 +476,7 @@
       :initial-tab="aiModalInitialTab"
       analysis-mode="daily"
       source-title="สรุปยอดปิดร้าน"
+      :include-weather="selectedDate === today"
       @close="isAiModalOpen = false"
     />
   </div>
@@ -482,6 +487,7 @@ import { useReports } from '~/composables/useReports'
 import { useProfitability } from '~/composables/useProfitability'
 import { useDailyStockSnapshot } from '~/composables/useDailyStockSnapshot'
 import AdminAiAnalysisModal from '~/components/admin/AiAnalysisModal.vue'
+import PosWeatherBadge from '~/components/pos/PosWeatherBadge.vue'
 import type { Order, Category, Product, DailyStockSnapshot } from '~/types'
 import { db } from '~/db'
 import { useMasterDataSync } from '~/composables/useMasterDataSync'

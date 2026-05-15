@@ -47,9 +47,7 @@
             <span class="w-1.5 h-1.5 rounded-full" :class="isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'"></span>
             {{ isOnline ? 'ONLINE' : 'OFFLINE' }}
           </div>
-          <!-- พยากรณ์อากาศวันนี้ -->
-          <PosWeatherBadge v-if="isOnline" />
-          <div class="text-[10px] text-surface-500 font-bold uppercase tracking-widest" v-if="!isOnline">ทางลัดด่วน</div>
+          <div class="text-[10px] text-surface-500 font-bold uppercase tracking-widest">ทางลัดด่วน</div>
         </div>
 
         <!-- Buy X Get Y Banner -->
@@ -313,7 +311,6 @@ import PosOrderSummaryModal from './PosOrderSummaryModal.vue'
 import PosAddonModal from './PosAddonModal.vue'
 import PosBuyXGetYBanner from './PosBuyXGetYBanner.vue'
 import PosFreeItemModal from './PosFreeItemModal.vue'
-import PosWeatherBadge from './PosWeatherBadge.vue'
 import type { PaymentMethod } from '~/types'
 import { checkBuyXGetYEligibility } from '~/composables/useBuyXGetY'
 import type { BuyXGetYEligibility } from '~/composables/useBuyXGetY'
