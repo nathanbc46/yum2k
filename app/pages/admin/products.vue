@@ -40,10 +40,8 @@
                 <span>📤</span> ส่งออกสินค้า (Export)
               </button>
               <button 
-                @click="isOnline ? (triggerImport(), showExcelMenu = false) : null" 
-                class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 flex items-center gap-2"
-                :class="isOnline ? 'text-primary-400' : 'text-surface-600 cursor-not-allowed opacity-50'"
-                :title="isOnline ? '' : 'ต้องใช้อินเทอร์เน็ต'"
+                @click="triggerImport(); showExcelMenu = false" 
+                class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-surface-800 flex items-center gap-2 text-primary-400"
               >
                 <span>📥</span> นำเข้าสินค้า (Import)
               </button>
@@ -57,12 +55,27 @@
             />
           </div>
 
+          <!-- Sync Status Badge -->
+          <div v-if="pendingSyncCount > 0" class="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+            <span v-if="isSyncingProducts" class="w-3 h-3 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin shrink-0"></span>
+            <span v-else class="text-amber-400 text-sm">⏳</span>
+            <span class="text-amber-400 text-xs font-bold whitespace-nowrap">
+              {{ isSyncingProducts ? 'กำลัง Sync...' : `รอ Sync ${pendingSyncCount} รายการ` }}
+            </span>
+          </div>
+          <div v-else-if="isOnline" class="flex items-center gap-1.5 px-3 py-2 bg-success/5 border border-success/20 rounded-xl">
+            <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
+            <span class="text-success text-xs font-bold">Synced</span>
+          </div>
+          <div v-else class="flex items-center gap-1.5 px-3 py-2 bg-surface-800 border border-surface-700 rounded-xl">
+            <span class="w-2 h-2 rounded-full bg-surface-500"></span>
+            <span class="text-surface-500 text-xs font-bold">Offline</span>
+          </div>
+
           <button
             v-if="!showTrash"
             @click="openCreateModal"
-            :disabled="!isOnline"
-            class="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-primary-900/20"
-            :title="isOnline ? '' : 'ต้องใช้อินเทอร์เน็ต'"
+            class="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-500 active:scale-95 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-primary-900/20"
           >
             <span>+</span>
             เพิ่มสินค้าใหม่
@@ -369,7 +382,19 @@
 
                   <!-- Actions -->
                   <td class="px-6 py-4 text-right">
-                    <div class="flex justify-end gap-2">
+                    <div class="flex justify-end items-center gap-2">
+                      <!-- Pending Sync Indicator -->
+                      <span
+                        v-if="(product as any).syncStatus === 'pending'"
+                        class="text-[9px] px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded font-bold animate-pulse"
+                        title="รอ Sync ขึ้น Cloud"
+                      >⏳ Pending</span>
+                      <span
+                        v-else-if="(product as any).syncStatus === 'failed'"
+                        class="text-[9px] px-1.5 py-0.5 bg-danger/10 text-danger border border-danger/20 rounded font-bold"
+                        title="Sync ล้มเหลว"
+                      >❌ Sync Error</span>
+
                       <!-- โหมดปกติ -->
                       <template v-if="!showTrash">
                         <button
@@ -469,7 +494,17 @@ import type { Product, Category, InventoryMappingType } from '~/types'
 
 definePageMeta({ layout: 'admin' })
 
-const { fetchAll: fetchProducts, toggleProductActive, deleteProduct, restoreProduct, reorderProducts } = useProducts()
+const { 
+  fetchAll: fetchProducts, 
+  toggleProductActive, 
+  deleteProduct, 
+  restoreProduct, 
+  reorderProducts,
+  syncPendingProducts,
+  countPendingSync,
+  pendingSyncCount,
+  isSyncingProducts,
+} = useProducts()
 const { fetchAll: fetchCategories } = useCategories()
 const { lastPullTimestamp, pullAll, isSyncingMaster } = useMasterDataSync()
 const toast = useToast()
@@ -663,6 +698,24 @@ watch(lastPullTimestamp, () => {
   loadData()
 })
 
+// Auto-sync เมื่อกลับมา Online
+watch(isOnline, async (online) => {
+  if (online) {
+    const pending = await countPendingSync()
+    if (pending > 0) {
+      toast.info(`กำลัง Sync ${pending} รายการสินค้าขึ้น Cloud...`)
+      const result = await syncPendingProducts()
+      if (result.success > 0) {
+        toast.success(`Sync สำเร็จ ${result.success} รายการ`)
+        await loadData()
+      }
+      if (result.failed > 0) {
+        toast.error(`Sync ล้มเหลว ${result.failed} รายการ กรุณาลองใหม่`)
+      }
+    }
+  }
+})
+
 async function handleToggle(product: Product) {
   await toggleProductActive(product.id!)
   await loadData()
@@ -779,5 +832,9 @@ async function onDragEnd() {
   }
 }
 
-onMounted(loadData)
+onMounted(async () => {
+  await loadData()
+  // นับจำนวนที่รอ Sync เมื่อเปิดหน้า
+  await countPendingSync()
+})
 </script>

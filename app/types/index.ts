@@ -169,6 +169,12 @@ export interface Product extends BaseEntity {
   isActive: boolean           // แสดง/ซ่อนสินค้าในหน้าขาย
   sortOrder: number           // ลำดับการแสดงผล
   totalSold: number           // ยอดขายสะสม (จำนวนชิ้น)
+
+  // --- Offline-First Sync ---
+  syncStatus?: SyncStatus     // สถานะ Sync ขึ้น Cloud (pending/synced/failed)
+  syncedAt?: Date             // วันเวลาที่ Sync สำเร็จล่าสุด
+  syncRetryCount?: number     // จำนวนครั้งที่ Retry
+  syncError?: string          // ข้อความ Error ล่าสุด (ถ้า failed)
 }
 
 // ---------------------------------------------------------------------------
@@ -460,6 +466,7 @@ export interface MassEditPayload {
   categoryId?: number
   isActive?: boolean
   priceAdjustPercent?: number   // +10 = เพิ่ม 10%, -5 = ลด 5%
+  trackInventory?: boolean      // เปิด/ปิด ติดตามสต็อก
 }
 
 // ---------------------------------------------------------------------------

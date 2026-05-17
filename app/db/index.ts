@@ -24,7 +24,7 @@ import type {
 // ---------------------------------------------------------------------------
 // กำหนด Version ของ Database (เพิ่มทุกครั้งที่เปลี่ยน Schema)
 // ---------------------------------------------------------------------------
-const DB_VERSION = 10
+const DB_VERSION = 11
 const DB_NAME = 'Yum2K_POS_DB'
 
 // ---------------------------------------------------------------------------
@@ -194,6 +194,23 @@ class Yum2KDatabase extends Dexie {
       dailyStockSnapshots: '++id, &uuid, [snapshotDate+productUuid], snapshotDate, productUuid, productId, syncStatus, capturedAt, isDeleted',
       promotions: '++id, &uuid, type, isActive, isDeleted, updatedAt, syncStatus',
     })
+
+    // Version 11: เพิ่ม syncStatus index ใน products สำหรับ Offline-First CRUD
+    this.version(DB_VERSION).stores({
+      users: '++id, &uuid, &username, role, isActive, isDeleted, updatedAt',
+      categories: '++id, &uuid, name, parentId, parentUuid, isActive, sortOrder, isDeleted, updatedAt',
+      products: '++id, &uuid, categoryId, name, sku, isActive, sortOrder, totalSold, stockQuantity, mappingType, isDeleted, syncStatus, updatedAt',
+      orders: '++id, &uuid, &orderNumber, staffId, status, kitchenStatus, syncStatus, createdAt, updatedAt, paymentMethod, isDeleted',
+      syncQueue: '++id, &uuid, entityType, entityId, syncStatus, retryCount, isDeleted',
+      appSettings: '&key',
+      stockAuditLogs: '++id, &uuid, productId, staffId, syncStatus, createdAt, isDeleted',
+      expenses: '++id, &uuid, categoryId, category, expenseDate, syncStatus, isDeleted',
+      expenseCategories: '++id, &uuid, name, isActive, sortOrder, isDeleted, updatedAt',
+      aiConversations: '++id, &uuid, source, title, createdAt, updatedAt, isDeleted',
+      aiChats: '++id, &uuid, conversationUuid, role, createdAt, isDeleted',
+      dailyStockSnapshots: '++id, &uuid, [snapshotDate+productUuid], snapshotDate, productUuid, productId, syncStatus, capturedAt, isDeleted',
+      promotions: '++id, &uuid, type, isActive, isDeleted, updatedAt, syncStatus',
+    })
   }
 }
 
@@ -226,7 +243,7 @@ tablesWithTimestamps.forEach((tableName) => {
     if (tableName === 'orders') {
       obj.kitchenStatus = obj.kitchenStatus ?? 'pending'
     }
-    if (['orders', 'stockAuditLogs', 'expenses', 'expenseCategories', 'dailyStockSnapshots'].includes(tableName)) {
+    if (['orders', 'stockAuditLogs', 'expenses', 'expenseCategories', 'dailyStockSnapshots', 'products'].includes(tableName)) {
       obj.syncStatus = obj.syncStatus ?? 'pending'
       obj.syncRetryCount = obj.syncRetryCount ?? 0
     }

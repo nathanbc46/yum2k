@@ -100,6 +100,39 @@
                 </div>
               </div>
 
+              <!-- ติดตามสต็อก -->
+              <div class="flex items-start gap-3">
+                <input type="checkbox" v-model="enableTrackInventory" class="w-4 h-4 accent-primary-500 mt-2.5 rounded" />
+                <div class="flex-1">
+                  <label class="block text-sm font-semibold text-surface-300 mb-1.5">ติดตามสต็อก</label>
+                  <div class="flex gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        :value="true"
+                        v-model="payload.trackInventory"
+                        :disabled="!enableTrackInventory"
+                        class="accent-primary-500"
+                      />
+                      <span class="text-sm text-primary-400" :class="{ 'opacity-40': !enableTrackInventory }">📦 เปิดติดตาม</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        :value="false"
+                        v-model="payload.trackInventory"
+                        :disabled="!enableTrackInventory"
+                        class="accent-surface-500"
+                      />
+                      <span class="text-sm text-surface-400" :class="{ 'opacity-40': !enableTrackInventory }">🚫 ปิดติดตาม</span>
+                    </label>
+                  </div>
+                  <p v-if="enableTrackInventory && payload.trackInventory === false" class="text-xs text-amber-400 mt-1.5 flex items-center gap-1">
+                    <span>⚠️</span> สินค้าจะไม่แสดงสต็อกและไม่แจ้งเตือนเมื่อสินค้าใกล้หมด
+                  </p>
+                </div>
+              </div>
+
               <!-- ข้อผิดพลาด -->
               <div v-if="error" class="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
                 {{ error }}
@@ -157,17 +190,20 @@ const error = ref('')
 const enableCategory = ref(false)
 const enableIsActive = ref(false)
 const enablePrice = ref(false)
+const enableTrackInventory = ref(false)
 
 const payload = ref<MassEditPayload>({
   categoryId: undefined,
   isActive: undefined,
   priceAdjustPercent: undefined,
+  trackInventory: undefined,
 })
 
 const hasAnyChange = computed(() =>
   (enableCategory.value && payload.value.categoryId !== undefined)
   || enableIsActive.value
   || (enablePrice.value && payload.value.priceAdjustPercent !== 0 && payload.value.priceAdjustPercent !== undefined)
+  || (enableTrackInventory.value && payload.value.trackInventory !== undefined)
 )
 
 watch(() => props.isOpen, (open) => {
@@ -175,7 +211,8 @@ watch(() => props.isOpen, (open) => {
   enableCategory.value = false
   enableIsActive.value = false
   enablePrice.value = false
-  payload.value = { categoryId: undefined, isActive: undefined, priceAdjustPercent: undefined }
+  enableTrackInventory.value = false
+  payload.value = { categoryId: undefined, isActive: undefined, priceAdjustPercent: undefined, trackInventory: undefined }
   error.value = ''
 })
 
@@ -191,6 +228,9 @@ async function handleSave() {
   }
   if (enablePrice.value && payload.value.priceAdjustPercent !== undefined) {
     finalPayload.priceAdjustPercent = payload.value.priceAdjustPercent
+  }
+  if (enableTrackInventory.value && payload.value.trackInventory !== undefined) {
+    finalPayload.trackInventory = payload.value.trackInventory
   }
 
   if (Object.keys(finalPayload).length === 0) {
