@@ -131,7 +131,8 @@
                   <tr>
                     <th class="px-6 py-4">วันที่/เวลา</th>
                     <th class="px-6 py-4">เลขออร์เดอร์</th>
-                    <th class="px-6 py-4">ยอดขายสุทธิ</th>
+                    <th class="px-6 py-4">สินค้าในบิล</th>
+                    <th class="px-6 py-4">ยอดขาย</th>
                     <th class="px-6 py-4">ช่องทาง / สถานะ</th>
                     <th class="px-6 py-4">การ Sync</th>
                     <th class="px-6 py-4 text-right">คำสั่ง</th>
@@ -144,72 +145,81 @@
                     class="hover:bg-surface-800/30 transition-colors group"
                     :class="{ 'opacity-50 grayscale': order.status === 'cancelled' }"
                   >
+                    <!-- วันที่/เวลา -->
                     <td class="px-6 py-4 whitespace-nowrap">
                       <div class="font-medium">{{ formatDisplayDate(order.createdAt).date }}</div>
                       <div class="text-[10px] text-surface-500">{{ formatDisplayDate(order.createdAt).time }}</div>
                     </td>
+
+                    <!-- เลขออร์เดอร์ + สถานะ -->
                     <td class="px-6 py-4">
-                      <div class="flex items-center gap-2">
-                        <span class="font-mono text-xs bg-surface-950 px-2 py-1 rounded border border-surface-800" :class="{ 'line-through': order.status === 'cancelled' }">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-mono text-xs text-primary-400 font-bold" :class="{ 'line-through opacity-60': order.status === 'cancelled' }">
                           {{ order.orderNumber }}
                         </span>
                         <span 
                           v-if="order.status === 'cancelled'"
                           class="bg-danger/10 text-danger text-[9px] px-1.5 py-0.5 rounded border border-danger/20 font-bold uppercase"
-                        >
-                          ยกเลิกแล้ว
-                        </span>
+                        >ยกเลิกแล้ว</span>
                         <span 
                           v-else-if="order.status === 'pending'"
                           class="bg-yellow-500/10 text-yellow-500 text-[9px] px-1.5 py-0.5 rounded border border-yellow-500/30 font-bold uppercase"
-                        >
-                          ค้างจ่าย
-                        </span>
+                        >ค้างจ่าย</span>
                         <span 
                           v-else
                           class="bg-success/10 text-success text-[9px] px-1.5 py-0.5 rounded border border-success/20 font-bold uppercase"
-                        >
-                          สำเร็จ
-                        </span>
+                        >สำเร็จ</span>
                       </div>
                       <div v-if="order.note" class="text-[10px] text-surface-500 mt-1 italic line-clamp-1">
                         📝 {{ order.note }}
                       </div>
                     </td>
-                    <td class="px-6 py-4">
+
+                    <!-- สินค้าในบิล (Inline) -->
+                    <td class="px-6 py-3">
+                      <div class="flex flex-wrap gap-x-4 gap-y-1">
+                        <span 
+                          v-for="(item, idx) in order.items" 
+                          :key="idx"
+                          class="inline-flex items-baseline gap-1 text-sm whitespace-nowrap"
+                          :class="item.isFreeItem ? 'text-amber-400' : 'text-surface-200'"
+                        >
+                          {{ item.productName }}
+                          <span class="text-surface-500 font-medium text-xs">×{{ item.quantity }}</span>
+                          <span v-if="item.isFreeItem" class="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded px-1 font-bold">ฟรี</span>
+                        </span>
+                      </div>
+                    </td>
+
+                    <!-- ยอดขาย -->
+                    <td class="px-6 py-4 whitespace-nowrap">
                       <div class="font-bold text-primary-400" :class="{ 'line-through': order.status === 'cancelled' }">
                         ฿{{ order.totalAmount.toLocaleString() }}
                       </div>
-                      <div class="text-[10px] text-surface-500">{{ order.items.length }} รายการ</div>
                     </td>
+
+                    <!-- ช่องทาง / สถานะ -->
                     <td class="px-6 py-4">
                       <div class="flex flex-col gap-2">
-                        <!-- Payment Method -->
-                        <div class="flex items-center gap-2">
-                          <span 
-                            class="px-2 py-0.5 rounded text-[10px] font-bold border"
-                            :class="[
-                              order.paymentMethod === 'cash' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
-                              order.paymentMethod === 'promptpay' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                              order.paymentMethod === 'unpaid' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20' :
-                              'bg-surface-800 text-surface-600 border-surface-700'
-                            ]"
-                          >
-                            {{ 
-                              order.paymentMethod === 'cash' ? '💵 เงินสด' : 
-                              order.paymentMethod === 'promptpay' ? '📱 พร้อมเพย์' : 
-                              order.paymentMethod === 'card' ? '💳 บัตร' : 
-                              order.paymentMethod === 'unpaid' ? '⏳ ยังไม่ชำระ' : '🌀 อื่นๆ' 
-                            }}
-                          </span>
-                        </div>
-
-                        <!-- Delivery Status -->
+                        <span 
+                          class="px-2 py-0.5 rounded text-[10px] font-bold border w-fit"
+                          :class="[
+                            order.paymentMethod === 'cash' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
+                            order.paymentMethod === 'promptpay' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                            order.paymentMethod === 'unpaid' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' :
+                            'bg-surface-800 text-surface-600 border-surface-700'
+                          ]"
+                        >
+                          {{ 
+                            order.paymentMethod === 'cash' ? '💵 เงินสด' : 
+                            order.paymentMethod === 'promptpay' ? '📱 พร้อมเพย์' : 
+                            order.paymentMethod === 'card' ? '💳 บัตร' : 
+                            order.paymentMethod === 'unpaid' ? '⏳ ยังไม่ชำระ' : '🌀 อื่นๆ' 
+                          }}
+                        </span>
                         <div v-if="order.deliveryRef" class="flex items-center gap-1.5">
                           <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
-                          <span class="text-orange-400 text-[10px] font-bold">
-                            RIDER: {{ order.deliveryRef }}
-                          </span>
+                          <span class="text-orange-400 text-[10px] font-bold">RIDER: {{ order.deliveryRef }}</span>
                         </div>
                         <div v-else class="text-surface-600 dark:text-surface-500 text-[10px] flex items-center gap-1">
                           <span>🚶</span>
@@ -217,6 +227,8 @@
                         </div>
                       </div>
                     </td>
+
+                    <!-- การ Sync -->
                     <td class="px-6 py-4">
                       <div v-if="order.syncStatus === 'synced'" class="flex items-center gap-2 text-green-400 text-xs font-medium">
                         <span class="flex items-center justify-center w-5 h-5 rounded-full bg-green-400/10 text-[10px]">✔️</span>
@@ -227,6 +239,8 @@
                         <span>ออฟไลน์</span>
                       </div>
                     </td>
+
+                    <!-- คำสั่ง -->
                     <td class="px-6 py-4 text-right">
                       <div class="flex justify-end gap-2">
                         <button 
