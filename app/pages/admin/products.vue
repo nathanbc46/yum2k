@@ -55,6 +55,17 @@
             />
           </div>
 
+          <!-- ปุ่มปริ้นเมนู -->
+          <button
+            v-if="!showTrash"
+            @click="isMenuPrintOpen = true"
+            class="flex items-center gap-2 px-4 py-2.5 bg-surface-800 hover:bg-surface-700 active:scale-95 text-surface-200 text-sm font-bold rounded-xl transition-all border border-surface-700"
+            title="ปริ้นเมนูสินค้า A4"
+          >
+            <span>🖨️</span>
+            ปริ้นเมนู
+          </button>
+
           <!-- Sync Status Badge -->
           <div v-if="pendingSyncCount > 0" class="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl">
             <span v-if="isSyncingProducts" class="w-3 h-3 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin shrink-0"></span>
@@ -477,6 +488,14 @@
       @close="isMassEditOpen = false"
       @saved="onMassEditSaved"
     />
+
+    <!-- Modal ปริ้นเมนูสินค้า -->
+    <AdminMenuPrintModal
+      :is-open="isMenuPrintOpen"
+      :products="products"
+      :categories="categories"
+      @close="isMenuPrintOpen = false"
+    />
   </div>
 </template>
 
@@ -534,6 +553,9 @@ const excelInput = ref<HTMLInputElement | null>(null)
 // mass edit state
 const selectedProductIds = ref<number[]>([])
 const isMassEditOpen = ref(false)
+
+// print menu state
+const isMenuPrintOpen = ref(false)
 
 const isAllSelected = computed(() =>
   filteredProducts.value.length > 0
