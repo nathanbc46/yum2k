@@ -53,6 +53,7 @@
                 <th class="px-6 py-4">ชื่อหมวดหมู่</th>
                 <th class="px-6 py-4">หมวดหมู่หลัก</th>
                 <th class="px-6 py-4">คำอธิบาย</th>
+                <th class="px-6 py-4">ตัวเลือกเสริม</th>
                 <th class="px-6 py-4 text-center">สถานะ</th>
                 <th class="px-6 py-4 text-right">คำสั่ง</th>
               </tr>
@@ -103,7 +104,22 @@
   
                   <!-- คำอธิบาย -->
                   <td class="px-6 py-4 text-surface-400 text-xs">{{ cat.description ?? '—' }}</td>
-  
+
+                  <!-- ตัวเลือกเสริมประจำหมวดหมู่ -->
+                  <td class="px-6 py-4">
+                    <div v-if="cat.addonGroups && cat.addonGroups.length > 0" class="flex flex-wrap gap-1">
+                      <span
+                        v-for="group in cat.addonGroups"
+                        :key="group.id"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 bg-surface-800 border border-surface-700 rounded-md text-[10px] text-surface-300 font-medium"
+                      >
+                        {{ group.name }}
+                        <span v-if="group.isRequired" class="text-primary-400 font-bold">*</span>
+                      </span>
+                    </div>
+                    <span v-else class="text-surface-700 text-xs">—</span>
+                  </td>
+
                   <!-- สถานะ -->
                   <td class="px-6 py-4 text-center">
                     <span
