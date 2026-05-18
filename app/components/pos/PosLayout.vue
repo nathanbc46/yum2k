@@ -32,7 +32,7 @@
     <div class="flex-1 flex overflow-hidden">
       <!-- ซ้ายมือ: ตะกร้า (Desktop: 30%, Mobile: Full/Hidden) -->
       <aside 
-        class="md:w-[30%] md:min-w-[320px] md:max-w-[400px] border-r border-surface-800 bg-surface-900 flex flex-col transition-all"
+        class="md:w-[30%] md:min-w-[320px] md:max-w-[400px] border-r border-surface-800 bg-surface-900 flex flex-col overflow-hidden transition-all"
         :class="[activeTab === 'cart' ? 'fixed inset-0 z-40 md:relative' : 'hidden md:flex']"
       >
         <slot name="cart" :active-tab="activeTab" :close-mobile="() => activeTab = 'grid'" />
@@ -48,7 +48,7 @@
 
       <!-- ขวามือ: หมวดหมู่ + เมนูการจัดการ -->
       <aside
-        class="w-[90px] sm:w-[110px] md:w-[15%] md:min-w-[120px] md:max-w-[180px] border-l border-surface-800 bg-surface-900 flex flex-col py-2 overflow-y-auto overscroll-none scrollbar-none"
+        class="w-[90px] sm:w-[110px] md:w-[15%] md:min-w-[120px] md:max-w-[180px] border-l border-surface-800 bg-surface-900 flex flex-col min-h-0 py-2 overflow-y-auto overscroll-none scrollbar-none"
         :class="{ 'hidden md:flex': activeTab === 'cart' }"
       >
         <slot name="categories" />

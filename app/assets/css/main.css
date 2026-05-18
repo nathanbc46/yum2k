@@ -97,9 +97,8 @@
 
   body {
     @apply bg-surface-950 text-surface-50;
-    overscroll-behavior: none;  /* ป้องกัน Pull-to-refresh บน Android/iOS */
+    overscroll-behavior: none;  /* ป้องกัน native Pull-to-refresh ที่ระดับ CSS */
     overscroll-behavior-y: none;
-    touch-action: pan-x pan-y;  /* อนุญาตแค่ scroll ซ้ายขวา/บนล่าง ห้าม swipe gesture รีโหลด */
     user-select: none;          /* ไม่ให้เลือก Text ขณะใช้ POS */
     height: 100%;
     /* ป้องกัน iOS Safari viewport resize เมื่อแถบ URL ซ่อน/แสดง */

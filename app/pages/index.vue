@@ -41,6 +41,7 @@
         <PosReceipt v-if="posStore.lastOrder" :order="posStore.lastOrder" />
       </div>
 
+      <PosPullToRefresh />
       <PosAddonSelection />
       <PosBankAlert />
     </template>

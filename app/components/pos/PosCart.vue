@@ -124,7 +124,7 @@
     </div>
 
     <!-- รายการสินค้าในตะกร้า -->
-    <div class="flex-1 overflow-y-auto overscroll-none p-3 sm:p-4 space-y-2 scrollbar-thin">
+    <div class="flex-1 min-h-0 overflow-y-auto overscroll-none p-3 sm:p-4 space-y-2 scrollbar-thin">
       <div 
         v-if="cartItems.length === 0" 
         class="h-full flex flex-col items-center justify-center text-surface-500 gap-4"
