@@ -76,7 +76,7 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   showTaxInfo: false,
   geminiEnabled: true,
   geminiApiKey: '',
-  geminiModel: 'models/gemini-3.1-flash-lite-preview',
+  geminiModel: 'gemini-3.1-flash-lite',
   groqEnabled: true,
   groqApiKey: '',
   groqModel: 'llama-3.3-70b-versatile',

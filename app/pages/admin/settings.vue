@@ -1192,7 +1192,7 @@ const form = reactive<ReceiptSettings>({
   showTaxInfo: false,
   geminiEnabled: true,
   geminiApiKey: '',
-  geminiModel: '',
+  geminiModel: 'gemini-3.1-flash-lite',
   groqEnabled: true,
   groqApiKey: '',
   groqModel: '',
