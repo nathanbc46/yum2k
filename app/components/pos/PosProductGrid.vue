@@ -26,8 +26,18 @@
           {{ store.filteredProducts.length }} รายการ
         </div>
 
+        <!-- ปุ่มสเปเชียลเมนู -->
+        <button
+          @click="specialMenuOpen = true"
+          class="h-12 px-4 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500/60 text-amber-400 hover:text-amber-300 rounded-2xl transition-all active:scale-95 shadow-lg group/special font-bold text-sm"
+          title="เพิ่มสเปเชียลเมนู"
+        >
+          <span class="text-lg transition-transform group-hover/special:scale-110">✨</span>
+          <span class="hidden sm:inline">สเปเชียล</span>
+        </button>
+
         <!-- ปุ่ม Reset กลับสู่หน้าหลัก (Root) -->
-        <button 
+        <button
           v-if="store.currentParentId || store.activeCategoryId"
           @click="store.resetNavigation()"
           class="w-12 h-12 flex items-center justify-center bg-surface-900 border border-surface-800 hover:border-primary-500/50 hover:bg-primary-500/10 text-surface-400 hover:text-primary-400 rounded-2xl transition-all active:scale-95 shadow-lg group/home"
@@ -139,6 +149,13 @@
       @confirm="handleAddonConfirm"
     />
 
+    <!-- Special Menu Modal -->
+    <PosSpecialMenuModal
+      :is-open="specialMenuOpen"
+      @cancel="specialMenuOpen = false"
+      @confirm="handleSpecialMenuConfirm"
+    />
+
   </div>
 </template>
 
@@ -147,6 +164,7 @@ import { usePosStore } from '~/stores/pos'
 import { useCart } from '~/composables/useCart'
 import type { ProductWithCategory, AddonOption } from '~/types'
 import PosAddonSelection from './PosAddonSelection.vue'
+import PosSpecialMenuModal from './PosSpecialMenuModal.vue'
 import { Heart, X } from 'lucide-vue-next'
 import { useFavorites } from '~/composables/useFavorites'
 
@@ -181,5 +199,14 @@ function handleAddonConfirm(selectedAddons: AddonOption[], addonsTotal: number) 
   cart.addItem(pendingProduct.value, 1, selectedAddons, addonsTotal)
   addonModalOpen.value = false
   pendingProduct.value = null
+}
+
+// --- จัดการ Special Menu Modal ---
+const specialMenuOpen = ref(false)
+
+/** เมื่อผู้ใช้ยืนยันสเปเชียลเมนู */
+function handleSpecialMenuConfirm(product: ProductWithCategory) {
+  cart.addItem(product, 1)
+  specialMenuOpen.value = false
 }
 </script>

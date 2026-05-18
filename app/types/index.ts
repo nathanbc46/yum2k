@@ -402,6 +402,7 @@ export type UpdateEntity<T extends BaseEntity> = Partial<Omit<T, 'id'>> & { id: 
 /** ข้อมูล Product พร้อม Category (สำหรับแสดงหน้า POS) */
 export interface ProductWithCategory extends Product {
   category: Category
+  isSpecialMenu?: boolean  // true = สินค้าพิเศษที่พนักงานกำหนดเองขณะขาย (ไม่บันทึกใน DB)
 }
 
 /** สรุปยอดขายรายวัน */

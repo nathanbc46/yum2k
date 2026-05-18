@@ -111,9 +111,9 @@ export function useCart() {
     addons: AddonOption[] = [],
     addonsTotal: number = 0
   ): Promise<boolean> {
-    // ตรวจสอบสต็อก (ไม่นับ free items เป็น existing item เพื่อให้เพิ่มเป็น row ปกติแยกต่างหาก)
+    // ตรวจสอบสต็อก (ไม่นับ free items หรือ special menu เป็น existing item → เพิ่มเป็น row ใหม่เสมอ)
     const existingItem = cartItems.value.find(
-      i => i.product.id === product.id && i.addons.length === 0 && addons.length === 0 && !i.isFreeItem
+      i => i.product.id === product.id && i.addons.length === 0 && addons.length === 0 && !i.isFreeItem && !product.isSpecialMenu
     )
     const currentQty = existingItem?.quantity ?? 0
     const hasStock = await checkStock(product, currentQty + qty)
@@ -331,7 +331,7 @@ export function useCart() {
           const deductions: InventoryDeduction[] = await deductStock(item.product, item.quantity)
           const category = posStore.categories.find(c => c.id === item.product.categoryId)
           orderItems.push({
-            productId: item.product.id!,
+            productId: item.product.id ?? 0,
             productUuid: item.product.uuid,
             categoryId: item.product.categoryId,
             categoryUuid: category?.uuid || '',
@@ -387,12 +387,15 @@ export function useCart() {
         const orderId = await db.orders.add(cleanOrder as Order)
         savedOrder = { ...cleanOrder, id: orderId } as Order
 
-        // 4. อัพ totalSold ทุก item พร้อมกัน ใช้ค่าจาก snapshot แทนการ get() ก่อน
-        await Promise.all(snapshot.map(item =>
-          db.products.update(item.product.id!, {
-            totalSold: (item.product.totalSold || 0) + item.quantity
-          })
-        ))
+        // 4. อัพ totalSold ทุก item พร้อมกัน (ข้ามสเปเชียลเมนูที่ไม่มี id ใน DB)
+        await Promise.all(snapshot
+          .filter(item => item.product.id != null && !item.product.isSpecialMenu)
+          .map(item =>
+            db.products.update(item.product.id!, {
+              totalSold: (item.product.totalSold || 0) + item.quantity
+            })
+          )
+        )
 
         // 5. ล้างตะกร้าใน IndexedDB
         await setSetting(CART_STORAGE_KEY, { items: [], note: '', discount: 0, deliveryRef: deliveryRef.value })
@@ -598,7 +601,7 @@ export function useCart() {
         let toRemove = currentFreeQty - allowedFreeQty
         for (let i = cartItems.value.length - 1; i >= 0 && toRemove > 0; i--) {
           const item = cartItems.value[i]
-          if (!item.isFreeItem || item.promotionId !== promo.id) continue
+          if (!item || !item.isFreeItem || item.promotionId !== promo.id) continue
           if (item.quantity <= toRemove) {
             toRemove -= item.quantity
             cartItems.value.splice(i, 1)

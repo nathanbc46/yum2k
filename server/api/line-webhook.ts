@@ -43,7 +43,7 @@ const BANK_KEYWORDS: Record<string, string> = {
 function parseAmount(text: string): number | null {
   for (const pattern of AMOUNT_PATTERNS) {
     const match = text.match(pattern)
-    if (match) {
+    if (match && match[1]) {
       const cleaned = match[1].replace(/,/g, '')
       const amount = parseFloat(cleaned)
       if (!isNaN(amount) && amount > 0) return amount
