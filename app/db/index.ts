@@ -24,7 +24,7 @@ import type {
 // ---------------------------------------------------------------------------
 // กำหนด Version ของ Database (เพิ่มทุกครั้งที่เปลี่ยน Schema)
 // ---------------------------------------------------------------------------
-const DB_VERSION = 11
+const DB_VERSION = 12
 const DB_NAME = 'Yum2K_POS_DB'
 
 // ---------------------------------------------------------------------------
@@ -196,6 +196,24 @@ class Yum2KDatabase extends Dexie {
     })
 
     // Version 11: เพิ่ม syncStatus index ใน products สำหรับ Offline-First CRUD
+    this.version(11).stores({
+      users: '++id, &uuid, &username, role, isActive, isDeleted, updatedAt',
+      categories: '++id, &uuid, name, parentId, parentUuid, isActive, sortOrder, isDeleted, updatedAt',
+      products: '++id, &uuid, categoryId, name, sku, isActive, sortOrder, totalSold, stockQuantity, mappingType, isDeleted, syncStatus, updatedAt',
+      orders: '++id, &uuid, &orderNumber, staffId, status, kitchenStatus, syncStatus, createdAt, updatedAt, paymentMethod, isDeleted',
+      syncQueue: '++id, &uuid, entityType, entityId, syncStatus, retryCount, isDeleted',
+      appSettings: '&key',
+      stockAuditLogs: '++id, &uuid, productId, staffId, syncStatus, createdAt, isDeleted',
+      expenses: '++id, &uuid, categoryId, category, expenseDate, syncStatus, isDeleted',
+      expenseCategories: '++id, &uuid, name, isActive, sortOrder, isDeleted, updatedAt',
+      aiConversations: '++id, &uuid, source, title, createdAt, updatedAt, isDeleted',
+      aiChats: '++id, &uuid, conversationUuid, role, createdAt, isDeleted',
+      dailyStockSnapshots: '++id, &uuid, [snapshotDate+productUuid], snapshotDate, productUuid, productId, syncStatus, capturedAt, isDeleted',
+      promotions: '++id, &uuid, type, isActive, isDeleted, updatedAt, syncStatus',
+    })
+
+    // Version 12: ไม่มีการเปลี่ยน Schema แต่บังคับ Dexie ให้รัน Upgrade path ใหม่
+    // เพื่อให้ products ที่ Pull มาจาก Cloud มี syncStatus = 'synced' อย่างถูกต้อง
     this.version(DB_VERSION).stores({
       users: '++id, &uuid, &username, role, isActive, isDeleted, updatedAt',
       categories: '++id, &uuid, name, parentId, parentUuid, isActive, sortOrder, isDeleted, updatedAt',
@@ -210,6 +228,12 @@ class Yum2KDatabase extends Dexie {
       aiChats: '++id, &uuid, conversationUuid, role, createdAt, isDeleted',
       dailyStockSnapshots: '++id, &uuid, [snapshotDate+productUuid], snapshotDate, productUuid, productId, syncStatus, capturedAt, isDeleted',
       promotions: '++id, &uuid, type, isActive, isDeleted, updatedAt, syncStatus',
+    }).upgrade(async tx => {
+      // แก้ไข products ที่ยังค้าง syncStatus = undefined/pending ให้เป็น synced
+      // เฉพาะรายการที่ Pull มาจาก Cloud (ไม่มี uuid สร้างใหม่ในเครื่อง)
+      await tx.table('products')
+        .filter((p: any) => !p.syncStatus || p.syncStatus === 'pending')
+        .modify((p: any) => { p.syncStatus = 'synced' })
     })
   }
 }

@@ -164,17 +164,75 @@
                 style="
                   width: 794px;
                   min-height: 1123px;
-                  background: #fffdf5;
+                  background: #ffffff;
                   font-family: 'Sarabun', 'Noto Sans Thai', sans-serif;
                   box-sizing: border-box;
+                  position: relative;
+                  overflow: hidden;
                 "
                 :style="{
                   padding: currentDensity.a4Padding,
                   '--menu-font-scale': fontSizeScale / 100
                 }"
               >
+                <!-- Watermarks (Spicy Salad Elements) -->
+                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; z-index: 0;">
+                  <!-- Lime slice: Top-left -->
+                  <div style="position: absolute; top: 4%; left: -6%; width: 160px; height: 160px; opacity: 0.09; transform: rotate(-15deg);" :style="{ color: currentTheme.accent }">
+                    <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                      <circle cx="50" cy="50" r="45" />
+                      <circle cx="50" cy="50" r="39" stroke-dasharray="4 2" />
+                      <line x1="50" y1="10" x2="50" y2="90" />
+                      <line x1="10" y1="50" x2="90" y2="50" />
+                      <line x1="21.7" y1="21.7" x2="78.3" y2="78.3" />
+                      <line x1="21.7" y1="78.3" x2="78.3" y2="21.7" />
+                    </svg>
+                  </div>
+
+                  <!-- Chili: Top-right -->
+                  <div style="position: absolute; top: 8%; right: -2%; width: 140px; height: 140px; opacity: 0.09; transform: rotate(25deg);" :style="{ color: currentTheme.accent }">
+                    <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M30,25 C45,20 65,32 75,55 C81,70 73,85 55,82 C38,79 25,60 22,42 C20,28 25,26 30,25 Z" />
+                      <path d="M30,25 C28,18 22,12 15,14" />
+                      <path d="M26,29 C28,25 33,26 35,30" />
+                    </svg>
+                  </div>
+
+                  <!-- Shallot/Onion: Middle-right -->
+                  <div style="position: absolute; top: 45%; right: -6%; width: 150px; height: 150px; opacity: 0.08; transform: rotate(-30deg);" :style="{ color: currentTheme.accent }">
+                    <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M50,10 C65,30 85,50 85,70 C85,85 70,90 50,90 C30,90 15,85 15,70 C15,50 35,30 50,10 Z" />
+                      <path d="M45,90 L42,95 M50,90 L50,97 M55,90 L58,95" />
+                      <path d="M50,12 C58,32 70,52 70,70" />
+                      <path d="M50,12 C42,32 30,52 30,70" />
+                      <path d="M50,12 C50,38 50,62 50,88" />
+                    </svg>
+                  </div>
+
+                  <!-- Tomato slice: Bottom-left -->
+                  <div style="position: absolute; bottom: 6%; left: -4%; width: 150px; height: 150px; opacity: 0.09; transform: rotate(40deg);" :style="{ color: currentTheme.accent }">
+                    <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="50" cy="50" r="45" />
+                      <path d="M35,35 C38,25 62,25 65,35 C68,45 68,55 65,65 C62,75 38,75 35,65 C32,55 32,45 35,35 Z" stroke-dasharray="3 3" />
+                      <circle cx="42" cy="40" r="3" fill="currentColor" />
+                      <circle cx="58" cy="40" r="3" fill="currentColor" />
+                      <circle cx="42" cy="60" r="3" fill="currentColor" />
+                      <circle cx="58" cy="60" r="3" fill="currentColor" />
+                    </svg>
+                  </div>
+
+                  <!-- Garlic: Bottom-right -->
+                  <div style="position: absolute; bottom: 4%; right: -2%; width: 130px; height: 130px; opacity: 0.09; transform: rotate(-10deg);" :style="{ color: currentTheme.accent }">
+                    <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M50,15 C65,32 78,50 78,72 C78,84 66,90 50,90 C34,90 22,84 22,72 C22,50 35,32 50,15 Z" />
+                      <path d="M50,15 C58,35 63,55 63,75" />
+                      <path d="M50,15 C42,35 37,55 37,75" />
+                    </svg>
+                  </div>
+                </div>
+
                 <!-- HEADER: ชื่อเมนูเท่านั้น ไม่มี badge/subtitle -->
-                <div style="text-align: center;" :style="{ marginBottom: currentDensity.headerMargin }">
+                <div style="text-align: center; position: relative; z-index: 10;" :style="{ marginBottom: currentDensity.headerMargin }">
                   <div
                     style="font-weight: 900; line-height: 1;"
                     :style="{ color: currentTheme.accent, fontSize: `calc(${currentDensity.titleSize}px * var(--menu-font-scale))` }"
@@ -190,7 +248,7 @@
 
                 <!-- TWO COLUMN GRID -->
                 <div
-                  style="display: grid; grid-template-columns: 1fr 1fr; align-items: start;"
+                  style="display: grid; grid-template-columns: 1fr 1fr; align-items: start; position: relative; z-index: 10;"
                   :style="{ gap: currentDensity.gridGap }"
                 >
                   <div
@@ -212,10 +270,80 @@
                       }"
                     >
                       <span
-                        style="font-weight: 900; color: #fff; letter-spacing: 0.5px; font-style: italic;"
+                        style="font-weight: 900; color: #fff; letter-spacing: 0.5px; font-style: italic; display: flex; align-items: center; gap: 6px;"
                         :style="{ fontSize: `calc(${currentDensity.catSize}px * var(--menu-font-scale))` }"
                       >
-                        {{ group.categoryName }}
+                        <!-- Dynamic White SVGs -->
+                        <span style="display: inline-flex; align-items: center;" :style="{ width: `calc(${currentDensity.catSize * 1.1}px * var(--menu-font-scale))`, height: `calc(${currentDensity.catSize * 1.1}px * var(--menu-font-scale))` }">
+                          <svg v-if="getCategoryIconKey(group.categoryName) === 'noodle'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
+                            <path d="M3 12h18" />
+                            <path d="M3 12a9 9 0 0 0 18 0" />
+                            <path d="M8 22V12" />
+                            <path d="M12 22V12" />
+                            <path d="M16 22V12" />
+                            <path d="M6 3l4 6" />
+                            <path d="M10 3l4 6" />
+                          </svg>
+                          <svg v-else-if="getCategoryIconKey(group.categoryName) === 'mama'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
+                            <path d="M3 12h18" />
+                            <path d="M3 12a9 9 0 0 0 18 0" />
+                            <path d="M8 22V12" />
+                            <path d="M12 22V12" />
+                            <path d="M16 22V12" />
+                            <path d="M4 6c1-1.5 2-1.5 3 0s2 1.5 3 0 2-1.5 3 0 2 1.5 3 0" />
+                          </svg>
+                          <svg v-else-if="getCategoryIconKey(group.categoryName) === 'glass-noodle'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M8 12a4 4 0 0 1 8 0" />
+                            <path d="M6 12a6 6 0 0 1 12 0" />
+                          </svg>
+                          <svg v-else-if="getCategoryIconKey(group.categoryName) === 'meatball'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
+                            <line x1="12" y1="2" x2="12" y2="22" />
+                            <circle cx="12" cy="7" r="3.5" />
+                            <circle cx="12" cy="14" r="3.5" />
+                          </svg>
+                          <svg v-else-if="getCategoryIconKey(group.categoryName) === 'kanomjeen'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
+                            <path d="M3 19h18a2 2 0 0 0 2-2H1a2 2 0 0 0 2 2z" />
+                            <path d="M6 12c1-2 2-3 4-3s3 1 4 3 2 3 4 3" />
+                            <path d="M8 10c1-2 2-2.5 4-2.5s3 .5 4 2.5" />
+                          </svg>
+                          <svg v-else-if="getCategoryIconKey(group.categoryName) === 'seafood'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
+                            <!-- Curved back of the shrimp -->
+                            <path d="M12 3C7 3 3 7 3 12c0 3 1.5 5.5 4 7" />
+                            <!-- Head / rostrum -->
+                            <path d="M12 3c3 0 6 2 7 5s-1 5-4 5" />
+                            <path d="M19 8c2.5-1.5 3.5-3 3.5-3" />
+                            <path d="M19 6c2-1 3.5-2 3.5-2" />
+                            <!-- Leg segments -->
+                            <path d="M6 15c.5 1.5 1.5 2 2.5 2" />
+                            <path d="M9 14c.5 1.5 1.5 2 2.5 2" />
+                            <!-- Tail fin -->
+                            <path d="M4 17l-2 3.5 3-1.5L7 20z" />
+                            <!-- Eye -->
+                            <circle cx="15.5" cy="6.5" r="0.8" fill="currentColor" />
+                          </svg>
+                          <svg v-else-if="getCategoryIconKey(group.categoryName) === 'addon'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
+                            <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" />
+                          </svg>
+                          <svg v-else-if="getCategoryIconKey(group.categoryName) === 'drink'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
+                            <path d="M6 8h12l-1.5 12h-9z" />
+                            <path d="M9 3l3 5" />
+                            <line x1="5" y1="8" x2="19" y2="8" />
+                          </svg>
+                          <svg v-else-if="getCategoryIconKey(group.categoryName) === 'snack'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
+                            <path d="M5 10h14l-1 11H6z" />
+                            <path d="M8 10V4M12 10V3M16 10V5" />
+                          </svg>
+                          <svg v-else-if="getCategoryIconKey(group.categoryName) === 'chili'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
+                            <path d="M12 2c-.5 2-1.5 3.5-3.5 4.5A8.5 8.5 0 0 0 12 22c4.7 0 8.5-3.8 8.5-8.5C20.5 8 16 3 12 2z" />
+                            <path d="M12 2c-.5-1-1.5-1.5-2.5-1" />
+                          </svg>
+                          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
+                            <path d="M12 2v20M6 2v10a6 6 0 0 0 12 0V2" />
+                          </svg>
+                        </span>
+                        <!-- ชื่อหมวดหมู่ -->
+                        <span>{{ group.categoryName }}</span>
                       </span>
                     </div>
 
@@ -259,7 +387,7 @@
                 </div>
 
                 <!-- FOOTER -->
-                <div style="text-align: center;" :style="{ marginTop: currentDensity.footerMargin }">
+                <div style="text-align: center; position: relative; z-index: 10;" :style="{ marginTop: currentDensity.footerMargin }">
                   <div style="height: 1px; background: linear-gradient(90deg, transparent, #ccc, transparent);" :style="{ marginBottom: currentDensity.footerLineMargin }"></div>
                   <div style="color: #bbb; letter-spacing: 1px;" :style="{ fontSize: `calc(${currentDensity.footerTextSize}px * var(--menu-font-scale))` }">— ขอบคุณที่อุดหนุน —</div>
                   <div style="color: #ccc; margin-top: 2px;" :style="{ fontSize: `calc(${currentDensity.footerSubTextSize}px * var(--menu-font-scale))` }">
@@ -413,6 +541,23 @@ const printDate = computed(() =>
   new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
 )
 
+// --- ค้นหาไอคอนหมวดหมู่โดยอัตโนมัติจากชื่อ (ส่งคืนเป็น Key สำหรับ SVG สีขาว) ---
+function getCategoryIconKey(name: string): string {
+  const lower = name.toLowerCase()
+  if (lower.includes('วุ้นเส้น')) return 'noodle'
+  if (lower.includes('มาม่า')) return 'mama'
+  if (lower.includes('เส้นแก้ว')) return 'glass-noodle'
+  if (lower.includes('เส้นบุก') || lower.includes('เส้น')) return 'noodle'
+  if (lower.includes('ลูกชิ้น')) return 'meatball'
+  if (lower.includes('ขนมจีน')) return 'kanomjeen'
+  if (lower.includes('ทะเล') || lower.includes('กุ้ง') || lower.includes('หอย') || lower.includes('ปู') || lower.includes('ปลา')) return 'seafood'
+  if (lower.includes('addon') || lower.includes('add on') || lower.includes('เพิ่มเติม') || lower.includes('พิเศษ') || lower.includes('เครื่องเคียง')) return 'addon'
+  if (lower.includes('เครื่องดื่ม') || lower.includes('น้ำ')) return 'drink'
+  if (lower.includes('ของทอด') || lower.includes('ทานเล่น') || lower.includes('กินเล่น')) return 'snack'
+  if (lower.includes('ยำ')) return 'chili'
+  return 'generic'
+}
+
 // --- จัดกลุ่มสินค้าทั้งหมด: Active + ราคา > 0 ---
 const allGroups = computed(() => {
   const validProducts = props.products.filter(
@@ -526,7 +671,7 @@ function handlePrint() {
         <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,400;0,500;0,700;0,900;1,700;1,900&display=swap" rel="stylesheet">
         <style>
           * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
-          html, body { width:210mm; background:#fffdf5; font-family:'Sarabun','Noto Sans Thai',sans-serif; }
+          html, body { width:210mm; background:#ffffff; font-family:'Sarabun','Noto Sans Thai',sans-serif; }
           body {
             --menu-font-scale: ${fontSizeScale.value / 100};
             padding: ${currentDensity.value.a4Padding};

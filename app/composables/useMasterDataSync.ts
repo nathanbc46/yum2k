@@ -368,6 +368,9 @@ export function useMasterDataSync() {
           totalSold:          Number(remote.total_sold || 0),
           imageUrl:           remote.image_url ?? undefined,
           isDeleted:          remote.is_deleted,
+          // สำคัญ: ข้อมูลที่ Pull มาจาก Cloud ถือว่า Sync แล้ว ห้ามนับเป็น pending
+          syncStatus:         'synced',
+          syncedAt:           new Date(),
           createdAt:          new Date(remote.created_at),
           updatedAt:          remoteUpdatedAt,
         }
