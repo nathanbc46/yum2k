@@ -161,25 +161,10 @@
               <span
                 v-for="addon in item.addons"
                 :key="addon.id"
-                class="text-[10px] px-1.5 py-0.5 rounded-full font-bold border bg-primary-900/40 text-primary-300 border-primary-700/30"
+                class="text-[10px] px-2 py-0.5 rounded-full font-bold border bg-primary-100 text-primary-800 border-primary-300 dark:bg-primary-950/60 dark:text-primary-200 dark:border-primary-800 shadow-xs"
               >
                 {{ addon.name }}{{ addon.price > 0 ? ` +${addon.price}` : '' }}
               </span>
-              <button
-                v-if="hasAddonGroups(item)"
-                @click.stop="editAddons(item)"
-                class="text-[10px] bg-surface-900 text-surface-400 px-1.5 py-0.5 rounded-full border border-surface-700 flex items-center gap-0.5 hover:border-primary-500/50"
-              >
-                <Pencil :size="9" /><span>แก้ไข</span>
-              </button>
-            </div>
-            <div v-else-if="hasAddonGroups(item)" class="mt-0.5 pointer-events-auto">
-              <button
-                @click.stop="editAddons(item)"
-                class="text-[10px] px-1.5 py-0.5 rounded-full border flex items-center gap-0.5 bg-primary-500/10 text-primary-400 border-primary-500/20"
-              >
-                + เพิ่มตัวเลือก
-              </button>
             </div>
           </div>
 

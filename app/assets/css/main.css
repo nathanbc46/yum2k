@@ -90,15 +90,12 @@
   html {
     font-family: var(--font-family-sans);
     -webkit-tap-highlight-color: transparent; /* ไม่มีกรอบน้ำเงินตอน Tap บน Android */
-    overscroll-behavior: none;                /* ป้องกัน Pull-to-refresh ที่ระดับ html */
     overflow: hidden;                         /* ป้องกัน body เลื่อนออกนอกขอบ */
     height: 100%;
   }
 
   body {
     @apply bg-surface-950 text-surface-50;
-    overscroll-behavior: none;  /* ป้องกัน native Pull-to-refresh ที่ระดับ CSS */
-    overscroll-behavior-y: none;
     user-select: none;          /* ไม่ให้เลือก Text ขณะใช้ POS */
     height: 100%;
     /* ป้องกัน iOS Safari viewport resize เมื่อแถบ URL ซ่อน/แสดง */
