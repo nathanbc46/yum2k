@@ -48,7 +48,7 @@
 
       <!-- ขวามือ: หมวดหมู่ + เมนูการจัดการ -->
       <aside
-        class="w-[90px] sm:w-[110px] md:w-[15%] md:min-w-[120px] md:max-w-[180px] border-l border-surface-800 bg-surface-900 flex flex-col py-2 overflow-y-auto scrollbar-none"
+        class="w-[90px] sm:w-[110px] md:w-[15%] md:min-w-[120px] md:max-w-[180px] border-l border-surface-800 bg-surface-900 flex flex-col py-2 overflow-y-auto overscroll-none scrollbar-none"
         :class="{ 'hidden md:flex': activeTab === 'cart' }"
       >
         <slot name="categories" />

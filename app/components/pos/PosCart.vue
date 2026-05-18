@@ -18,6 +18,15 @@
         </div>
         
         <div class="flex items-center gap-1.5">
+          <!-- ปุ่มรีเฟรชข้อมูล -->
+          <button
+            @click="handleRefresh"
+            :disabled="isRefreshing"
+            class="w-9 h-9 flex items-center justify-center bg-surface-800 rounded-lg text-surface-400 hover:text-green-400 hover:bg-surface-700 transition-all active:scale-95 border border-surface-700/50 disabled:opacity-50"
+            title="รีเฟรชข้อมูล"
+          >
+            <RefreshCw :size="18" :class="{ 'animate-spin': isRefreshing }" />
+          </button>
           <button 
             @click="router.push('/orders')"
             class="w-9 h-9 flex items-center justify-center bg-surface-800 rounded-lg text-surface-400 hover:text-white hover:bg-surface-700 transition-all active:scale-95 border border-surface-700/50"
@@ -115,7 +124,7 @@
     </div>
 
     <!-- รายการสินค้าในตะกร้า -->
-    <div class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 scrollbar-thin">
+    <div class="flex-1 overflow-y-auto overscroll-none p-3 sm:p-4 space-y-2 scrollbar-thin">
       <div 
         v-if="cartItems.length === 0" 
         class="h-full flex flex-col items-center justify-center text-surface-500 gap-4"
@@ -296,7 +305,8 @@ import {
   X,
   Pencil,
   ChefHat,
-  Bell
+  Bell,
+  RefreshCw
 } from 'lucide-vue-next'
 import { liveQuery } from 'dexie'
 import { db } from '~/db'
@@ -426,6 +436,21 @@ async function handleClearCart() {
 }
 
 const { isOnline } = useSync()
+
+const isRefreshing = ref(false)
+
+async function handleRefresh() {
+  if (isRefreshing.value) return
+  isRefreshing.value = true
+  try {
+    await posStore.loadData()
+    toast.success('อัปเดตข้อมูลเรียบร้อยแล้ว')
+  } catch {
+    toast.error('ไม่สามารถอัปเดตข้อมูล กรุณาลองใหม่')
+  } finally {
+    isRefreshing.value = false
+  }
+}
 
 onMounted(async () => {
   await loadCart()
