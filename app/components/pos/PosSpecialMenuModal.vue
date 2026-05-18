@@ -154,7 +154,7 @@ const customName = ref('')
 const customPriceStr = ref('')
 const errorMsg = ref('')
 
-const quickPrices = [20, 30, 50, 60, 80, 100, 120, 150]
+const quickPrices = [10, 20, 30, 50, 60, 80, 100, 120]
 
 const isValid = computed(() => {
   const price = Number(customPriceStr.value)

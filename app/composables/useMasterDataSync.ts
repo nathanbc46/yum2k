@@ -209,6 +209,7 @@ export function useMasterDataSync() {
           isDeleted:   remote.is_deleted,
           createdAt:   new Date(remote.created_at),
           updatedAt:   remoteUpdatedAt,
+          addonGroups: Array.isArray(remote.addon_groups) ? remote.addon_groups : undefined,
         }
 
         if (existing?.id) {

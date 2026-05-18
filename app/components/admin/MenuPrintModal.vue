@@ -9,96 +9,92 @@
         <div class="bg-surface-900 border border-surface-700 rounded-3xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden">
 
           <!-- ===== Modal Top Bar ===== -->
-          <div class="px-6 py-4 border-b border-surface-800 flex items-center justify-between shrink-0">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-xl">🍽️</div>
-              <div>
-                <h2 class="text-lg font-bold text-surface-50">ปริ้นเมนูสินค้า</h2>
-                <p class="text-xs text-surface-500">
-                  เลือก {{ selectedCategoryIds.length }}/{{ allGroups.length }} หมวดหมู่ ·
-                  {{ totalPrintProducts }} รายการ · ขนาด A4
-                </p>
+          <div class="border-b border-surface-800 shrink-0">
+            <!-- แถวบน: ชื่อ + ปุ่ม Action -->
+            <div class="px-6 py-3 flex items-center justify-between gap-4">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-lg shrink-0">🍽️</div>
+                <div class="min-w-0">
+                  <h2 class="text-base font-bold text-surface-50 truncate">ปริ้นเมนูสินค้า</h2>
+                  <p class="text-xs text-surface-500 truncate">
+                    เลือก {{ selectedCategoryIds.length }}/{{ allGroups.length }} หมวดหมู่ ·
+                    {{ totalPrintProducts }} รายการ
+                  </p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <!-- Save Image -->
+                <button
+                  @click="handleSaveImage"
+                  :disabled="selectedCategoryIds.length === 0 || isSavingImage"
+                  class="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-all shadow-lg"
+                >
+                  <span v-if="isSavingImage" class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                  <span>{{ isSavingImage ? 'กำลังบันทึก...' : '🖼️ บันทึกรูป' }}</span>
+                </button>
+                <!-- Print -->
+                <button
+                  @click="handlePrint"
+                  :disabled="selectedCategoryIds.length === 0"
+                  class="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-black text-sm font-bold rounded-xl transition-all shadow-lg"
+                >
+                  🖨️ ปริ้น
+                </button>
+                <button
+                  @click="$emit('close')"
+                  class="w-8 h-8 rounded-xl bg-surface-800 hover:bg-surface-700 flex items-center justify-center text-surface-400 hover:text-surface-200 transition-colors"
+                >
+                  ✕
+                </button>
               </div>
             </div>
-            <div class="flex items-center gap-2">
-              <!-- Select: ความหนาแน่น (ระยะห่าง) -->
-              <div class="flex items-center gap-2 bg-surface-800 border border-surface-700 rounded-xl px-3 py-2">
-                <label class="text-xs text-surface-400 whitespace-nowrap">ความห่าง/ระยะ</label>
+
+            <!-- แถวล่าง: Controls -->
+            <div class="px-6 py-2 flex items-center gap-2 flex-wrap border-t border-surface-800/60">
+              <!-- Select: ความหนาแน่น -->
+              <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5">
+                <label class="text-xs text-surface-400 whitespace-nowrap">ระยะ</label>
                 <select
                   v-model="selectedDensity"
-                  class="bg-surface-900 border border-surface-700 text-surface-100 text-xs rounded-lg px-2 py-1 outline-none focus:border-amber-500 cursor-pointer"
+                  class="bg-surface-900 border border-surface-700 text-surface-100 text-xs rounded-md px-1.5 py-0.5 outline-none focus:border-amber-500 cursor-pointer"
                 >
                   <option v-for="d in densities" :key="d.id" :value="d.id">{{ d.label }}</option>
                 </select>
               </div>
 
-              <!-- Button scale: เพิ่ม/ลด ขนาดตัวหนังสือ -->
-              <div class="flex items-center gap-2 bg-surface-800 border border-surface-700 rounded-xl px-3 py-2">
+              <!-- ขนาดตัวหนังสือ -->
+              <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5">
                 <label class="text-xs text-surface-400 whitespace-nowrap">ขนาดตัวหนังสือ</label>
-                <div class="flex items-center gap-1.5">
-                  <button
-                    @click="decreaseFontSize"
-                    class="w-6 h-6 rounded bg-surface-700 hover:bg-surface-600 active:scale-90 text-surface-200 flex items-center justify-center font-bold text-sm transition-all"
-                    title="ลดขนาดตัวหนังสือ"
-                  >
-                    -
-                  </button>
-                  <span class="text-xs font-mono font-bold text-surface-100 w-10 text-center">{{ fontSizeScale }}%</span>
-                  <button
-                    @click="increaseFontSize"
-                    class="w-6 h-6 rounded bg-surface-700 hover:bg-surface-600 active:scale-90 text-surface-200 flex items-center justify-center font-bold text-sm transition-all"
-                    title="เพิ่มขนาดตัวหนังสือ"
-                  >
-                    +
-                  </button>
+                <div class="flex items-center gap-1">
+                  <button @click="decreaseFontSize" class="w-5 h-5 rounded bg-surface-700 hover:bg-surface-600 active:scale-90 text-surface-200 flex items-center justify-center font-bold text-xs transition-all">-</button>
+                  <span class="text-xs font-mono font-bold text-surface-100 w-9 text-center">{{ fontSizeScale }}%</span>
+                  <button @click="increaseFontSize" class="w-5 h-5 rounded bg-surface-700 hover:bg-surface-600 active:scale-90 text-surface-200 flex items-center justify-center font-bold text-xs transition-all">+</button>
                 </div>
               </div>
 
               <!-- Toggle: แสดงราคา -->
-              <div class="flex items-center gap-2 bg-surface-800 border border-surface-700 rounded-xl px-3 py-2">
+              <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5">
                 <label class="text-xs text-surface-400 whitespace-nowrap">แสดงราคา</label>
-                <button
-                  @click="showPrice = !showPrice"
-                  class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
-                  :class="showPrice ? 'bg-amber-500' : 'bg-surface-600'"
-                >
-                  <span
-                    class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm"
-                    :class="showPrice ? 'translate-x-4' : 'translate-x-1'"
-                  />
+                <button @click="showPrice = !showPrice" class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors" :class="showPrice ? 'bg-amber-500' : 'bg-surface-600'">
+                  <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm" :class="showPrice ? 'translate-x-4' : 'translate-x-1'" />
+                </button>
+              </div>
+
+              <!-- Toggle: ดาวขายดี -->
+              <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5">
+                <label class="text-xs text-surface-400 whitespace-nowrap">★ ขายดี</label>
+                <button @click="showBestsellerStars = !showBestsellerStars" class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors" :class="showBestsellerStars ? 'bg-amber-500' : 'bg-surface-600'">
+                  <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm" :class="showBestsellerStars ? 'translate-x-4' : 'translate-x-1'" />
                 </button>
               </div>
 
               <!-- Theme Color -->
-              <div class="flex items-center gap-2 bg-surface-800 border border-surface-700 rounded-xl px-3 py-2">
+              <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5">
                 <label class="text-xs text-surface-400 whitespace-nowrap">สีธีม</label>
                 <div class="flex gap-1">
-                  <button
-                    v-for="theme in themes"
-                    :key="theme.id"
-                    @click="selectedTheme = theme.id"
-                    class="w-5 h-5 rounded-full border-2 transition-all"
-                    :class="selectedTheme === theme.id ? 'border-white scale-110' : 'border-transparent opacity-70'"
-                    :style="{ background: theme.accent }"
-                    :title="theme.label"
-                  />
+                  <button v-for="theme in themes" :key="theme.id" @click="selectedTheme = theme.id" class="w-5 h-5 rounded-full border-2 transition-all" :class="selectedTheme === theme.id ? 'border-white scale-110' : 'border-transparent opacity-70'" :style="{ background: theme.accent }" :title="theme.label" />
                 </div>
               </div>
-
-              <!-- Print -->
-              <button
-                @click="handlePrint"
-                :disabled="selectedCategoryIds.length === 0"
-                class="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-black text-sm font-bold rounded-xl transition-all shadow-lg"
-              >
-                🖨️ ปริ้น
-              </button>
-              <button
-                @click="$emit('close')"
-                class="w-9 h-9 rounded-xl bg-surface-800 hover:bg-surface-700 flex items-center justify-center text-surface-400 hover:text-surface-200 transition-colors"
-              >
-                ✕
-              </button>
             </div>
           </div>
 
@@ -365,7 +361,17 @@
                           style="color: #222; font-weight: 500; padding-right: 8px; flex: 1; line-height: 1.3;"
                           :style="{ fontSize: `calc(${currentDensity.prodNameSize}px * var(--menu-font-scale))` }"
                         >
-                          {{ product.name }}
+                          <span
+                            v-if="showBestsellerStars && bestsellerRankMap.has(product.id!)"
+                            :style="{
+                              color: '#F59E0B',
+                              opacity: starOpacity(bestsellerRankMap.get(product.id!)!),
+                              fontSize: `calc(${currentDensity.prodNameSize * 0.95}px * var(--menu-font-scale))`,
+                              marginRight: '3px',
+                              display: 'inline-block',
+                              lineHeight: '1',
+                            }"
+                          >★</span>{{ product.name }}
                           <span
                             v-if="product.description"
                             style="color: #666; font-weight: normal; margin-left: 4px;"
@@ -406,6 +412,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import html2canvas from 'html2canvas'
 import type { Product, Category } from '~/types'
 
 const props = defineProps<{
@@ -535,6 +542,24 @@ const currentTheme = computed<ThemeConfig>(() => {
 
 // --- Options ---
 const showPrice = ref(true)
+const showBestsellerStars = ref(true)
+
+// --- Top 5 ขายดี: Map<productId, rank 1-5> ---
+const bestsellerRankMap = computed(() => {
+  if (!showBestsellerStars.value) return new Map<number, number>()
+  const all = filteredGroups.value.flatMap(g => g.products)
+  const sorted = [...all]
+    .filter(p => (p.totalSold ?? 0) > 0)
+    .sort((a, b) => (b.totalSold ?? 0) - (a.totalSold ?? 0))
+    .slice(0, 7)
+  const map = new Map<number, number>()
+  sorted.forEach((p, i) => map.set(p.id!, i + 1))
+  return map
+})
+
+function starOpacity(_rank: number) {
+  return 1
+}
 
 // --- วันที่ ---
 const printDate = computed(() =>
@@ -640,8 +665,42 @@ const totalPrintProducts = computed(() =>
   filteredGroups.value.reduce((sum, g) => sum + g.products.length, 0)
 )
 
-// --- Print ---
+// --- Print / Save Image ---
 const printArea = ref<HTMLElement | null>(null)
+const isSavingImage = ref(false)
+
+async function handleSaveImage() {
+  if (!printArea.value) return
+
+  // โหลดฟอนต์ไทยก่อนถ่ายรูป
+  if (!document.getElementById('print-thai-font')) {
+    const link = document.createElement('link')
+    link.id = 'print-thai-font'
+    link.rel = 'stylesheet'
+    link.href = 'https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,400;0,500;0,700;0,900;1,700;1,900&display=swap'
+    document.head.appendChild(link)
+    await document.fonts.ready
+  }
+
+  isSavingImage.value = true
+  try {
+    const canvas = await html2canvas(printArea.value, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+    })
+    const link = document.createElement('a')
+    const date = new Date().toLocaleDateString('th-TH').replace(/\//g, '-')
+    link.download = `เมนูยำ_${date}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  } catch (e) {
+    console.error('บันทึกรูปไม่สำเร็จ:', e)
+  } finally {
+    isSavingImage.value = false
+  }
+}
 
 function handlePrint() {
   if (!document.getElementById('print-thai-font')) {

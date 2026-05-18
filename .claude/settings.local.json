@@ -16,7 +16,9 @@
       "Bash(Get-ChildItem -Path \"d:\\\\yum2k\\\\db\" -File)",
       "PowerShell(Get-ChildItem -Path \"D:\\\\yum2k\\\\app\" -Force -Recurse | Select-Object @{Name='Depth'; Expression={\\($_.FullName -replace [regex]::Escape\\('D:\\\\yum2k\\\\app'\\), ''\\).Split\\('\\\\'\\).Count}}, @{Name='Name'; Expression={$_.Name}}, @{Name='Type'; Expression={if\\($_.PSIsContainer\\){'Dir'}else{'File'}}} | Where-Object {$_.Depth -le 3} | Format-Table -AutoSize)",
       "Bash(Get-ChildItem -Path \"D:\\\\yum2k\\\\app\" -Recurse -Filter \"*.vue\")",
-      "Bash(Select-Object -ExpandProperty FullName)"
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-Content \"D:\\\\yum2k\\\\app.vue\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-String \"viewport|meta\" -Context 2)"
     ]
   }
 }

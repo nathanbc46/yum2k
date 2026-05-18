@@ -130,8 +130,8 @@
         v-for="(item, idx) in cartItems"
         :key="`${item.product.id}_${idx}`"
         class="relative transition-all"
-        :class="item.product.addonGroups?.length ? 'cursor-pointer active:scale-[0.99]' : ''"
-        @click.stop="item.product.addonGroups?.length ? posStore.setSelectedCartItemIndex(posStore.selectedCartItemIndex === idx ? null : idx) : null"
+        :class="hasAddonGroups(item) ? 'cursor-pointer active:scale-[0.99]' : ''"
+        @click.stop="hasAddonGroups(item) ? posStore.setSelectedCartItemIndex(posStore.selectedCartItemIndex === idx ? null : idx) : null"
       >
         <!-- Background Layer -->
         <div
@@ -166,14 +166,14 @@
                 {{ addon.name }}{{ addon.price > 0 ? ` +${addon.price}` : '' }}
               </span>
               <button
-                v-if="item.product.addonGroups?.length"
+                v-if="hasAddonGroups(item)"
                 @click.stop="editAddons(item)"
                 class="text-[10px] bg-surface-900 text-surface-400 px-1.5 py-0.5 rounded-full border border-surface-700 flex items-center gap-0.5 hover:border-primary-500/50"
               >
                 <Pencil :size="9" /><span>แก้ไข</span>
               </button>
             </div>
-            <div v-else-if="item.product.addonGroups?.length" class="mt-0.5 pointer-events-auto">
+            <div v-else-if="hasAddonGroups(item)" class="mt-0.5 pointer-events-auto">
               <button
                 @click.stop="editAddons(item)"
                 class="text-[10px] px-1.5 py-0.5 rounded-full border flex items-center gap-0.5 bg-primary-500/10 text-primary-400 border-primary-500/20"
@@ -437,6 +437,10 @@ const isAddonModalOpen = ref(false)
 const editingProduct = ref<Product | null>(null)
 const editingInitialAddons = ref<AddonOption[]>([])
 const editingOldAddonKey = ref<string>('')
+
+function hasAddonGroups(item: CartItem): boolean {
+  return !!(item.product.addonGroups?.length || item.product.category?.addonGroups?.length)
+}
 
 function editAddons(item: CartItem) {
   // แทนที่จะเปิด Modal ตอนนี้เราเลือกให้แสดงพื้นที่ด้านล่างแทน

@@ -17,6 +17,7 @@
     "@vite-pwa/nuxt": "^1.1.1",
     "apexcharts": "^5.10.5",
     "dexie": "^4.4.2",
+    "html2canvas": "^1.4.1",
     "lucide-vue-next": "^1.0.0",
     "nuxt": "^4.4.2",
     "pinia": "^3.0.4",

@@ -5,7 +5,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '~/db'
-import type { Category } from '~/types'
+import type { Category, AddonGroup } from '~/types'
 
 export interface CategoryFormData {
   name: string
@@ -15,6 +15,7 @@ export interface CategoryFormData {
   color?: string
   sortOrder: number
   isActive: boolean
+  addonGroups?: AddonGroup[]
 }
 
 export function useCategories() {
@@ -42,6 +43,7 @@ export function useCategories() {
       is_deleted: category.isDeleted,
       parent_uuid: category.parentUuid || null,
       updated_at: category.updatedAt.toISOString(),
+      addon_groups: category.addonGroups?.length ? category.addonGroups : null,
     }
 
     const { error } = await supabase.from('categories').upsert(payload, { onConflict: 'uuid' })
@@ -75,6 +77,9 @@ export function useCategories() {
       color: form.color || '#6366f1',
       sortOrder: form.sortOrder,
       isActive: form.isActive,
+      addonGroups: form.addonGroups?.length
+        ? JSON.parse(JSON.stringify(form.addonGroups))
+        : undefined,
       isDeleted: false,
       createdAt: now,
       updatedAt: now,
@@ -113,11 +118,14 @@ export function useCategories() {
       color: form.color || '#6366f1',
       sortOrder: form.sortOrder,
       isActive: form.isActive,
+      addonGroups: form.addonGroups?.length
+        ? JSON.parse(JSON.stringify(form.addonGroups))
+        : undefined,
       updatedAt: new Date(),
     }
 
     await _syncCategoryToCloud(updatedCategory)
-    await db.categories.update(id, updatedCategory)
+    await db.categories.update(id, updatedCategory as any)
   }
 
   /**
@@ -133,7 +141,7 @@ export function useCategories() {
 
     const updatedCategory = { ...cat, isActive: !cat.isActive, updatedAt: new Date() }
     await _syncCategoryToCloud(updatedCategory)
-    await db.categories.update(id, updatedCategory)
+    await db.categories.update(id, updatedCategory as any)
   }
 
   /**
@@ -149,7 +157,7 @@ export function useCategories() {
 
     const updatedCategory = { ...cat, isDeleted: true, isActive: false, updatedAt: new Date() }
     await _syncCategoryToCloud(updatedCategory)
-    await db.categories.update(id, updatedCategory)
+    await db.categories.update(id, updatedCategory as any)
   }
 
   /**
@@ -175,7 +183,7 @@ export function useCategories() {
 
     await db.transaction('rw?', db.categories, async () => {
       for (const c of toUpdate) {
-          await db.categories.update(c.id!, c)
+          await db.categories.update(c.id!, c as any)
       }
     })
   }

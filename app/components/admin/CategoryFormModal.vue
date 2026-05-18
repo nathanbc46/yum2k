@@ -11,9 +11,9 @@
         <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
         <!-- Modal Box -->
-        <div class="relative bg-surface-900 border border-surface-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" @mousedown.stop>
+        <div class="relative bg-surface-900 border border-surface-700 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]" @mousedown.stop>
           <!-- Header -->
-          <div class="flex items-center justify-between px-6 py-5 border-b border-surface-800">
+          <div class="flex items-center justify-between px-6 py-5 border-b border-surface-800 shrink-0">
             <h2 class="font-bold text-lg text-surface-50">
               {{ isEditing ? '✏️ แก้ไขหมวดหมู่' : '➕ เพิ่มหมวดหมู่ใหม่' }}
             </h2>
@@ -24,7 +24,7 @@
           </div>
 
           <!-- Form -->
-          <form @submit.prevent="handleSubmit" class="p-6 space-y-5">
+          <form @submit.prevent="handleSubmit" class="p-6 space-y-5 overflow-y-auto flex-1">
             <!-- ชื่อหมวดหมู่ -->
             <div>
               <label class="block text-xs text-surface-400 mb-1.5 font-semibold uppercase tracking-wider">
@@ -121,6 +121,145 @@
               </button>
             </div>
 
+            <!-- ตัวเลือกเสริมประจำหมวดหมู่ -->
+            <div class="space-y-3">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <label class="text-xs text-surface-400 font-semibold uppercase tracking-wider">
+                  ตัวเลือกเสริมประจำหมวดหมู่
+                </label>
+                <div class="flex items-center gap-2">
+                  <!-- คัดลอกกลุ่มเดิม -->
+                  <select
+                    v-if="addonTemplates.length > 0"
+                    v-model="selectedTemplateId"
+                    class="text-xs px-2 py-1.5 bg-surface-800 border border-surface-700 text-surface-200 rounded-lg outline-none focus:border-primary-500 transition-colors"
+                  >
+                    <option value="">-- คัดลอกกลุ่มเดิม --</option>
+                    <option v-for="t in addonTemplates" :key="t.id" :value="t.id">
+                      {{ t.name }} ({{ t.options.length }} ตัวเลือก)
+                    </option>
+                  </select>
+                  <button
+                    v-if="addonTemplates.length > 0 && selectedTemplateId"
+                    type="button"
+                    @click="copyFromTemplate"
+                    class="text-xs px-2 py-1.5 bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20 rounded-lg font-bold transition-all active:scale-95 shrink-0"
+                  >
+                    + คัดลอก
+                  </button>
+                  <button
+                    type="button"
+                    @click="addGroup"
+                    class="text-xs px-3 py-1.5 bg-primary-600/20 hover:bg-primary-600/30 text-primary-400 rounded-lg font-bold transition-all active:scale-95 shrink-0"
+                  >
+                    + เพิ่มกลุ่ม
+                  </button>
+                </div>
+              </div>
+
+              <div
+                v-if="localAddonGroups.length === 0"
+                class="text-xs text-surface-600 italic text-center py-5 border border-dashed border-surface-700 rounded-xl"
+              >
+                ยังไม่มีตัวเลือกเสริม — กด "เพิ่มกลุ่ม" เพื่อเริ่ม
+              </div>
+
+              <div
+                v-for="group in localAddonGroups"
+                :key="group.id"
+                class="bg-surface-950 border border-surface-700 rounded-xl p-4 space-y-3"
+              >
+                <!-- ชื่อกลุ่ม + ลบกลุ่ม -->
+                <div class="flex items-center gap-2">
+                  <input
+                    v-model="group.name"
+                    type="text"
+                    placeholder="ชื่อกลุ่ม เช่น ความเผ็ด, รสชาติ..."
+                    class="flex-1 bg-surface-900 border border-surface-700 text-surface-50 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500 placeholder:text-surface-600 transition-colors"
+                  />
+                  <button
+                    type="button"
+                    @click="removeGroup(group.id)"
+                    class="w-8 h-8 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-all active:scale-95 shrink-0"
+                  >
+                    <X :size="14" />
+                  </button>
+                </div>
+
+                <!-- การตั้งค่ากลุ่ม -->
+                <div class="flex items-center gap-4 text-xs">
+                  <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <button
+                      type="button"
+                      @click="group.isRequired = !group.isRequired"
+                      class="relative w-8 h-[18px] rounded-full transition-all shrink-0"
+                      :class="group.isRequired ? 'bg-red-500' : 'bg-surface-600'"
+                    >
+                      <div
+                        class="absolute top-[3px] left-[3px] w-3 h-3 bg-white rounded-full shadow transition-transform"
+                        :class="group.isRequired ? 'translate-x-[14px]' : 'translate-x-0'"
+                      />
+                    </button>
+                    <span class="text-surface-400 font-medium">บังคับเลือก</span>
+                  </label>
+
+                  <label class="flex items-center gap-1.5">
+                    <span class="text-surface-400 font-medium">เลือกได้สูงสุด</span>
+                    <input
+                      v-model.number="group.maxSelect"
+                      type="number"
+                      min="1"
+                      max="20"
+                      placeholder="-"
+                      class="w-12 bg-surface-900 border border-surface-700 text-surface-50 rounded-lg px-2 py-1 text-xs text-center outline-none focus:border-primary-500 transition-colors"
+                    />
+                    <span class="text-surface-400">ตัว</span>
+                  </label>
+                </div>
+
+                <!-- รายการตัวเลือก -->
+                <div class="space-y-1.5">
+                  <div
+                    v-for="opt in group.options"
+                    :key="opt.id"
+                    class="flex items-center gap-2"
+                  >
+                    <input
+                      v-model="opt.name"
+                      type="text"
+                      placeholder="ชื่อตัวเลือก..."
+                      class="flex-1 bg-surface-900 border border-surface-700 text-surface-50 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-primary-500 placeholder:text-surface-600 transition-colors"
+                    />
+                    <div class="flex items-center gap-1 shrink-0">
+                      <span class="text-xs text-surface-500">฿</span>
+                      <input
+                        v-model.number="opt.price"
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        class="w-14 bg-surface-900 border border-surface-700 text-surface-50 rounded-lg px-2 py-1.5 text-xs text-center outline-none focus:border-primary-500 transition-colors"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      @click="removeOption(group.id, opt.id)"
+                      class="w-7 h-7 flex items-center justify-center rounded-lg bg-surface-800 hover:bg-red-500/10 text-surface-500 hover:text-red-400 transition-all active:scale-95 shrink-0"
+                    >
+                      <X :size="12" />
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    @click="addOption(group.id)"
+                    class="w-full py-2 text-xs text-primary-400 hover:text-primary-300 border border-dashed border-surface-700 hover:border-primary-500/50 rounded-lg transition-all font-bold"
+                  >
+                    + เพิ่มตัวเลือก
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <!-- Error Message -->
             <p v-if="errorMsg" class="text-danger text-sm bg-danger/10 border border-danger/20 rounded-xl px-4 py-3">
               ⚠️ {{ errorMsg }}
@@ -162,9 +301,11 @@
 </template>
 
 <script setup lang="ts">
+import { v4 as uuidv4 } from 'uuid'
 import { useCategories, type CategoryFormData } from '~/composables/useCategories'
-import type { Category } from '~/types'
-import { ChevronDown as IconChevronDown } from 'lucide-vue-next'
+import type { Category, AddonGroup } from '~/types'
+import { ChevronDown as IconChevronDown, X } from 'lucide-vue-next'
+import { db } from '~/db'
 
 const props = defineProps<{
   isOpen: boolean
@@ -209,9 +350,74 @@ const defaultForm = (): CategoryFormData => ({
   color: '#6366f1',
   sortOrder: 1,
   isActive: true,
+  addonGroups: [],
 })
 
 const form = ref<CategoryFormData>(defaultForm())
+const localAddonGroups = ref<AddonGroup[]>([])
+
+// --- Template: คัดลอกกลุ่มจากสินค้า/หมวดหมู่อื่น ---
+const addonTemplates = ref<AddonGroup[]>([])
+const selectedTemplateId = ref('')
+
+async function loadAddonTemplates() {
+  const map = new Map<string, AddonGroup>()
+
+  const [products, categories] = await Promise.all([
+    db.products.filter(p => !p.isDeleted).toArray(),
+    db.categories.filter(c => !c.isDeleted).toArray(),
+  ])
+
+  const addGroups = (groups: AddonGroup[] | undefined) => {
+    groups?.forEach(g => {
+      const sig = `${g.name}|${g.isRequired}|${g.options.map(o => `${o.name}:${o.price}`).join(',')}`
+      if (!map.has(sig)) map.set(sig, g)
+    })
+  }
+
+  products.forEach(p => addGroups(p.addonGroups))
+  categories.forEach(c => addGroups((c as any).addonGroups))
+
+  addonTemplates.value = Array.from(map.values())
+  selectedTemplateId.value = ''
+}
+
+function copyFromTemplate() {
+  if (!selectedTemplateId.value) return
+  const tpl = addonTemplates.value.find(t => t.id === selectedTemplateId.value)
+  if (!tpl) return
+
+  localAddonGroups.value.push({
+    id: uuidv4(),
+    name: tpl.name,
+    isRequired: tpl.isRequired,
+    maxSelect: tpl.maxSelect,
+    options: tpl.options.map(o => ({ id: uuidv4(), name: o.name, price: o.price })),
+  })
+  selectedTemplateId.value = ''
+}
+
+// --- จัดการ Add-on Groups ---
+function addGroup() {
+  localAddonGroups.value.push({ id: uuidv4(), name: '', isRequired: false, options: [] })
+}
+
+function removeGroup(groupId: string) {
+  const idx = localAddonGroups.value.findIndex(g => g.id === groupId)
+  if (idx !== -1) localAddonGroups.value.splice(idx, 1)
+}
+
+function addOption(groupId: string) {
+  const group = localAddonGroups.value.find(g => g.id === groupId)
+  if (group) group.options.push({ id: uuidv4(), name: '', price: 0 })
+}
+
+function removeOption(groupId: string, optId: string) {
+  const group = localAddonGroups.value.find(g => g.id === groupId)
+  if (!group) return
+  const idx = group.options.findIndex(o => o.id === optId)
+  if (idx !== -1) group.options.splice(idx, 1)
+}
 
 // เมื่อเปิด Modal ใหม่ หรือสลับ editItem → Reset/Fill form
 watch(
@@ -219,11 +425,14 @@ watch(
   (open) => {
     if (!open) return
     errorMsg.value = ''
-    
+
     // โหลดรายการหมวดหมู่ทั้งหมดเพื่อทำ Dropdown
     fetchAll().then(res => {
       allCategories.value = res
     })
+
+    // โหลด templates สำหรับคัดลอกกลุ่ม
+    loadAddonTemplates()
 
     if (props.editItem) {
       form.value = {
@@ -235,8 +444,11 @@ watch(
         sortOrder: props.editItem.sortOrder,
         isActive: props.editItem.isActive,
       }
+      // deep copy เพื่อไม่ให้แก้ไข reactive ต้นฉบับโดยตรง
+      localAddonGroups.value = JSON.parse(JSON.stringify(props.editItem.addonGroups ?? []))
     } else {
       form.value = defaultForm()
+      localAddonGroups.value = []
     }
   },
   { immediate: true },
@@ -249,6 +461,7 @@ async function handleSubmit() {
   }
   isSaving.value = true
   errorMsg.value = ''
+
   // ค้นหา UUID ของ Parent ก่อนส่ง
   if (form.value.parentId) {
     const parent = allCategories.value.find(c => c.id === form.value.parentId)
@@ -256,6 +469,20 @@ async function handleSubmit() {
   } else {
     form.value.parentUuid = undefined
   }
+
+  // กรอง groups ที่ไม่มีชื่อออก + strip Vue reactive proxy ด้วย JSON round-trip
+  // (IndexedDB Structured Clone ไม่รองรับ Proxy object)
+  form.value.addonGroups = JSON.parse(JSON.stringify(
+    localAddonGroups.value
+      .filter(g => g.name.trim() !== '')
+      .map(g => ({
+        ...g,
+        name: g.name.trim(),
+        options: g.options
+          .filter(o => o.name.trim() !== '')
+          .map(o => ({ ...o, name: o.name.trim() })),
+      }))
+  ))
 
   try {
     if (isEditing.value && props.editItem?.id) {

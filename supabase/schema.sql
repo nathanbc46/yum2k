@@ -49,6 +49,8 @@ CREATE TABLE categories (
   sort_order   INT  DEFAULT 1,
   is_active    BOOLEAN DEFAULT TRUE,
   is_deleted   BOOLEAN DEFAULT FALSE,
+  addon_groups JSONB DEFAULT NULL,
+  parent_uuid  UUID,
   created_at   TIMESTAMPTZ DEFAULT NOW(),
   updated_at   TIMESTAMPTZ DEFAULT NOW()
 );

@@ -77,19 +77,17 @@
             class="overflow-y-auto scrollbar-thin bg-surface-950/30"
             :class="{ 'flex-1': !isInline }"
           >
-            <div 
+            <div
               :class="[
-                'flex gap-4 md:gap-5',
-                isInline ? 'flex-row flex-wrap justify-center p-5 md:p-6' : 'flex-col md:flex-row px-5 md:px-8 py-6 md:py-8'
+                'grid gap-2 md:gap-3',
+                isInline ? 'p-3 md:p-4' : 'px-4 md:px-6 py-3 md:py-4',
+                'grid-cols-1'
               ]"
             >
-              <div 
-                v-for="group in selectedItem?.product.addonGroups" 
+              <div
+                v-for="group in mergedAddonGroups"
                 :key="group.id"
-                class="flex flex-col bg-surface-900/60 rounded-3xl border border-surface-800/50 shadow-inner h-fit hover:border-surface-700/50 transition-colors"
-                :class="[
-                  isInline ? 'p-4 min-w-[260px] max-w-[320px]' : 'p-5 w-full md:min-w-[280px] md:max-w-[450px]'
-                ]"
+                class="flex flex-col bg-surface-900/60 rounded-2xl border border-surface-800/50 shadow-inner h-fit hover:border-surface-700/50 transition-colors p-3 md:p-4"
               >
                 <!-- Group Header -->
                 <div class="flex items-center justify-between mb-3 px-1">
@@ -107,7 +105,7 @@
                 </div>
 
                 <!-- Options List (Compact Grid Layout) -->
-                <div class="grid grid-cols-3 gap-2">
+                <div class="grid grid-cols-4 gap-2">
                   <button
                     v-for="opt in group.options"
                     :key="opt.id"
@@ -229,6 +227,14 @@ const selectedItem = computed(() => {
   return cartItems.value[posStore.selectedCartItemIndex] ?? null
 })
 
+// รวม add-on groups จาก category (ทั่วไป) + product (เฉพาะสินค้า)
+const mergedAddonGroups = computed(() => {
+  if (!selectedItem.value) return []
+  const catAddons = selectedItem.value.product.category?.addonGroups ?? []
+  const prodAddons = selectedItem.value.product.addonGroups ?? []
+  return [...catAddons, ...prodAddons]
+})
+
 // เงื่อนไขในการ Render: 
 // 1. ถ้าเป็นโหมด Inline (บน Tablet) ให้แสดงเสมอเมื่อมีข้อมูล
 // 2. ถ้าเป็นโหมด Modal (บน Mobile) ให้แสดงเฉพาะเมื่อขนาดหน้าจอเป็นมือถือจริงๆ
@@ -274,7 +280,7 @@ onUnmounted(() => {
 // ตรวจสอบว่าเลือกตัวเลือกที่บังคับครบถ้วนหรือไม่
 const isSelectionValid = computed(() => {
   if (!selectedItem.value) return true
-  const addonGroups = selectedItem.value.product.addonGroups || []
+  const addonGroups = mergedAddonGroups.value
   
   // กรองหากลุ่มที่บังคับเลือก
   const requiredGroups = addonGroups.filter(g => g.isRequired)
@@ -295,7 +301,7 @@ function isSelected(groupId: string, optId: string): boolean {
 // ตรวจสอบว่าสินค้ามีกลุ่มที่บังคับเลือกหรือไม่
 const hasRequiredGroups = computed(() => {
   if (!selectedItem.value) return false
-  return selectedItem.value.product.addonGroups?.some(g => g.isRequired) ?? false
+  return mergedAddonGroups.value.some(g => g.isRequired)
 })
 
 async function handleClear() {
@@ -313,7 +319,7 @@ async function toggleAddon(groupId: string, opt: AddonOption) {
   const currentAddons = [...selectedItem.value.addons]
   const idx = currentAddons.findIndex(a => a.id === opt.id)
   const product = selectedItem.value.product
-  const group = product.addonGroups?.find(g => g.id === groupId)
+  const group = mergedAddonGroups.value.find(g => g.id === groupId)
   
   if (idx !== -1) {
     // กรณีจะเอาออก

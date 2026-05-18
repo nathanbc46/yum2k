@@ -106,6 +106,7 @@ export interface Category extends BaseEntity {
   color?: string         // สีประจำหมวดหมู่ (Hex เช่น "#FF5733")
   sortOrder: number      // ลำดับการแสดงผล
   isActive: boolean      // แสดง/ซ่อนหมวดหมู่
+  addonGroups?: AddonGroup[]  // ตัวเลือกเสริมที่ใช้ร่วมกันทุกสินค้าในหมวดหมู่นี้
 }
 
 // ---------------------------------------------------------------------------
