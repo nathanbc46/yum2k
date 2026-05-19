@@ -14,6 +14,7 @@ const pushCounts = ref({
   expenses: 0, expenseDetails: [] as string[],
   stockSnapshots: 0, stockSnapshotDetails: [] as string[],
   stuckCount: 0,
+  stuckDetails: [] as string[],
 })
 
 // 📥 Pull Data (Cloud -> Local)
@@ -55,6 +56,7 @@ async function loadLocalCounts() {
     expenses: result.expenses, expenseDetails: result.expenseDetails,
     stockSnapshots: result.stockSnapshots, stockSnapshotDetails: result.stockSnapshotDetails,
     stuckCount: result.stuckCount,
+    stuckDetails: result.stuckDetails,
   }
 }
 
@@ -219,9 +221,11 @@ if (import.meta.client) {
               <span class="badge badge-stuck">
                 ⚠️ <span>ค้างส่ง</span> <span class="font-black">{{ pushCounts.stuckCount }}</span>
               </span>
-              <div class="tooltip-popup">
+              <div class="tooltip-popup" style="max-width: 320px;">
                 <div class="tooltip-title">⚠️ ส่งล้มเหลวเกิน 5 ครั้ง</div>
-                <div class="tooltip-item">กด "รีเซ็ต" เพื่อให้ระบบลองส่งใหม่</div>
+                <div v-for="detail in pushCounts.stuckDetails.slice(0, 5)" :key="detail" class="tooltip-item" style="white-space: normal; word-break: break-all; font-size: 10px; line-height: 1.4;">{{ detail }}</div>
+                <div v-if="pushCounts.stuckDetails.length > 5" class="tooltip-item text-xs mt-1 opacity-70">และอื่นๆ อีก {{ pushCounts.stuckDetails.length - 5 }} รายการ...</div>
+                <div class="tooltip-item mt-2 opacity-60" style="font-size: 10px;">กด "รีเซ็ต" เพื่อให้ระบบลองส่งใหม่</div>
               </div>
             </div>
           </div>

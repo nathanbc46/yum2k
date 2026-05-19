@@ -372,6 +372,11 @@ export function useSync() {
       const networkErr = isNetworkError(error)
       if (networkErr) isOnline.value = false
       console.error('Sync expense error:', error)
+      await db.expenses.update(expense.id!, {
+        syncStatus: 'failed',
+        syncRetryCount: (expense.syncRetryCount || 0) + 1,
+        syncError: error.message,
+      })
       return { success: false, isNetworkError: networkErr, error: error.message }
     }
   }
@@ -616,8 +621,16 @@ export function useSync() {
     fetchRemoteExpenses, // เพิ่มให้เรียกใช้งานได้
     getLastRemoteOrderSequence,
     nextSyncCountdown,
-    startHeartbeatSync: () => {
+    startHeartbeatSync: async () => {
       if (syncIntervalId.value) return
+
+      // reset orders ที่ค้างสถานะ 'syncing' จากการปิดแอปกะทันหัน
+      const orphanedSyncing = await db.orders.where('syncStatus').equals('syncing').count()
+      if (orphanedSyncing > 0) {
+        await db.orders.where('syncStatus').equals('syncing').modify({ syncStatus: 'pending' })
+        console.log(`🔄 Reset ${orphanedSyncing} ออร์เดอร์จากสถานะ 'syncing' ค้างกลับเป็น 'pending'`)
+      }
+
       if (isOnline.value) syncPendingOrders()
       _nextSyncAt = Date.now() + HEARTBEAT_MS
       nextSyncCountdown.value = HEARTBEAT_SECONDS

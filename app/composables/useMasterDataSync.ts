@@ -655,11 +655,12 @@ export function useMasterDataSync() {
     expenses: number; expenseDetails: string[]
     stockSnapshots: number; stockSnapshotDetails: string[]
     stuckCount: number
+    stuckDetails: string[]
   }> {
     const MAX_RETRY = 5
 
     const [pendingOrders, pendingStocks, pendingExpenses, pendingSnapshots,
-           stuckOrders, stuckStocks, stuckExpenses, stuckSnapshots] = await Promise.all([
+           stuckOrderList, stuckStockList, stuckExpenseList, stuckSnapshotList] = await Promise.all([
       db.orders.where('syncStatus').anyOf(['pending', 'failed'])
         .filter(o => (o.syncRetryCount || 0) < MAX_RETRY).toArray(),
       db.stockAuditLogs.where('syncStatus').anyOf(['pending', 'failed'])
@@ -669,14 +670,21 @@ export function useMasterDataSync() {
       db.dailyStockSnapshots.where('syncStatus').anyOf(['pending', 'failed'])
         .filter(s => (s.syncRetryCount || 0) < MAX_RETRY).toArray(),
       db.orders.where('syncStatus').equals('failed')
-        .filter(o => (o.syncRetryCount || 0) >= MAX_RETRY).count(),
+        .filter(o => (o.syncRetryCount || 0) >= MAX_RETRY).toArray(),
       db.stockAuditLogs.where('syncStatus').equals('failed')
-        .filter(l => (l.syncRetryCount || 0) >= MAX_RETRY).count(),
+        .filter(l => (l.syncRetryCount || 0) >= MAX_RETRY).toArray(),
       db.expenses.where('syncStatus').equals('failed')
-        .filter(e => (e.syncRetryCount || 0) >= MAX_RETRY).count(),
+        .filter(e => (e.syncRetryCount || 0) >= MAX_RETRY).toArray(),
       db.dailyStockSnapshots.where('syncStatus').equals('failed')
-        .filter(s => (s.syncRetryCount || 0) >= MAX_RETRY).count(),
+        .filter(s => (s.syncRetryCount || 0) >= MAX_RETRY).toArray(),
     ])
+
+    const stuckDetails: string[] = [
+      ...stuckOrderList.map(o => `📦 ${o.orderNumber}: ${o.syncError || 'ไม่ทราบสาเหตุ'}`),
+      ...stuckStockList.map(l => `📊 ${l.productName}: ${l.syncError || 'ไม่ทราบสาเหตุ'}`),
+      ...stuckExpenseList.map(e => `💸 ${e.description}: ${e.syncError || 'ไม่ทราบสาเหตุ'}`),
+      ...stuckSnapshotList.map(s => `📸 ${s.productName}: ${s.syncError || 'ไม่ทราบสาเหตุ'}`),
+    ]
 
     return {
       categories: 0,
@@ -693,7 +701,8 @@ export function useMasterDataSync() {
       expenseDetails: pendingExpenses.map(e => `${e.description} (฿${e.amount})`),
       stockSnapshots: pendingSnapshots.length,
       stockSnapshotDetails: pendingSnapshots.map(s => `${s.productName} (${s.snapshotDate})`),
-      stuckCount: stuckOrders + stuckStocks + stuckExpenses + stuckSnapshots,
+      stuckCount: stuckOrderList.length + stuckStockList.length + stuckExpenseList.length + stuckSnapshotList.length,
+      stuckDetails,
     }
   }
 
