@@ -43,6 +43,8 @@ export interface ReceiptSettings {
   lineDailySummaryHour?: number // ชั่วโมงที่ส่งสรุป 0-23 (default: 22)
   // Kitchen Display System (KDS)
   enableKds: boolean            // เปิดใช้งานจอห้องเครื่อง (KDS) หรือไม่
+  // Promotion Codes
+  promotionCodesEnabled: boolean    // เปิด/ปิดปุ่มกรอกโค้ดโปรโมชันที่หน้า POS
   // POS Display
   showSubcategoryProducts: boolean // แสดงสินค้าของหมวดหมู่ย่อยเมื่อเลือกหมวดหมู่หลัก
   printKitchenCopy: boolean        // พิมพ์ใบสั่งทำอาหาร (Kitchen Copy) แยกต่างหาก
@@ -88,6 +90,7 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   lineDailySummary: true,
   lineDailySummaryHour: 22,
   enableKds: false,
+  promotionCodesEnabled: false,
   showSubcategoryProducts: false,
   printKitchenCopy: true,
   receiptMarginLeft: 0,

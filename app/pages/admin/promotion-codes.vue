@@ -6,13 +6,34 @@
         <h1 class="text-xl font-black text-surface-50">🎟️ โค้ดโปรโมชัน</h1>
         <p class="text-sm text-surface-500 mt-0.5">สร้างชุดโค้ดลับสำหรับแจกจ่ายและแลกสินค้าฟรี</p>
       </div>
-      <button
-        @click="openCreateModal"
-        class="h-11 px-5 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl flex items-center gap-2 transition-colors shadow-lg shadow-primary-900/30"
-      >
-        <Plus :size="18" />
-        <span>สร้างชุดโค้ดใหม่</span>
-      </button>
+      <div class="flex items-center gap-3">
+        <!-- Toggle เปิด/ปิดปุ่มโปรโมชันที่ POS -->
+        <button
+          @click="togglePromotionEnabled"
+          class="h-11 px-4 flex items-center gap-2.5 rounded-xl border font-bold text-sm transition-all"
+          :class="receiptSettings.promotionCodesEnabled
+            ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20'
+            : 'bg-surface-800 text-surface-400 border-surface-700 hover:text-surface-200'"
+        >
+          <span
+            class="w-8 h-5 rounded-full relative transition-colors"
+            :class="receiptSettings.promotionCodesEnabled ? 'bg-green-500' : 'bg-surface-600'"
+          >
+            <span
+              class="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all"
+              :class="receiptSettings.promotionCodesEnabled ? 'left-3.5' : 'left-0.5'"
+            />
+          </span>
+          <span>{{ receiptSettings.promotionCodesEnabled ? 'เปิดใช้งานที่ POS' : 'ปิดใช้งาน' }}</span>
+        </button>
+        <button
+          @click="openCreateModal"
+          class="h-11 px-5 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl flex items-center gap-2 transition-colors shadow-lg shadow-primary-900/30"
+        >
+          <Plus :size="18" />
+          <span>สร้างชุดโค้ดใหม่</span>
+        </button>
+      </div>
     </div>
 
     <!-- Content -->
@@ -236,13 +257,19 @@ import { db } from '~/db'
 import { usePromotionCodes } from '~/composables/usePromotionCodes'
 import { useToast } from '~/composables/useToast'
 import { useConfirm } from '~/composables/useConfirm'
+import { useSettings } from '~/composables/useSettings'
 import type { PromotionBatch, PromotionCode, Product } from '~/types'
 
 definePageMeta({ layout: 'admin' })
 
 const toast = useToast()
 const { confirm } = useConfirm()
+const { receiptSettings, saveReceiptSettings, loadReceiptSettings } = useSettings()
 const { generateBatch, loadBatches, loadCodes, deleteBatch } = usePromotionCodes()
+
+async function togglePromotionEnabled() {
+  await saveReceiptSettings({ ...receiptSettings.value, promotionCodesEnabled: !receiptSettings.value.promotionCodesEnabled })
+}
 
 // --- State ---
 const isLoading = ref(true)
@@ -295,7 +322,7 @@ async function load() {
   }
 }
 
-onMounted(load)
+onMounted(() => { load(); loadReceiptSettings() })
 
 // --- Create ---
 function openCreateModal() {

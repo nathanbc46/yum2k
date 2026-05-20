@@ -223,8 +223,9 @@
         />
       </div>
 
-      <!-- ปุ่มโค้ดโปรโมชัน -->
+      <!-- ปุ่มโค้ดโปรโมชัน (แสดงเฉพาะเมื่อเปิดใช้งานในหน้า admin) -->
       <button
+        v-if="receiptSettings.promotionCodesEnabled"
         @click="isPromoCodeModalOpen = true"
         class="w-full h-10 mb-2.5 flex items-center justify-center gap-2 rounded-xl text-sm font-bold border transition-all active:scale-95"
         :class="appliedPromoCode
@@ -409,12 +410,14 @@ import { checkBuyXGetYEligibility } from '~/composables/useBuyXGetY'
 import type { BuyXGetYEligibility } from '~/composables/useBuyXGetY'
 import { usePromotionCodes } from '~/composables/usePromotionCodes'
 import type { CodeValidationResult } from '~/composables/usePromotionCodes'
+import { useSettings } from '~/composables/useSettings'
 
 const router = useRouter()
 const authUser = useAuthStore()
 const posStore = usePosStore()
 const { print } = usePrinter()
 const toast = useToast()
+const { receiptSettings } = useSettings()
 
 // คำนวณจำนวนคิวในห้องเครื่องแบบ Real-time แยกสถานะ
 const cookingCount = ref(0)
