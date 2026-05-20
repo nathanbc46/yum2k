@@ -173,6 +173,12 @@ export function usePrinter() {
       push(leftPad + vwPadEnd(taxLabel, 14) + vwPadStart(order.taxAmount.toLocaleString('en-US'), effectiveWidth - 14) + '\n')
     }
     push(leftPad + vwPadEnd('ยอดสุทธิ:', 12) + vwPadStart(order.totalAmount.toLocaleString('en-US') + ' บาท', effectiveWidth - 12) + '\n')
+    if (order.paymentMethod === 'cash' && order.amountReceived > 0) {
+      push(leftPad + vwPadEnd('รับเงิน:', 10) + vwPadStart(order.amountReceived.toLocaleString('en-US'), effectiveWidth - 10) + '\n')
+    }
+    if (order.changeAmount > 0) {
+      push(leftPad + vwPadEnd('เงินทอน:', 10) + vwPadStart(order.changeAmount.toLocaleString('en-US'), effectiveWidth - 10) + '\n')
+    }
     push(leftPad + line + '\n')
 
     // --- Footer ---
@@ -739,6 +745,12 @@ export function usePrinter() {
       res += leftPad + vwPadEnd(taxLabel, 14) + vwPadStart(order.taxAmount.toLocaleString('en-US'), effectiveWidth - 14) + '\n'
     }
     res += leftPad + vwPadEnd('ยอดสุทธิ:', 12) + vwPadStart(order.totalAmount.toLocaleString('en-US') + ' บาท', effectiveWidth - 12) + '\n'
+    if (order.paymentMethod === 'cash' && order.amountReceived > 0) {
+      res += leftPad + vwPadEnd('รับเงิน:', 10) + vwPadStart(order.amountReceived.toLocaleString('en-US'), effectiveWidth - 10) + '\n'
+    }
+    if (order.changeAmount > 0) {
+      res += leftPad + vwPadEnd('เงินทอน:', 10) + vwPadStart(order.changeAmount.toLocaleString('en-US'), effectiveWidth - 10) + '\n'
+    }
     res += line
     if (!isKitchenCopy) {
       if (s.footerMessage) res += center(s.footerMessage)
@@ -812,6 +824,12 @@ export function usePrinter() {
     if (s.showTaxInfo && order.taxAmount > 0)
       lines.push({ type: 'columns', name: `ภาษี (${order.taxRate}%)`, qty: '', price: order.taxAmount.toLocaleString() })
     lines.push({ type: 'columns', name: 'ยอดสุทธิ', qty: '', price: `${order.totalAmount.toLocaleString()} บาท` })
+    if (order.paymentMethod === 'cash' && order.amountReceived > 0) {
+      lines.push({ type: 'columns', name: 'รับเงิน', qty: '', price: order.amountReceived.toLocaleString() })
+    }
+    if (order.changeAmount > 0) {
+      lines.push({ type: 'columns', name: 'เงินทอน', qty: '', price: order.changeAmount.toLocaleString() })
+    }
     lines.push({ type: 'separator' })
 
     if (!isKitchenCopy) {

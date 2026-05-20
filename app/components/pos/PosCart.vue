@@ -155,6 +155,16 @@
             <div class="flex items-center gap-1.5">
               <div class="font-semibold text-sm text-surface-50 truncate leading-tight">{{ item.product.name }}</div>
               <span v-if="item.isFreeItem" class="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">แถม</span>
+              <span
+                v-if="hasAddonGroups(item)"
+                class="shrink-0 flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
+                :class="posStore.selectedCartItemIndex === cartItems.indexOf(item)
+                  ? 'bg-primary-500/20 text-primary-300 border-primary-500/40'
+                  : 'bg-surface-700 text-surface-400 border-surface-600'"
+                title="กดเพื่อเพิ่มตัวเลือกเสริม"
+              >
+                <SlidersHorizontal :size="9" />
+              </span>
             </div>
             <!-- Addons row -->
             <div v-if="item.addons && item.addons.length > 0" class="flex flex-wrap gap-1 mt-0.5 pointer-events-auto">
@@ -189,7 +199,7 @@
     </div>
 
     <!-- สรุปผล & Checkout -->
-    <div class="p-4 border-t border-surface-800 bg-surface-900/80 shrink-0">
+    <div class="p-4 border-t border-surface-800 bg-surface-900/80 shrink-0" style="padding-bottom: max(1rem, env(safe-area-inset-bottom))">
       <!-- ยอดสุทธิ -->
       <div class="mb-3">
         <div v-if="discount > 0" class="flex justify-between text-sm text-green-400 mb-1">
@@ -270,18 +280,19 @@
 
 <script setup lang="ts">
 const emit = defineEmits(['close-mobile'])
-import { 
-  History, 
-  Trash2, 
-  ArrowLeft, 
-  ShoppingCart, 
-  Settings, 
-  Plus, 
-  Minus, 
+import {
+  History,
+  Trash2,
+  ArrowLeft,
+  ShoppingCart,
+  Settings,
+  Plus,
+  Minus,
   X,
   Pencil,
   ChefHat,
-  Bell
+  Bell,
+  SlidersHorizontal
 } from 'lucide-vue-next'
 import { liveQuery } from 'dexie'
 import { db } from '~/db'

@@ -214,6 +214,49 @@
             </div>
           </div>
         </div>
+
+        <!-- 🥧 Pie Charts: สัดส่วนจำนวนชิ้น -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- สัดส่วนจำนวนชิ้นแยกตามหมวดหมู่ -->
+          <div class="bg-surface-900 p-6 rounded-2xl border border-surface-800 flex flex-col min-h-[380px]">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-bold">🍩 สัดส่วนจำนวนการขายตามหมวดหมู่</h3>
+                <p class="text-[10px] text-surface-500 mt-0.5">จำนวนชิ้นที่ขายได้แยกตามหมวดหมู่สินค้า</p>
+              </div>
+              <button @click="openChartModal('category-qty-pie', '🍩 สัดส่วนจำนวนการขายตามหมวดหมู่', 'donut', categoryQtyPieOptions, categoryQtyPieSeries)"
+                class="p-2 hover:bg-surface-800 rounded-lg transition-all text-surface-400 hover:text-primary-400" title="ขยายเต็มจอ">
+                <Expand :size="18" />
+              </button>
+            </div>
+            <div class="flex-1 flex items-center justify-center min-h-0">
+              <ClientOnly>
+                <apexchart v-if="categoryQtyPieSeries.length > 0" type="donut" width="100%" :options="categoryQtyPieOptions" :series="categoryQtyPieSeries" />
+                <div v-else class="text-surface-500 text-sm">ไม่มีข้อมูล</div>
+              </ClientOnly>
+            </div>
+          </div>
+
+          <!-- สัดส่วนจำนวนชิ้นแยกตามสินค้า Top 8 + อื่นๆ -->
+          <div class="bg-surface-900 p-6 rounded-2xl border border-surface-800 flex flex-col min-h-[380px]">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-bold">🍩 สัดส่วนจำนวนการขายตามสินค้า</h3>
+                <p class="text-[10px] text-surface-500 mt-0.5">Top 8 สินค้าขายดี + รวม "อื่นๆ"</p>
+              </div>
+              <button @click="openChartModal('product-qty-pie', '🍩 สัดส่วนจำนวนการขายตามสินค้า', 'donut', productQtyPieOptions, productQtyPieSeries)"
+                class="p-2 hover:bg-surface-800 rounded-lg transition-all text-surface-400 hover:text-primary-400" title="ขยายเต็มจอ">
+                <Expand :size="18" />
+              </button>
+            </div>
+            <div class="flex-1 flex items-center justify-center min-h-0">
+              <ClientOnly>
+                <apexchart v-if="productQtyPieSeries.length > 0" type="donut" width="100%" :options="productQtyPieOptions" :series="productQtyPieSeries" />
+                <div v-else class="text-surface-500 text-sm">ไม่มีข้อมูล</div>
+              </ClientOnly>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- ===== TAB 2: วัน × เวลา (บิล Heatmap) ===== -->
@@ -590,6 +633,7 @@ const avgItemsPerBill = computed(() => summary.value.orderCount > 0 ? ((summary.
 const topProducts = ref<TopProductMetric[]>([])
 const dailyHistory = ref<{ date: string; revenue: number; profit: number }[]>([])
 const categorySales = ref<{ categoryName: string; value: number }[]>([])
+const categorySalesQty = ref<{ categoryName: string; qty: number }[]>([])
 const dailyProductStats = ref<Record<string, any>>({}) // เก็บข้อมูล: { '2024-04-20': { total: 500, items: { 'ยำปูม้า': 5 } } }
 const monthlyAvgs = ref<Record<string, number>>({}) // เก็บข้อมูล: { '2024-04': 183.33 }
 const rawTotalExpenses = ref(0) // ยอดรวมรายจ่ายจริงจาก DB (ไม่ปันส่วน)
@@ -772,6 +816,105 @@ const productChartOptions = computed(() => ({
   xaxis: { categories: topProducts.value.slice(0, 15).map(p => p.productName), labels: { show: false } },
   grid: { show: false }, legend: { show: false }
 }))
+
+// --- Donut: สัดส่วนจำนวนชิ้นแยกตามหมวดหมู่ (ทั้งหมด) ---
+const categoryQtyPieSeries = computed(() => categorySalesQty.value.map(c => c.qty))
+const categoryQtyPieOptions = computed(() => {
+  const totalQty = categorySalesQty.value.reduce((s, c) => s + c.qty, 0)
+  return {
+    labels: categorySalesQty.value.map(c => c.categoryName),
+    chart: { background: 'transparent', foreColor: '#a8a29e' },
+    colors: ['#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#3b82f6', '#f97316', '#a855f7', '#14b8a6', '#d946ef', '#84cc16'],
+    stroke: { show: false },
+    legend: { position: 'bottom', fontSize: '11px' },
+    dataLabels: {
+      enabled: true,
+      formatter: (val: number, opts: any) => {
+        const name = opts.w.globals.labels[opts.seriesIndex]
+        const short = name.length > 7 ? name.slice(0, 7) + '…' : name
+        return `${short}\n${val.toFixed(0)}%`
+      },
+      style: { fontSize: '9px', fontWeight: 'bold', colors: ['#fff'] },
+      dropShadow: { enabled: true, blur: 1, opacity: 0.5 }
+    },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: '65%',
+          labels: {
+            show: true,
+            total: {
+              show: true,
+              label: 'รวมทั้งหมด',
+              color: '#a8a29e',
+              fontSize: '11px',
+              formatter: () => `${totalQty.toLocaleString()} ชิ้น`
+            },
+            value: { color: '#f5f5f5', fontSize: '16px', fontWeight: 'bold', formatter: (v: string) => `${Number(v).toLocaleString()} ชิ้น` }
+          }
+        },
+        dataLabels: { offset: -12, minAngleToShowLabel: 8 }
+      }
+    },
+    tooltip: { theme: 'dark', y: { formatter: (v: number) => `${v.toLocaleString()} ชิ้น` } }
+  }
+})
+
+// --- Donut: สัดส่วนจำนวนชิ้นแยกตามสินค้า Top 8 + อื่นๆ ---
+const TOP_PRODUCTS_DONUT = 8
+const productQtyDonutData = computed(() => {
+  const sorted = [...topProducts.value].sort((a, b) => b.quantitySold - a.quantitySold)
+  if (sorted.length <= TOP_PRODUCTS_DONUT) {
+    return sorted.map(p => ({ name: p.productName, qty: p.quantitySold }))
+  }
+  const top = sorted.slice(0, TOP_PRODUCTS_DONUT)
+  const othersQty = sorted.slice(TOP_PRODUCTS_DONUT).reduce((s, p) => s + p.quantitySold, 0)
+  return [...top.map(p => ({ name: p.productName, qty: p.quantitySold })), { name: 'อื่นๆ', qty: othersQty }]
+})
+const productQtyPieSeries = computed(() => productQtyDonutData.value.map(p => p.qty))
+const productQtyPieOptions = computed(() => {
+  const totalQty = productQtyDonutData.value.reduce((s, p) => s + p.qty, 0)
+  return {
+    labels: productQtyDonutData.value.map(p => p.name),
+    chart: { background: 'transparent', foreColor: '#a8a29e' },
+    colors: [
+      '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+      '#ec4899', '#3b82f6', '#f472b6', '#78716c'
+    ],
+    stroke: { show: false },
+    legend: { position: 'bottom', fontSize: '11px' },
+    dataLabels: {
+      enabled: true,
+      formatter: (val: number, opts: any) => {
+        const name = opts.w.globals.labels[opts.seriesIndex]
+        const short = name.length > 8 ? name.slice(0, 8) + '…' : name
+        return `${short}\n${val.toFixed(0)}%`
+      },
+      style: { fontSize: '9px', fontWeight: 'bold', colors: ['#fff'] },
+      dropShadow: { enabled: true, blur: 1, opacity: 0.5 }
+    },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: '65%',
+          labels: {
+            show: true,
+            total: {
+              show: true,
+              label: 'รวมทั้งหมด',
+              color: '#a8a29e',
+              fontSize: '11px',
+              formatter: () => `${totalQty.toLocaleString()} ชิ้น`
+            },
+            value: { color: '#f5f5f5', fontSize: '16px', fontWeight: 'bold', formatter: (v: string) => `${Number(v).toLocaleString()} ชิ้น` }
+          }
+        },
+        dataLabels: { offset: -12, minAngleToShowLabel: 5 }
+      }
+    },
+    tooltip: { theme: 'dark', y: { formatter: (v: number) => `${v.toLocaleString()} ชิ้น` } }
+  }
+})
 
 // Weekly Trend Chart Options
 const weeklyTrendOptions = computed(() => ({
@@ -971,6 +1114,32 @@ async function loadData() {
     topProducts.value = topData
     dailyHistory.value = graphData
     categorySales.value = catData
+
+    // คำนวณสัดส่วนจำนวนชิ้นแยกตามหมวดหมู่ (ไม่ใช่ยอดเงิน)
+    // resolve ผ่าน category ปัจจุบันของสินค้า (ผ่าน productUuid) เพื่อให้ตรงกับ chart สินค้า
+    const productUuidToCatName = new Map(
+      prods.map(p => {
+        const cat = cats.find(c => c.id === p.categoryId)
+        return [p.uuid, cat?.name ?? 'ไม่ระบุหมวดหมู่'] as [string, string]
+      })
+    )
+    const catQtyMap: Record<string, number> = {}
+    for (const order of filteredOrders) {
+      for (const item of order.items) {
+        let catName: string
+        if (item.productUuid && productUuidToCatName.has(item.productUuid)) {
+          catName = productUuidToCatName.get(item.productUuid)!
+        } else {
+          // fallback สำหรับสินค้าที่ถูกลบแล้ว: ใช้ categoryUuid ตอนขาย
+          const cat = cats.find(c => c.uuid === item.categoryUuid)
+          catName = cat?.name ?? 'ไม่ระบุหมวดหมู่'
+        }
+        catQtyMap[catName] = (catQtyMap[catName] || 0) + item.quantity
+      }
+    }
+    categorySalesQty.value = Object.entries(catQtyMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([categoryName, qty]) => ({ categoryName, qty }))
     productDayRows.value = pdRows
     productHourRows.value = phRows
     weeklyTrendData.value = wTrend

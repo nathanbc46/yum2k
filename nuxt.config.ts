@@ -11,6 +11,16 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
+  // HTML Head
+  app: {
+    head: {
+      meta: [
+        // viewport-fit=cover จำเป็นสำหรับให้ env(safe-area-inset-*) ทำงานบน iOS
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual' },
+      ]
+    }
+  },
+
   // Modules
   modules: ['@pinia/nuxt', '@nuxtjs/supabase', '@vite-pwa/nuxt'],
 

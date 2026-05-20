@@ -429,6 +429,11 @@
       </Transition>
     </Teleport>
 
+    <!-- Modal: Import Preview -->
+    <AdminExpenseImportPreviewModal
+      :is-open="isImportPreviewOpen"
+      :items="importPreviewItems"
+      @close="closeImportPreview"
       @confirm="handleConfirmImport"
     />
 

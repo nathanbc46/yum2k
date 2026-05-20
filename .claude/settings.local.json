@@ -27,7 +27,14 @@
       "PowerShell(python D:\\\\yum2k\\\\backup_supabase.py)",
       "Bash(rm -f /d/yum2k/supabase_backups/*)",
       "Bash(python /d/yum2k/backup_supabase.py)",
-      "PowerShell(Get-Command *)"
+      "PowerShell(Get-Command *)",
+      "Bash(python *)",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__execute_sql"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }

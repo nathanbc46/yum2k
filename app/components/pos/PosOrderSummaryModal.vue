@@ -60,6 +60,10 @@ const isAmountEnough = computed(() => {
 const addCash = (value: number) => {
   amountReceived.value += value
   cashHistory.value.push(value)
+  // auto-confirm เมื่อยอดเงินเพียงพอแล้ว
+  if (amountReceived.value >= props.totalAmount) {
+    confirmSale()
+  }
 }
 
 const appendNumber = (num: number) => {
@@ -98,6 +102,7 @@ const clearCash = () => {
 const setExactAmount = () => {
   amountReceived.value = props.totalAmount
   cashHistory.value = [] // ล้างประวัติเพื่อไม่ให้ undo กลับไปมั่ว
+  confirmSale()
 }
 
 const confirmSale = () => {
@@ -303,11 +308,11 @@ watch(selectedPayment, (newVal) => {
                     <div class="space-y-3">
                       <!-- Quick Cash Buttons -->
                       <div class="grid grid-cols-2 gap-3">
-                        <button 
-                          v-for="val in [100, 500, 1000]" 
+                        <button
+                          v-for="val in [100, 500, 1000]"
                           :key="val"
                           @click="addCash(val)"
-                          class="py-3 rounded-2xl bg-surface-800 border border-surface-700 text-surface-200 font-bold hover:bg-surface-700 active:scale-95 transition-all flex flex-col items-center justify-center shadow-sm relative overflow-hidden h-[64px]"
+                          class="py-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-500 font-bold hover:bg-amber-500/25 active:scale-95 transition-all flex flex-col items-center justify-center shadow-sm relative overflow-hidden h-[64px]"
                         >
                           <span class="text-2xl leading-none">{{ val.toLocaleString() }}</span>
                           

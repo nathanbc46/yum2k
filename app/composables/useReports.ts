@@ -77,19 +77,35 @@ export function useReports() {
       .filter(o => !o.isDeleted && o.status !== 'cancelled')
       .toArray()
 
+    // โหลดสินค้าทั้งหมดเพื่อ resolve ชื่อปัจจุบันและ uuid จาก productId (สำหรับ order เก่าที่ไม่มี uuid)
+    const allProducts = await db.products.toArray()
+    const uuidToCurrentName = new Map(allProducts.map(p => [p.uuid, p.name]))
+    const idToProduct = new Map(allProducts.map(p => [p.id!, p]))
+
     const productMap = new Map<string, TopProductMetric>()
 
     for (const order of orders) {
       if (!order.items) continue
       for (const item of order.items) {
-        const key = item.productUuid ? `uuid_${item.productUuid}` : `name_${item.productName}`
+        // ลำดับการหา key:
+        // 1. ใช้ productUuid ถ้ามี
+        // 2. ถ้าไม่มี uuid ให้หาจาก productId → เอา uuid ปัจจุบันมาใช้ (order เก่าที่เปลี่ยนชื่อ)
+        // 3. fallback ใช้ productName
+        let resolvedUuid = item.productUuid
+        if (!resolvedUuid && item.productId) {
+          resolvedUuid = idToProduct.get(item.productId)?.uuid || ''
+        }
+        const key = resolvedUuid ? `uuid_${resolvedUuid}` : `name_${item.productName}`
+        const currentName = (resolvedUuid && uuidToCurrentName.get(resolvedUuid)) || item.productName
+
         const existing = productMap.get(key) || {
           productId: item.productId || 0,
-          productName: item.productName,
+          productName: currentName,
           quantitySold: 0,
           totalRevenue: 0,
           totalProfit: 0
         }
+        existing.productName = currentName
         existing.quantitySold += item.quantity
         existing.totalRevenue += item.totalPrice
         existing.totalProfit += item.totalPrice - (item.costPrice * item.quantity)
@@ -163,6 +179,7 @@ export function useReports() {
 
   /**
    * สัดส่วนยอดขายตามหมวดหมู่ (สำหรับกราฟวงกลม)
+   * resolve category ผ่าน category ปัจจุบันของสินค้า (productUuid) เพื่อให้สอดคล้องกับ chart สินค้า
    */
   async function getCategorySalesDistribution(startDate: Date, endDate: Date): Promise<Array<{ categoryName: string; value: number }>> {
     const orders = await db.orders
@@ -174,13 +191,19 @@ export function useReports() {
     const catIdToName = new Map(categories.map(c => [c.id!, c.name]))
     const catUuidToName = new Map(categories.map(c => [c.uuid, c.name]))
     const productIdToCatId = new Map(products.map(p => [p.id!, p.categoryId]))
+    // resolve ผ่าน category ปัจจุบัน (categoryId) ของสินค้า
+    const productUuidToCatName = new Map(
+      products.map(p => [p.uuid, catIdToName.get(p.categoryId) ?? 'อื่นๆ'])
+    )
     const catMap = new Map<string, number>()
 
     for (const o of orders) {
       if (!o.items) continue
       for (const item of o.items) {
         let categoryName = 'อื่นๆ'
-        if (item.categoryUuid) {
+        if (item.productUuid && productUuidToCatName.has(item.productUuid)) {
+          categoryName = productUuidToCatName.get(item.productUuid)!
+        } else if (item.categoryUuid) {
           categoryName = catUuidToName.get(item.categoryUuid) ?? 'อื่นๆ'
         } else {
           const catId = item.categoryId || productIdToCatId.get(item.productId)

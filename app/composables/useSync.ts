@@ -345,22 +345,33 @@ export function useSync() {
         return isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString()
       }
 
-      const { error } = await withTimeout(
-        supabase.from('expenses').upsert({
-          uuid: baseInfo.uuid,
-          category: baseInfo.category,
-          category_uuid: categoryUuid,
-          amount: baseInfo.amount,
-          description: baseInfo.description,
-          expense_date: baseInfo.expenseDate,
-          recorded_by: baseInfo.recordedBy,
-          staff_id: baseInfo.staffId,
-          staff_uuid: baseInfo.staffUuid,
-          is_deleted: baseInfo.isDeleted ? 1 : 0,
-          created_at: safeIsoDate(createdAt),
-          updated_at: safeIsoDate(updatedAt)
-        }, { onConflict: 'uuid' })
+      const buildPayload = (catUuid: string | null) => ({
+        uuid: baseInfo.uuid,
+        category: baseInfo.category || 'other',        // NOT NULL ใน Supabase
+        category_uuid: catUuid,
+        amount: baseInfo.amount,
+        description: baseInfo.description,
+        expense_date: baseInfo.expenseDate,
+        recorded_by: baseInfo.recordedBy || null,
+        staff_id: baseInfo.staffId || null,
+        staff_uuid: baseInfo.staffUuid || null,         // empty string → null (uuid type)
+        is_deleted: baseInfo.isDeleted ? 1 : 0,        // smallint
+        created_at: safeIsoDate(createdAt),
+        updated_at: safeIsoDate(updatedAt)
+      })
+
+      let { error } = await withTimeout(
+        supabase.from('expenses').upsert(buildPayload(categoryUuid || null), { onConflict: 'uuid' })
       )
+
+      // FK violation (23503) → retry โดยไม่ส่ง category_uuid (category ยังไม่ได้ sync ขึ้น Supabase)
+      if (error?.code === '23503') {
+        console.warn('⚠️ expense category_uuid ไม่มีใน Supabase — retry โดยไม่ส่ง category_uuid')
+        const retry = await withTimeout(
+          supabase.from('expenses').upsert(buildPayload(null), { onConflict: 'uuid' })
+        )
+        error = retry.error
+      }
 
       if (error) throw error
 

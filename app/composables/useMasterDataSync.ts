@@ -579,6 +579,38 @@ export function useMasterDataSync() {
     return count
   }
 
+  /**
+   * Push หมวดหมู่รายจ่ายขึ้น Supabase (upsert ทั้งหมด)
+   * ต้องทำก่อน sync expenses เพื่อป้องกัน FK violation บน category_uuid
+   * expenseCategories ไม่มี syncStatus จึง upsert ทั้งหมดที่ไม่ถูกลบ
+   */
+  async function pushExpenseCategories(): Promise<number> {
+    const supabase = useSupabaseClient<any>()
+    const all = await db.expenseCategories.filter(c => !c.isDeleted).toArray()
+    if (!all.length) return 0
+
+    const payload = all.map(cat => ({
+      uuid:       cat.uuid,
+      name:       cat.name,
+      color:      cat.color ?? '#6366f1',
+      sort_order: cat.sortOrder ?? 0,
+      is_active:  cat.isActive ?? true,
+      is_deleted: !!cat.isDeleted,
+      created_at: new Date(cat.createdAt).toISOString(),
+      updated_at: new Date(cat.updatedAt).toISOString(),
+    }))
+
+    const { error } = await withTimeout(
+      supabase.from('expense_categories').upsert(payload, { onConflict: 'uuid' })
+    )
+    if (error) {
+      // 403 = RLS ยังไม่เปิด ให้ warn แทน throw เพื่อไม่หยุด sync ทั้งหมด
+      console.warn('⚠️ Push expense_categories ล้มเหลว (อาจต้องเพิ่ม RLS policy):', error.message)
+      return 0
+    }
+    return all.length
+  }
+
   // -----------------------------------------------------------------------
   // Orchestration: Push All / Pull All / Sync All
   // -----------------------------------------------------------------------
@@ -589,14 +621,16 @@ export function useMasterDataSync() {
     masterSyncError.value = null
     const syncStartTime = new Date()
     try {
-      const stockLogs  = await pushStockAuditLogs(force)
-      
+      const stockLogs        = await pushStockAuditLogs(force)
+      // push expense categories ก่อน expenses เพื่อป้องกัน FK violation
+      const expenseCategories = await pushExpenseCategories()
+
       // หมายเหตุ: Categories และ Products ไม่ Sync (Push) ในนี้แล้ว เปลี่ยนไปเขียนฝั่ง Online ทันที
       // Users ไม่ Sync ในนี้แล้ว (เพราะบีบ Online-only ใน useUsers.ts)
-      
+
       await updateLastPushAt(syncStartTime)
       lastMasterSyncAt.value = new Date()
-      return { categories: 0, products: 0, expenseCategories: 0, stockLogs }
+      return { categories: 0, products: 0, expenseCategories, stockLogs }
     } catch (e: any) {
       masterSyncError.value = e.message
       throw e
