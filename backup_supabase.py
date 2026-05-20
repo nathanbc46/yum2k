@@ -29,7 +29,7 @@ if not SUPABASE_URL or not SERVICE_KEY:
     exec(CONFIG_FILE.read_text(encoding="utf-8"), config)
     SUPABASE_URL = config["SUPABASE_URL"]
     SERVICE_KEY  = config["SERVICE_KEY"]
-BACKUP_DIR     = Path(r"D:\yum2k\supabase_backups")
+BACKUP_DIR     = Path(os.environ.get("BACKUP_DIR", Path(__file__).parent / "supabase_backups"))
 RETENTION_DAYS = 7
 PAGE_SIZE      = 1000
 
