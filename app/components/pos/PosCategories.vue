@@ -30,7 +30,7 @@
       </div>
 
       <!-- ปุ่มจัดการด้านล่าง (toggle popover) -->
-      <div class="p-2 border-t border-surface-800 shrink-0 relative">
+      <div class="p-2 border-t border-surface-800 shrink-0 relative pos-category-menu">
         <!-- ปุ่มโปรโมชันที่เปิดอยู่ -->
         <div v-if="displayedPromos.length > 0" class="mb-2 space-y-1.5">
           <button
@@ -71,6 +71,14 @@
                 {{ authUser.currentUser?.displayName || authUser.currentUser?.username }}
               </div>
             </div>
+            <NuxtLink
+              to="/orders"
+              @click="showMenuNoCategory = false"
+              class="flex items-center gap-3 px-4 py-3 rounded-xl text-surface-400 hover:text-surface-50 hover:bg-surface-800 transition-all font-bold group"
+            >
+              <span class="text-xl group-hover:scale-110 transition-transform">📋</span>
+              <span class="text-sm hidden md:block">ประวัติการขาย</span>
+            </NuxtLink>
             <NuxtLink
               v-if="authUser.isAdmin"
               to="/admin"
@@ -163,7 +171,7 @@
       </div>
 
       <!-- ปุ่มจัดการด้านล่าง (toggle popover) -->
-      <div class="p-2 border-t border-surface-800 shrink-0 relative">
+      <div class="p-2 border-t border-surface-800 shrink-0 relative pos-category-menu">
         <!-- ปุ่มโปรโมชันที่เปิดอยู่ -->
         <div v-if="displayedPromos.length > 0" class="mb-2 space-y-1.5">
           <button
@@ -205,6 +213,14 @@
               </div>
             </div>
 
+            <NuxtLink
+              to="/orders"
+              @click="showMenu = false"
+              class="flex items-center gap-3 px-4 py-3 rounded-xl text-surface-400 hover:text-surface-50 hover:bg-surface-800 transition-all font-bold group"
+            >
+              <span class="text-xl group-hover:scale-110 transition-transform">📋</span>
+              <span class="text-sm hidden md:block">ประวัติการขาย</span>
+            </NuxtLink>
             <NuxtLink
               v-if="authUser.isAdmin"
               to="/admin"
@@ -357,8 +373,9 @@ async function handleFreeItemConfirm(items: Array<{ product: ProductWithCategory
 if (process.client) {
   window.addEventListener('click', (e) => {
     const target = e.target as HTMLElement
-    if (!target.closest('.relative')) {
+    if (!target.closest('.pos-category-menu')) {
       showMenu.value = false
+      showMenuNoCategory.value = false
     }
   })
 }
