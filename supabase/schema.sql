@@ -302,5 +302,5 @@ CREATE INDEX IF NOT EXISTS idx_promotion_codes_updated_at   ON promotion_codes(u
 
 ALTER TABLE promotion_batches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE promotion_codes   ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Access" ON promotion_batches FOR ALL TO public USING (true);
-CREATE POLICY "Public Access" ON promotion_codes   FOR ALL TO public USING (true);
+CREATE POLICY "device_access_promotion_batches" ON promotion_batches FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "device_access_promotion_codes"   ON promotion_codes   FOR ALL USING (true) WITH CHECK (true);
