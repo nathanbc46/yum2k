@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-full">
+  <div class="flex flex-col h-full py-2">
 
     <!-- ========== เมื่อยังไม่เลือกหมวดหมู่: แสดงรายการหมวดหมู่ (สไตล์การ์ด) ========== -->
     <template v-if="store.activeCategoryId === null">

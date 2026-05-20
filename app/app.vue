@@ -104,9 +104,17 @@ const route = useRoute()
 // ซ่อนแถบสีส้มในหน้า Admin เพราะมี AdminSyncBar จัดการแทนแล้ว
 const isAdminPage = computed(() => route.path.startsWith('/admin'))
 
-// ให้พนักงาน POS ปิดแถบได้ชั่วคราว
-const bannerDismissed = ref(false)
-
+// ใช้ sessionStorage เก็บสถานะการปิดแถบเพื่อให้คงอยู่ผ่าน PWA reload
+// (sessionStorage ยังคงอยู่แม้ window.location.reload() ภายใน Tab เดิม แต่จะล้างเมื่อปิด Tab)
+const BANNER_DISMISSED_KEY = 'pos_sync_banner_dismissed'
+const bannerDismissed = ref(
+  sessionStorage.getItem(BANNER_DISMISSED_KEY) === '1'
+)
+// Sync สถานะไปยัง sessionStorage ทุกครั้งที่เปลี่ยน
+watch(bannerDismissed, (val) => {
+  if (val) sessionStorage.setItem(BANNER_DISMISSED_KEY, '1')
+  else sessionStorage.removeItem(BANNER_DISMISSED_KEY)
+})
 // แสดงแถบใหม่อีกครั้งเมื่อมี Order ใหม่เข้ามา
 watch(pendingCount, (newVal, oldVal) => {
   if (newVal > oldVal) bannerDismissed.value = false

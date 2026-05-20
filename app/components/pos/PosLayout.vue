@@ -2,7 +2,8 @@
   <div class="h-full w-full flex flex-col md:flex-row overflow-hidden bg-surface-950 text-surface-50">
     
     <!-- Mobile Tabs Navigation (Top) -->
-    <div class="md:hidden grid grid-cols-2 bg-surface-900 border-b border-surface-800 shrink-0 sticky top-0 z-50">
+    <!-- ref สำหรับวัดความสูง Tab Bar จริงเพื่อกำหนด top ของ Cart Panel (Mobile) -->
+    <div ref="tabBarRef" class="md:hidden grid grid-cols-2 bg-surface-900 border-b border-surface-800 shrink-0 z-50">
       <button 
         @click="activeTab = 'grid'"
         class="flex items-center justify-center gap-2 py-4 text-sm font-bold transition-all relative"
@@ -31,9 +32,11 @@
     <!-- Layout Container -->
     <div class="flex-1 flex overflow-hidden">
       <!-- ซ้ายมือ: ตะกร้า (Desktop: 30%, Mobile: Full/Hidden) -->
+      <!-- ตะกร้า: Mobile → fixed full-screen (top ใช้ค่าจริงจาก tabBarRef ไม่ hardcode top-14) -->
       <aside 
         class="md:w-[30%] md:min-w-[320px] md:max-w-[400px] border-r border-surface-800 bg-surface-900 flex flex-col overflow-hidden transition-all"
-        :class="[activeTab === 'cart' ? 'fixed inset-x-0 top-14 bottom-0 z-40 md:relative md:inset-auto md:top-auto md:bottom-auto' : 'hidden md:flex']"
+        :class="[activeTab === 'cart' ? 'fixed inset-x-0 bottom-0 z-40 md:relative md:inset-auto md:top-auto md:bottom-auto' : 'hidden md:flex']"
+        :style="activeTab === 'cart' ? { top: tabBarBottomPx } : {}"
       >
         <slot name="cart" :active-tab="activeTab" :close-mobile="() => activeTab = 'grid'" />
       </aside>
@@ -47,8 +50,10 @@
       </main>
 
       <!-- ขวามือ: หมวดหมู่ + เมนูการจัดการ -->
+      <!-- overflow-hidden แทน overflow-y-auto เพื่อป้องกัน hamburger scroll หายออกนอก view -->
+      <!-- (การ scroll ของ category list จัดการใน PosCategories.vue แทน) -->
       <aside
-        class="w-[90px] sm:w-[110px] md:w-[15%] md:min-w-[120px] md:max-w-[180px] border-l border-surface-800 bg-surface-900 flex flex-col min-h-0 py-2 overflow-y-auto overscroll-none scrollbar-none"
+        class="w-[90px] sm:w-[110px] md:w-[15%] md:min-w-[120px] md:max-w-[180px] border-l border-surface-800 bg-surface-900 flex flex-col min-h-0 overflow-hidden"
         :class="{ 'hidden md:flex': activeTab === 'cart' }"
       >
         <slot name="categories" />
@@ -66,6 +71,23 @@ const { totalItems: cartCount } = useCart()
 const posStore = usePosStore()
 
 const activeTab = ref<'grid' | 'cart'>('grid')
+
+// --- Dynamic Top สำหรับ Cart Panel บน Mobile ---
+// วัดตำแหน่งจริงของ Tab Bar (ซึ่งอาจเปลี่ยนเมื่อ Banner ด้านบนปรากฏ/หาย)
+const tabBarRef = useTemplateRef<HTMLElement>('tabBarRef')
+const tabBarBottomPx = ref('56px') // fallback = top-14
+
+onMounted(() => {
+  const updateTabBarBottom = () => {
+    const rect = tabBarRef.value?.getBoundingClientRect()
+    if (rect) tabBarBottomPx.value = rect.bottom + 'px'
+  }
+  updateTabBarBottom()
+  // ติดตามเมื่อ viewport หรือ Banner ด้านบนเปลี่ยนขนาด
+  const ro = new ResizeObserver(updateTabBarBottom)
+  ro.observe(document.documentElement)
+  onUnmounted(() => ro.disconnect())
+})
 
 // อัตโนมัติสลับไปหน้าตะกร้าถ้ามีการกดสั่งบนมือถือ (Optional)
 // watch(cartCount, (newVal, oldVal) => {
