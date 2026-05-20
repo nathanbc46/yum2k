@@ -141,6 +141,38 @@
             ⚠️ {{ masterSyncError }}
           </p>
         </div>
+
+        <!-- App Update -->
+        <div class="mt-2 pt-2 border-t border-surface-800/60">
+          <button
+            v-if="pwaCheckResult === 'up-to-date'"
+            disabled
+            class="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold bg-success/10 text-success border border-success/20 cursor-default"
+          >
+            <span>✓</span>
+            <span>อัพเดทแล้ว เวอร์ชันล่าสุด</span>
+          </button>
+          <button
+            v-else-if="pwaNeedRefresh"
+            @click="pwaUpdateApp"
+            class="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold transition-all animate-pulse bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 border border-primary-500/30"
+          >
+            <span>🚀</span>
+            <span>มีเวอร์ชันใหม่ — กดอัพเดท</span>
+          </button>
+          <button
+            v-else
+            @click="pwaCheckForUpdate"
+            :disabled="pwaIsChecking || !isOnline"
+            class="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold transition-all"
+            :class="pwaIsChecking || !isOnline
+              ? 'bg-surface-800 text-surface-600 cursor-not-allowed'
+              : 'bg-surface-800/60 text-surface-500 hover:text-surface-300 hover:bg-surface-800 border border-surface-700/50'"
+          >
+            <span :class="{ 'animate-spin inline-block': pwaIsChecking }">🔄</span>
+            <span>{{ pwaIsChecking ? 'กำลังเช็ค...' : 'เช็คอัพเดท' }}</span>
+          </button>
+        </div>
       </div>
     </aside>
 
@@ -214,6 +246,7 @@ import { useSync } from '~/composables/useSync'
 import { useAuthStore } from '~/stores/auth'
 import { useTheme } from '~/composables/useTheme'
 import { useToast } from '~/composables/useToast'
+import { usePwaUpdate } from '~/composables/usePwaUpdate'
 import { LogOut, Sun, Moon, Menu, X } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -234,6 +267,14 @@ const {
 } = useMasterDataSync()
 
 const syncDir = ref<'push' | 'pull' | null>(null)
+
+const {
+  needRefresh: pwaNeedRefresh,
+  isChecking: pwaIsChecking,
+  checkResult: pwaCheckResult,
+  checkForUpdate: pwaCheckForUpdate,
+  updateApp: pwaUpdateApp,
+} = usePwaUpdate()
 
 // Format วันเวลาแบบง่ายๆ
 function formatSyncTime(date: Date) {

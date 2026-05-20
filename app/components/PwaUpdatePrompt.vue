@@ -13,7 +13,7 @@
           <p class="text-[11px] text-surface-400 mt-0.5">กดอัพเดทเพื่อใช้งานเวอร์ชันล่าสุด</p>
         </div>
         <button
-          @click="update"
+          @click="updateApp"
           class="flex-shrink-0 px-3.5 py-2 bg-primary-500 hover:bg-primary-400 active:scale-95 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-primary-500/30"
         >
           อัพเดท
@@ -34,15 +34,21 @@
 
 <script setup lang="ts">
 import { useRegisterSW } from 'virtual:pwa-register/vue'
+import { usePwaUpdate, _setPwaRegistration, _setPwaRefresh } from '~/composables/usePwaUpdate'
 
-const { needRefresh, updateServiceWorker } = useRegisterSW()
+const { needRefresh: swNeedRefresh, updateServiceWorker } = useRegisterSW({
+  onRegisteredSW(_url, reg) {
+    _setPwaRegistration(reg, updateServiceWorker)
+  }
+})
 
-function update() {
-  updateServiceWorker(true)
-}
+// sync needRefresh จาก SW ไปยัง singleton state
+watch(swNeedRefresh, val => _setPwaRefresh(val), { immediate: true })
+
+const { needRefresh, updateApp } = usePwaUpdate()
 
 function dismiss() {
-  needRefresh.value = false
+  _setPwaRefresh(false)
 }
 </script>
 
