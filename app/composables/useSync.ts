@@ -156,6 +156,11 @@ export function useSync() {
         return { categories: 0, products: 0, stockLogs: 0 }
       })
 
+      // 1b. Pull promotion code usage จาก device อื่น (ป้องกัน double-use)
+      await masterSync.pullPromotionCodes().catch(err => {
+        console.warn('⚠️ Pull PromotionCodes Error:', err)
+      })
+
       // 2. Sync Daily Stock Snapshots (ถ่ายสต็อกสิ้นวัน)
       const snapshotSync = useDailyStockSnapshot()
       summary.stockSnapshots = await snapshotSync.pushSnapshots().catch(err => {

@@ -430,7 +430,7 @@ export interface DailySummary {
 // ---------------------------------------------------------------------------
 
 /** ประเภทของโปรโมชัน */
-export type PromotionType = 'buyXGetY' | 'birthday'
+export type PromotionType = 'buyXGetY' | 'birthday' | 'secretCode'
 
 /** Config สำหรับโปรซื้อ X แถม Y */
 export interface BuyXGetYConfig {
@@ -457,6 +457,38 @@ export interface Promotion extends BaseEntity {
   eligibleProductIds: number[]    // local IDs (สร้างใหม่เมื่อ sync)
   eligibleProductUuids: string[]  // UUIDs สำหรับ sync ข้ามเครื่อง
   config: PromotionConfig
+  syncStatus: SyncStatus
+  syncedAt?: Date
+  syncError?: string
+  syncRetryCount: number
+}
+
+// ---------------------------------------------------------------------------
+// Promotion Codes: ชุดโค้ดลับสำหรับแลกสินค้าฟรี
+// ---------------------------------------------------------------------------
+
+/** ชุดโค้ดลับ (Batch ที่ออกโค้ดพร้อมกัน) */
+export interface PromotionBatch extends BaseEntity {
+  name: string            // ชื่อชุดโค้ด เช่น "โปร เปิดร้านใหม่ ม.ค. 69"
+  productUuids: string[]  // UUIDs สินค้าที่แลกได้ฟรี (เลือกได้ 1 จากรายการนี้)
+  productNames: string[]  // ชื่อสินค้า (snapshot)
+  quantity: number        // จำนวนชิ้นที่แลกได้ต่อโค้ด (ปกติ = 1)
+  totalCodes: number      // จำนวนโค้ดทั้งหมดในชุดนี้
+  usedCodes: number       // จำนวนโค้ดที่ใช้แล้ว
+  expiresAt?: Date        // วันหมดอายุ (ถ้ามี)
+  syncStatus: SyncStatus
+  syncedAt?: Date
+  syncError?: string
+  syncRetryCount: number
+}
+
+/** โค้ดลับแต่ละใบ */
+export interface PromotionCode extends BaseEntity {
+  batchUuid: string       // อ้างอิงไปยัง PromotionBatch.uuid
+  code: string            // โค้ด เช่น "YAM-AB3" (unique ทั้งระบบ)
+  isUsed: boolean         // ใช้แล้วหรือยัง
+  usedAt?: Date           // เวลาที่ใช้
+  usedOrderUuid?: string  // UUID ของ Order ที่ใช้โค้ดนี้
   syncStatus: SyncStatus
   syncedAt?: Date
   syncError?: string

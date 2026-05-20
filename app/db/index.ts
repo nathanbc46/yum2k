@@ -19,12 +19,14 @@ import type {
   AIConversation,
   DailyStockSnapshot,
   Promotion,
+  PromotionBatch,
+  PromotionCode,
 } from '~/types'
 
 // ---------------------------------------------------------------------------
 // กำหนด Version ของ Database (เพิ่มทุกครั้งที่เปลี่ยน Schema)
 // ---------------------------------------------------------------------------
-const DB_VERSION = 12
+const DB_VERSION = 13
 const DB_NAME = 'Yum2K_POS_DB'
 
 // ---------------------------------------------------------------------------
@@ -45,6 +47,8 @@ class Yum2KDatabase extends Dexie {
   aiChats!: EntityTable<AIChat, 'id'>
   dailyStockSnapshots!: EntityTable<DailyStockSnapshot, 'id'>
   promotions!: EntityTable<Promotion, 'id'>
+  promotionBatches!: EntityTable<PromotionBatch, 'id'>
+  promotionCodes!: EntityTable<PromotionCode, 'id'>
 
   // AppSettings ใช้ key เป็น Primary Key แทน id
   appSettings!: Dexie.Table<AppSetting, string>
@@ -214,7 +218,7 @@ class Yum2KDatabase extends Dexie {
 
     // Version 12: ไม่มีการเปลี่ยน Schema แต่บังคับ Dexie ให้รัน Upgrade path ใหม่
     // เพื่อให้ products ที่ Pull มาจาก Cloud มี syncStatus = 'synced' อย่างถูกต้อง
-    this.version(DB_VERSION).stores({
+    this.version(12).stores({
       users: '++id, &uuid, &username, role, isActive, isDeleted, updatedAt',
       categories: '++id, &uuid, name, parentId, parentUuid, isActive, sortOrder, isDeleted, updatedAt',
       products: '++id, &uuid, categoryId, name, sku, isActive, sortOrder, totalSold, stockQuantity, mappingType, isDeleted, syncStatus, updatedAt',
@@ -230,10 +234,29 @@ class Yum2KDatabase extends Dexie {
       promotions: '++id, &uuid, type, isActive, isDeleted, updatedAt, syncStatus',
     }).upgrade(async tx => {
       // แก้ไข products ที่ยังค้าง syncStatus = undefined/pending ให้เป็น synced
-      // เฉพาะรายการที่ Pull มาจาก Cloud (ไม่มี uuid สร้างใหม่ในเครื่อง)
+      // เฉพาะรายการที่ Pull มาจาจาก Cloud (ไม่มี uuid สร้างใหม่ในเครื่อง)
       await tx.table('products')
         .filter((p: any) => !p.syncStatus || p.syncStatus === 'pending')
         .modify((p: any) => { p.syncStatus = 'synced' })
+    })
+
+    // Version 13: เพิ่มตาราง promotionBatches + promotionCodes สำหรับระบบโค้ดลับ
+    this.version(DB_VERSION).stores({
+      users: '++id, &uuid, &username, role, isActive, isDeleted, updatedAt',
+      categories: '++id, &uuid, name, parentId, parentUuid, isActive, sortOrder, isDeleted, updatedAt',
+      products: '++id, &uuid, categoryId, name, sku, isActive, sortOrder, totalSold, stockQuantity, mappingType, isDeleted, syncStatus, updatedAt',
+      orders: '++id, &uuid, &orderNumber, staffId, status, kitchenStatus, syncStatus, createdAt, updatedAt, paymentMethod, isDeleted',
+      syncQueue: '++id, &uuid, entityType, entityId, syncStatus, retryCount, isDeleted',
+      appSettings: '&key',
+      stockAuditLogs: '++id, &uuid, productId, staffId, syncStatus, createdAt, isDeleted',
+      expenses: '++id, &uuid, categoryId, category, expenseDate, syncStatus, isDeleted',
+      expenseCategories: '++id, &uuid, name, isActive, sortOrder, isDeleted, updatedAt',
+      aiConversations: '++id, &uuid, source, title, createdAt, updatedAt, isDeleted',
+      aiChats: '++id, &uuid, conversationUuid, role, createdAt, isDeleted',
+      dailyStockSnapshots: '++id, &uuid, [snapshotDate+productUuid], snapshotDate, productUuid, productId, syncStatus, capturedAt, isDeleted',
+      promotions: '++id, &uuid, type, isActive, isDeleted, updatedAt, syncStatus',
+      promotionBatches: '++id, &uuid, productUuid, isDeleted, syncStatus, updatedAt',
+      promotionCodes: '++id, &uuid, &code, batchUuid, isUsed, isDeleted, syncStatus, updatedAt',
     })
   }
 }
@@ -253,7 +276,7 @@ export const db = new Yum2KDatabase()
  * Hook: ตั้งค่า createdAt และ updatedAt อัตโนมัติเมื่อเพิ่มข้อมูลใหม่
  * รองรับ: users, categories, products, orders, syncQueue
  */
-const tablesWithTimestamps = ['users', 'categories', 'products', 'orders', 'syncQueue', 'stockAuditLogs', 'expenses', 'expenseCategories', 'aiConversations', 'aiChats', 'dailyStockSnapshots', 'promotions']
+const tablesWithTimestamps = ['users', 'categories', 'products', 'orders', 'syncQueue', 'stockAuditLogs', 'expenses', 'expenseCategories', 'aiConversations', 'aiChats', 'dailyStockSnapshots', 'promotions', 'promotionBatches', 'promotionCodes']
 
 tablesWithTimestamps.forEach((tableName) => {
   const table = db.table(tableName)
@@ -267,7 +290,7 @@ tablesWithTimestamps.forEach((tableName) => {
     if (tableName === 'orders') {
       obj.kitchenStatus = obj.kitchenStatus ?? 'pending'
     }
-    if (['orders', 'stockAuditLogs', 'expenses', 'expenseCategories', 'dailyStockSnapshots', 'products'].includes(tableName)) {
+    if (['orders', 'stockAuditLogs', 'expenses', 'expenseCategories', 'dailyStockSnapshots', 'products', 'promotionBatches', 'promotionCodes'].includes(tableName)) {
       obj.syncStatus = obj.syncStatus ?? 'pending'
       obj.syncRetryCount = obj.syncRetryCount ?? 0
     }

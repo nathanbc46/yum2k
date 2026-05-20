@@ -11,7 +11,7 @@
 // =============================================================================
 
 import { db, getSetting, setSetting } from '~/db'
-import type { Category, Product, User, UserRole, StockAuditLog, ExpenseCategoryRecord } from '~/types'
+import type { Category, Product, User, UserRole, StockAuditLog, ExpenseCategoryRecord, PromotionBatch, PromotionCode } from '~/types'
 import { hashSHA256, isAlreadyHashed } from '~/utils/crypto'
 import { useDailyStockSnapshot } from './useDailyStockSnapshot'
 
@@ -612,6 +612,165 @@ export function useMasterDataSync() {
   }
 
   // -----------------------------------------------------------------------
+  // Promotion Codes Sync
+  // -----------------------------------------------------------------------
+
+  async function pushPromotionBatches(force = false): Promise<number> {
+    const supabase = useSupabaseClient<any>()
+    const pending = force
+      ? await db.promotionBatches.filter(b => !b.isDeleted).toArray()
+      : await db.promotionBatches.where('syncStatus').anyOf(['pending', 'failed']).filter(b => (b.syncRetryCount || 0) < 5).toArray()
+    if (!pending.length) return 0
+
+    const payload = pending.map(b => ({
+      uuid:              b.uuid,
+      name:              b.name,
+      product_uuids:     b.productUuids,
+      product_names:     b.productNames,
+      quantity:          b.quantity,
+      total_codes:       b.totalCodes,
+      used_codes:        b.usedCodes,
+      expires_at:        b.expiresAt ? new Date(b.expiresAt).toISOString() : null,
+      is_deleted:        b.isDeleted,
+      sync_status:       'synced',
+      sync_retry_count:  0,
+      created_at:        new Date(b.createdAt).toISOString(),
+      updated_at:        new Date(b.updatedAt).toISOString(),
+    }))
+
+    const { error } = await withTimeout(supabase.from('promotion_batches').upsert(payload, { onConflict: 'uuid' }))
+    if (error) {
+      for (const b of pending) {
+        await db.promotionBatches.update(b.id!, { syncStatus: 'failed', syncRetryCount: (b.syncRetryCount || 0) + 1, syncError: error.message })
+      }
+      throw error
+    }
+    const now = new Date()
+    for (const b of pending) {
+      await db.promotionBatches.update(b.id!, { syncStatus: 'synced', syncedAt: now, syncError: undefined })
+    }
+    return pending.length
+  }
+
+  async function pushPromotionCodes(force = false): Promise<number> {
+    const supabase = useSupabaseClient<any>()
+    const pending = force
+      ? await db.promotionCodes.filter(c => !c.isDeleted).toArray()
+      : await db.promotionCodes.where('syncStatus').anyOf(['pending', 'failed']).filter(c => (c.syncRetryCount || 0) < 5).toArray()
+    if (!pending.length) return 0
+
+    const chunkSize = 100
+    let successCount = 0
+    for (let i = 0; i < pending.length; i += chunkSize) {
+      const chunk = pending.slice(i, i + chunkSize)
+      const payload = chunk.map(c => ({
+        uuid:             c.uuid,
+        batch_uuid:       c.batchUuid,
+        code:             c.code,
+        is_used:          c.isUsed,
+        used_at:          c.usedAt ? new Date(c.usedAt).toISOString() : null,
+        used_order_uuid:  c.usedOrderUuid ?? null,
+        is_deleted:       c.isDeleted,
+        sync_status:      'synced',
+        sync_retry_count: 0,
+        created_at:       new Date(c.createdAt).toISOString(),
+        updated_at:       new Date(c.updatedAt).toISOString(),
+      }))
+
+      const { error } = await withTimeout(supabase.from('promotion_codes').upsert(payload, { onConflict: 'uuid' }))
+      if (error) {
+        for (const c of chunk) {
+          await db.promotionCodes.update(c.id!, { syncStatus: 'failed', syncRetryCount: (c.syncRetryCount || 0) + 1, syncError: error.message })
+        }
+        throw error
+      }
+      const now = new Date()
+      for (const c of chunk) {
+        await db.promotionCodes.update(c.id!, { syncStatus: 'synced', syncedAt: now, syncError: undefined })
+      }
+      successCount += chunk.length
+    }
+    return successCount
+  }
+
+  async function pullPromotionCodes(force = false): Promise<number> {
+    const supabase = useSupabaseClient<any>()
+    const lastPullAt = force ? null : await getLastPullAt()
+
+    let batchQuery = supabase.from('promotion_batches').select('*')
+    let codeQuery  = supabase.from('promotion_codes').select('*')
+    if (lastPullAt) {
+      batchQuery = batchQuery.gt('updated_at', lastPullAt.toISOString())
+      codeQuery  = codeQuery.gt('updated_at', lastPullAt.toISOString())
+    }
+
+    const [{ data: remoteBatches, error: bErr }, { data: remoteCodes, error: cErr }] = await Promise.all([
+      withTimeout(batchQuery),
+      withTimeout(codeQuery),
+    ])
+    if (bErr) throw new Error(`Pull PromotionBatches ล้มเหลว: ${bErr.message}`)
+    if (cErr) throw new Error(`Pull PromotionCodes ล้มเหลว: ${cErr.message}`)
+
+    let count = 0
+
+    if (remoteBatches?.length) {
+      await db.transaction('rw', db.promotionBatches, async () => {
+        for (const r of remoteBatches) {
+          const existing = await db.promotionBatches.where('uuid').equals(r.uuid).first()
+          const remoteUpdatedAt = new Date(r.updated_at)
+          if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) continue
+          const local: Omit<PromotionBatch, 'id'> = {
+            uuid:           r.uuid,
+            name:           r.name,
+            productUuids:   Array.isArray(r.product_uuids) ? r.product_uuids : [r.product_uuids].filter(Boolean),
+            productNames:   Array.isArray(r.product_names) ? r.product_names : [r.product_names].filter(Boolean),
+            quantity:       r.quantity,
+            totalCodes:     r.total_codes,
+            usedCodes:      r.used_codes,
+            expiresAt:      r.expires_at ? new Date(r.expires_at) : undefined,
+            isDeleted:      r.is_deleted,
+            syncStatus:     'synced',
+            syncRetryCount: 0,
+            createdAt:      new Date(r.created_at),
+            updatedAt:      remoteUpdatedAt,
+          }
+          if (existing?.id) await db.promotionBatches.update(existing.id, { ...local, uuid: r.uuid })
+          else await db.promotionBatches.add(local as PromotionBatch)
+          count++
+        }
+      })
+    }
+
+    if (remoteCodes?.length) {
+      await db.transaction('rw', db.promotionCodes, async () => {
+        for (const r of remoteCodes) {
+          const existing = await db.promotionCodes.where('uuid').equals(r.uuid).first()
+          const remoteUpdatedAt = new Date(r.updated_at)
+          if (existing && new Date(existing.updatedAt) >= remoteUpdatedAt) continue
+          const local: Omit<PromotionCode, 'id'> = {
+            uuid:           r.uuid,
+            batchUuid:      r.batch_uuid,
+            code:           r.code,
+            isUsed:         r.is_used,
+            usedAt:         r.used_at ? new Date(r.used_at) : undefined,
+            usedOrderUuid:  r.used_order_uuid ?? undefined,
+            isDeleted:      r.is_deleted,
+            syncStatus:     'synced',
+            syncRetryCount: 0,
+            createdAt:      new Date(r.created_at),
+            updatedAt:      remoteUpdatedAt,
+          }
+          if (existing?.id) await db.promotionCodes.update(existing.id, { ...local, uuid: r.uuid })
+          else await db.promotionCodes.add(local as PromotionCode)
+          count++
+        }
+      })
+    }
+
+    return count
+  }
+
+  // -----------------------------------------------------------------------
   // Orchestration: Push All / Pull All / Sync All
   // -----------------------------------------------------------------------
 
@@ -624,6 +783,9 @@ export function useMasterDataSync() {
       const stockLogs        = await pushStockAuditLogs(force)
       // push expense categories ก่อน expenses เพื่อป้องกัน FK violation
       const expenseCategories = await pushExpenseCategories()
+      // push promotion batches ก่อน codes (FK dependency)
+      await pushPromotionBatches(force)
+      await pushPromotionCodes(force)
 
       // หมายเหตุ: Categories และ Products ไม่ Sync (Push) ในนี้แล้ว เปลี่ยนไปเขียนฝั่ง Online ทันที
       // Users ไม่ Sync ในนี้แล้ว (เพราะบีบ Online-only ใน useUsers.ts)
@@ -654,6 +816,7 @@ export function useMasterDataSync() {
         console.warn('⚠️ Pull Snapshots Error:', err)
         return 0
       })
+      await pullPromotionCodes(force).catch(err => console.warn('⚠️ Pull PromotionCodes Error:', err))
       await updateLastPullAt(syncStartTime)
 
       // อัปเดต Last Push At ด้วย เพื่อบอกว่าข้อมูลที่เพิ่งดึงมานี้ "ทันสมัยแล้ว"
@@ -924,5 +1087,8 @@ export function useMasterDataSync() {
     updateLastPushAt,
     updateLastPullAt,
     resetStuckItems,
+    pushPromotionBatches,
+    pushPromotionCodes,
+    pullPromotionCodes,
   }
 }

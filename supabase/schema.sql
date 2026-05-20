@@ -260,3 +260,47 @@ CREATE TABLE IF NOT EXISTS daily_summaries (
 ALTER TABLE daily_summaries ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "service_role_only" ON daily_summaries
   FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- ==========================================
+-- 12. ตาราง Promotion Batches + Codes (ระบบโค้ดลับ)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS promotion_batches (
+  uuid              UUID PRIMARY KEY,
+  name              TEXT NOT NULL,
+  product_uuids     UUID[] NOT NULL DEFAULT '{}',
+  product_names     TEXT[] NOT NULL DEFAULT '{}',
+  quantity          INTEGER NOT NULL DEFAULT 1,
+  total_codes       INTEGER NOT NULL DEFAULT 0,
+  used_codes        INTEGER NOT NULL DEFAULT 0,
+  expires_at        TIMESTAMPTZ,
+  is_deleted        BOOLEAN NOT NULL DEFAULT false,
+  sync_status       TEXT NOT NULL DEFAULT 'synced',
+  sync_retry_count  INTEGER NOT NULL DEFAULT 0,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS promotion_codes (
+  uuid              UUID PRIMARY KEY,
+  batch_uuid        UUID NOT NULL REFERENCES promotion_batches(uuid),
+  code              TEXT UNIQUE NOT NULL,
+  is_used           BOOLEAN NOT NULL DEFAULT false,
+  used_at           TIMESTAMPTZ,
+  used_order_uuid   UUID,
+  is_deleted        BOOLEAN NOT NULL DEFAULT false,
+  sync_status       TEXT NOT NULL DEFAULT 'synced',
+  sync_retry_count  INTEGER NOT NULL DEFAULT 0,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_promotion_codes_batch_uuid   ON promotion_codes(batch_uuid);
+CREATE INDEX IF NOT EXISTS idx_promotion_codes_code         ON promotion_codes(code);
+CREATE INDEX IF NOT EXISTS idx_promotion_codes_is_used      ON promotion_codes(is_used);
+CREATE INDEX IF NOT EXISTS idx_promotion_batches_updated_at ON promotion_batches(updated_at);
+CREATE INDEX IF NOT EXISTS idx_promotion_codes_updated_at   ON promotion_codes(updated_at);
+
+ALTER TABLE promotion_batches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE promotion_codes   ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public Access" ON promotion_batches FOR ALL TO public USING (true);
+CREATE POLICY "Public Access" ON promotion_codes   FOR ALL TO public USING (true);

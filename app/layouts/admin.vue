@@ -346,6 +346,7 @@ const navLinks = [
   { to: '/admin/products',       icon: '📦', label: 'จัดการสินค้า' },
   { to: '/admin/categories',     icon: '🗂️', label: 'จัดการหมวดหมู่' },
   { to: '/admin/promotions',     icon: '🎁', label: 'จัดการโปรโมชัน' },
+  { to: '/admin/promotion-codes', icon: '🎟️', label: 'โค้ดโปรโมชัน' },
   { to: '/admin/stock-audit',    icon: '📋', label: 'ประวัติสต็อก' },
   { to: '/admin/users',          icon: '👥', label: 'จัดการพนักงาน' },
   { to: '/admin/settings',       icon: '⚙️', label: 'ตั้งค่าร้านค้า' },

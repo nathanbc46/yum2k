@@ -223,7 +223,20 @@
         />
       </div>
 
-      <button 
+      <!-- ปุ่มโค้ดโปรโมชัน -->
+      <button
+        @click="isPromoCodeModalOpen = true"
+        class="w-full h-10 mb-2.5 flex items-center justify-center gap-2 rounded-xl text-sm font-bold border transition-all active:scale-95"
+        :class="appliedPromoCode
+          ? 'bg-green-500/15 text-green-400 border-green-500/30 hover:bg-green-500/25'
+          : 'bg-surface-800/60 text-surface-400 border-surface-700/50 hover:text-surface-200 hover:bg-surface-800'"
+      >
+        <span>🎟️</span>
+        <span v-if="appliedPromoCode">{{ appliedPromoCode }} — {{ appliedPromoProductName }}</span>
+        <span v-else>กรอกโค้ดโปรโมชัน</span>
+      </button>
+
+      <button
         @click="openSummaryModal"
         :disabled="cartItems.length === 0 || isProcessing"
         class="w-full btn-touch bg-primary-600 hover:bg-primary-500 disabled:bg-surface-800 disabled:text-surface-500 text-white font-bold text-lg rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary-900/20 disabled:shadow-none"
@@ -275,6 +288,90 @@
       @close="infoModalOpen = false"
       @confirm="() => {}"
     />
+
+    <!-- Modal กรอกโค้ดโปรโมชัน -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="isPromoCodeModalOpen" class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4 bg-surface-950/70 backdrop-blur-sm" @click.self="closePromoCodeModal">
+          <Transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0 translate-y-4 scale-95"
+            enter-to-class="opacity-100 translate-y-0 scale-100"
+          >
+            <div v-if="isPromoCodeModalOpen" class="w-full max-w-sm bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl p-5 flex flex-col gap-4">
+              <div class="flex items-center justify-between">
+                <h3 class="text-base font-black text-surface-50">🎟️ โค้ดโปรโมชัน</h3>
+                <button @click="closePromoCodeModal" class="w-8 h-8 flex items-center justify-center rounded-lg text-surface-500 hover:text-surface-200 hover:bg-surface-800 transition-all">
+                  <X :size="16" />
+                </button>
+              </div>
+
+              <div>
+                <input
+                  ref="promoCodeInputRef"
+                  v-model="promoCodeInput"
+                  type="text"
+                  placeholder="เช่น YAM-AB3"
+                  maxlength="7"
+                  @input="promoCodeInput = promoCodeInput.toUpperCase().replace(/[^A-Z0-9-]/g, '')"
+                  @keydown.enter="handleValidateCode"
+                  class="w-full bg-surface-950 border border-surface-700 rounded-xl px-4 py-3 text-center text-2xl font-black tracking-widest text-surface-50 focus:border-primary-500 outline-none transition-colors uppercase"
+                />
+                <p v-if="promoCodeError" class="text-red-400 text-sm text-center mt-2 font-medium">{{ promoCodeError }}</p>
+              </div>
+
+              <!-- ผลลัพธ์การตรวจสอบ: เลือกสินค้า -->
+              <div v-if="promoCodeValidResult">
+                <p class="text-xs font-black text-green-400 mb-2">✓ โค้ดถูกต้อง — เลือกสินค้าที่ต้องการ</p>
+                <div class="flex flex-col gap-1.5">
+                  <label
+                    v-for="p in promoCodeValidResult.products"
+                    :key="p.uuid"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all"
+                    :class="selectedPromoProductUuid === p.uuid
+                      ? 'bg-green-500/15 border-green-500/40'
+                      : 'bg-surface-800 border-surface-700 hover:border-surface-600'"
+                  >
+                    <input type="radio" :value="p.uuid" v-model="selectedPromoProductUuid" class="w-4 h-4 accent-green-500 shrink-0" />
+                    <span class="flex-1 text-sm font-bold text-surface-100">{{ p.name }}</span>
+                    <span class="text-xs text-surface-500 shrink-0">฿{{ p.salePrice }}</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="flex gap-2">
+                <button @click="closePromoCodeModal" class="flex-1 h-12 bg-surface-800 text-surface-300 font-bold rounded-xl transition-all active:scale-95 hover:bg-surface-700">
+                  ยกเลิก
+                </button>
+                <button
+                  v-if="!promoCodeValidResult"
+                  @click="handleValidateCode"
+                  :disabled="promoCodeInput.length < 7 || isValidatingCode"
+                  class="flex-1 h-12 bg-primary-600 hover:bg-primary-500 disabled:bg-surface-800 disabled:text-surface-500 text-white font-bold rounded-xl transition-all active:scale-95"
+                >
+                  {{ isValidatingCode ? 'กำลังตรวจสอบ...' : 'ตรวจสอบโค้ด' }}
+                </button>
+                <button
+                  v-else
+                  @click="handleApplyCode"
+                  :disabled="!selectedPromoProductUuid"
+                  class="flex-1 h-12 bg-green-600 hover:bg-green-500 disabled:bg-surface-800 disabled:text-surface-500 text-white font-bold rounded-xl transition-all active:scale-95"
+                >
+                  ยืนยัน รับสินค้าฟรี
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -310,6 +407,8 @@ import PosFreeItemModal from './PosFreeItemModal.vue'
 import type { PaymentMethod } from '~/types'
 import { checkBuyXGetYEligibility } from '~/composables/useBuyXGetY'
 import type { BuyXGetYEligibility } from '~/composables/useBuyXGetY'
+import { usePromotionCodes } from '~/composables/usePromotionCodes'
+import type { CodeValidationResult } from '~/composables/usePromotionCodes'
 
 const router = useRouter()
 const authUser = useAuthStore()
@@ -482,6 +581,71 @@ function openSummaryModal() {
   isSummaryModalOpen.value = true
 }
 
+// --- Promo Code ---
+const { validateCode, redeemCode } = usePromotionCodes()
+const isPromoCodeModalOpen = ref(false)
+const promoCodeInput = ref('')
+const promoCodeError = ref('')
+const promoCodeValidResult = ref<CodeValidationResult | null>(null)
+const isValidatingCode = ref(false)
+const promoCodeInputRef = ref<HTMLInputElement | null>(null)
+
+const appliedPromoCode = ref<string | null>(null)
+const appliedPromoProductName = ref<string | null>(null)
+const selectedPromoProductUuid = ref<string | null>(null)
+
+function closePromoCodeModal() {
+  isPromoCodeModalOpen.value = false
+  promoCodeInput.value = ''
+  promoCodeError.value = ''
+  promoCodeValidResult.value = null
+  selectedPromoProductUuid.value = null
+}
+
+watch(isPromoCodeModalOpen, async (val) => {
+  if (val) {
+    await nextTick()
+    promoCodeInputRef.value?.focus()
+  }
+})
+
+async function handleValidateCode() {
+  if (promoCodeInput.value.length < 7) return
+  isValidatingCode.value = true
+  promoCodeError.value = ''
+  promoCodeValidResult.value = null
+  try {
+    const result = await validateCode(promoCodeInput.value)
+    if (result.valid) {
+      promoCodeValidResult.value = result
+      // auto-select เมื่อมีสินค้าเดียว
+      if (result.products?.length === 1) selectedPromoProductUuid.value = result.products[0].uuid
+    } else {
+      promoCodeError.value = result.errorMessage || 'โค้ดไม่ถูกต้อง'
+    }
+  } finally {
+    isValidatingCode.value = false
+  }
+}
+
+async function handleApplyCode() {
+  if (!promoCodeValidResult.value?.products || !selectedPromoProductUuid.value) return
+  const { addFreeItem } = useCart()
+  const batch = promoCodeValidResult.value.batch
+  const product = promoCodeValidResult.value.products.find(p => p.uuid === selectedPromoProductUuid.value)
+  if (!product) return
+
+  const category = await db.categories.where('id').equals(product.categoryId).first()
+  const productWithCat = { ...product, category: category! }
+
+  await addFreeItem(productWithCat, 0, `โค้ด: ${promoCodeInput.value}`, batch?.quantity ?? 1)
+  appliedPromoCode.value = promoCodeInput.value
+  appliedPromoProductName.value = product.name
+
+  closePromoCodeModal()
+  toast.success(`เพิ่ม "${product.name}" ฟรีแล้ว 🎁`)
+}
+
 async function handleConfirmOrder(paymentMethod: PaymentMethod, amountReceived: number, cashDenominations?: Record<string, number>, shouldPrint: boolean = true) {
   if (isProcessing.value) return
   isProcessing.value = true
@@ -498,6 +662,13 @@ async function handleConfirmOrder(paymentMethod: PaymentMethod, amountReceived: 
     if (order) {
       isSummaryModalOpen.value = false
       posStore.setLastOrder(order)
+
+      // redeem โค้ดโปรโมชันถ้ามีการใช้ในออร์เดอร์นี้
+      if (appliedPromoCode.value) {
+        await redeemCode(appliedPromoCode.value, order.uuid).catch(() => {})
+        appliedPromoCode.value = null
+        appliedPromoProductName.value = null
+      }
 
       if (shouldPrint) {
         const success = await print(order)
