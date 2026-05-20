@@ -115,41 +115,41 @@ export function useSync() {
     // ตรวจสอบ navigator.onLine โดยตรง (real-time) แทน cached isOnline ref
     if (!navigator.onLine || isSyncing.value) return summary
     isOnline.value = navigator.onLine
-
-    // ตรวจสอบ Supabase session ก่อน sync
-    // autoRefreshToken=false หมายความว่า token ไม่ refresh เอง → ต้อง re-auth เองเมื่อหมดอายุ
-    if (supabase) {
-      const { data: { session } } = await supabase.auth.getSession()
-      const tokenValid = session?.expires_at && (session.expires_at * 1000) > Date.now() + 60_000
-      if (!tokenValid) {
-        // token หมดอายุหรือใกล้หมด → re-auth ด้วย device credentials
-        const config = useRuntimeConfig()
-        const email = config.public.supabaseDeviceEmail as string | undefined
-        const password = config.public.supabaseDevicePassword as string | undefined
-        if (email && password) {
-          try {
-            const { error } = await withTimeout(
-              supabase.auth.signInWithPassword({ email, password }),
-              10_000
-            )
-            if (error) {
-              console.warn('⚠️ Session หมดอายุ — re-auth ล้มเหลว ข้าม sync:', error.message)
-              return summary
-            }
-            console.log('🔄 Session refresh สำเร็จ — ดำเนินการ sync ต่อ')
-          } catch (err: any) {
-            console.warn('⚠️ Session refresh timeout — ข้าม sync รอบนี้:', err?.message)
-            return summary
-          }
-        } else {
-          console.warn('⚠️ ไม่มี device credentials — ข้าม sync')
-          return summary
-        }
-      }
-    }
-
+    // ตั้ง flag ก่อน await ทุกตัวเพื่อป้องกัน race condition (heartbeat + reconnect พร้อมกัน)
     isSyncing.value = true
     try {
+      // ตรวจสอบ Supabase session ก่อน sync
+      // autoRefreshToken=false หมายความว่า token ไม่ refresh เอง → ต้อง re-auth เองเมื่อหมดอายุ
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession()
+        const tokenValid = session?.expires_at && (session.expires_at * 1000) > Date.now() + 60_000
+        if (!tokenValid) {
+          // token หมดอายุหรือใกล้หมด → re-auth ด้วย device credentials
+          const config = useRuntimeConfig()
+          const email = config.public.supabaseDeviceEmail as string | undefined
+          const password = config.public.supabaseDevicePassword as string | undefined
+          if (email && password) {
+            try {
+              const { error } = await withTimeout(
+                supabase.auth.signInWithPassword({ email, password }),
+                10_000
+              )
+              if (error) {
+                console.warn('⚠️ Session หมดอายุ — re-auth ล้มเหลว ข้าม sync:', error.message)
+                return summary
+              }
+              console.log('🔄 Session refresh สำเร็จ — ดำเนินการ sync ต่อ')
+            } catch (err: any) {
+              console.warn('⚠️ Session refresh timeout — ข้าม sync รอบนี้:', err?.message)
+              return summary
+            }
+          } else {
+            console.warn('⚠️ ไม่มี device credentials — ข้าม sync')
+            return summary
+          }
+        }
+      }
+
       // 1. Sync Master Data (Delta Push Stock Logs)
       const masterRes = await masterSync.pushAll().catch(err => {
         console.error('❌ Master Push Error:', err)
@@ -280,9 +280,10 @@ export function useSync() {
       if (orderError) throw orderError
 
       if (insertedOrder?.id) {
-        await withTimeout(
+        const { error: deleteError } = await withTimeout(
           supabase.from('order_items').delete().eq('order_id', insertedOrder.id)
         )
+        if (deleteError) throw deleteError
         const orderItemsData = order.items.map(item => ({
           order_id: insertedOrder.id,
           product_uuid: item.productUuid,
@@ -429,7 +430,15 @@ export function useSync() {
       for (const remote of remoteOrders) {
         const existing = existingOrders.find(o => o.uuid === remote.uuid)
         
-        const processedItems: OrderItem[] = remote.order_items.map((item: any) => {
+        // dedup order_items จาก Supabase (ป้องกันกรณีที่ข้อมูล Cloud มี rows ซ้ำจาก bug เก่า)
+        const seenItemIds = new Set<number>()
+        const uniqueRemoteItems = remote.order_items.filter((item: any) => {
+          if (seenItemIds.has(item.id)) return false
+          seenItemIds.add(item.id)
+          return true
+        })
+
+        const processedItems: OrderItem[] = uniqueRemoteItems.map((item: any) => {
           const prodInfo = prodUuidToLocalId.get(item.product_uuid)
           const categoryId = prodInfo?.categoryId ?? catUuidToLocalId.get(item.category_uuid) ?? 0
 

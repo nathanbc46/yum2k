@@ -1,0 +1,4 @@
+# คัดลอกไฟล์นี้เป็น backup_supabase.config.ps1 แล้วใส่ค่าจริง
+$PROJECT_ID   = "your-project-id"
+$DB_PASSWORD  = "your-db-password"
+$REGION       = "aws-0-ap-southeast-1"

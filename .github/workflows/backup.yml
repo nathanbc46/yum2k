@@ -1,0 +1,35 @@
+name: Daily Supabase Backup
+
+on:
+  schedule:
+    - cron: "0 19 * * *"  # 02:00 น. เวลาไทย (UTC+7 → UTC 19:00)
+  workflow_dispatch:        # กดรันมือได้จาก GitHub UI
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install httpx
+
+      - name: Run backup
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python backup_supabase.py
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ github.run_id }}
+          path: supabase_backups/*.zip
+          retention-days: 30

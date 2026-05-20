@@ -18,7 +18,16 @@
       "Bash(Get-ChildItem -Path \"D:\\\\yum2k\\\\app\" -Recurse -Filter \"*.vue\")",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Get-Content \"D:\\\\yum2k\\\\app.vue\" -ErrorAction SilentlyContinue)",
-      "Bash(Select-String \"viewport|meta\" -Context 2)"
+      "Bash(Select-String \"viewport|meta\" -Context 2)",
+      "PowerShell(pwsh -File D:\\\\yum2k\\\\backup_supabase.ps1)",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\pg_dump.exe\" --version)",
+      "PowerShell(supabase *)",
+      "PowerShell(Remove-Item *)",
+      "PowerShell(python --version 2>&1)",
+      "PowerShell(python D:\\\\yum2k\\\\backup_supabase.py)",
+      "Bash(rm -f /d/yum2k/supabase_backups/*)",
+      "Bash(python /d/yum2k/backup_supabase.py)",
+      "PowerShell(Get-Command *)"
     ]
   }
 }
