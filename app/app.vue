@@ -63,6 +63,7 @@
     <!-- PWA -->
     <VitePwaManifest />
     <PwaInstallPrompt />
+    <PwaUpdatePrompt />
 
     <!-- Toast Layer -->
     <ToastProvider />
@@ -81,6 +82,7 @@ import { useAuthStore } from '~/stores/auth'
 import { useLineDailySummary } from '~/composables/useLineDailySummary'
 import PosReceipt from '~/components/pos/PosReceipt.vue'
 import PwaInstallPrompt from '~/components/admin/PwaInstallPrompt.vue'
+import PwaUpdatePrompt from '~/components/PwaUpdatePrompt.vue'
 import ToastProvider from '~/components/ui/ToastProvider.vue'
 import ConfirmModal from '~/components/ui/ConfirmModal.vue'
 

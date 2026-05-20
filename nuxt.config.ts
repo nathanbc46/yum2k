@@ -26,7 +26,7 @@ export default defineNuxtConfig({
 
   // PWA Config
   pwa: {
-    registerType: 'autoUpdate',
+    registerType: 'prompt',
     manifest: {
       name: 'Yum2K POS - ยำทูเค',
       short_name: 'Yum2K',
@@ -62,7 +62,6 @@ export default defineNuxtConfig({
       maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
       cleanupOutdatedCaches: true,
       clientsClaim: true,
-      skipWaiting: true,
       runtimeCaching: [
         {
           urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
