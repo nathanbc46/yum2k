@@ -933,6 +933,19 @@ export function useMasterDataSync() {
         count++
       }
     }
+
+    // รีเซ็ต orders ที่ค้างอยู่ใน 'syncing' (เน็ตหลุดระหว่าง sync กลางเซสชัน)
+    const syncingOrders = await db.orders.where('syncStatus').equals('syncing').toArray()
+    for (const order of syncingOrders) {
+      await db.orders.update(order.id!, {
+        syncStatus: 'pending',
+        syncRetryCount: 0,
+        syncError: undefined,
+        updatedAt: now,
+      })
+      count++
+    }
+
     return count
   }
 

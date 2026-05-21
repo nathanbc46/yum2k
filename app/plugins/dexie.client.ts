@@ -16,7 +16,17 @@ export default defineNuxtPlugin({
 
     // เปิด DB แบบ Non-blocking (ไม่รอ await เพราะ provide ต้อง return synchronously)
     db.open()
-      .then(() => console.log('✅ เชื่อมต่อ IndexedDB สำเร็จ (Yum2K POS DB)'))
+      .then(async () => {
+        console.log('✅ เชื่อมต่อ IndexedDB สำเร็จ (Yum2K POS DB)')
+        // reset orders ที่ค้าง syncing จากการ crash/disconnect ระหว่าง sync ครั้งก่อน
+        const stuck = await db.orders.where('syncStatus').equals('syncing').toArray()
+        if (stuck.length > 0) {
+          for (const order of stuck) {
+            await db.orders.update(order.id!, { syncStatus: 'pending', syncError: undefined })
+          }
+          console.log(`🔄 Reset ${stuck.length} order(s) จาก syncing → pending`)
+        }
+      })
       .catch((error: unknown) => console.error('❌ ไม่สามารถเปิด IndexedDB ได้:', error))
 
     // ส่ง db instance ให้ใช้งานได้ผ่าน useNuxtApp().$db
