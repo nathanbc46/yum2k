@@ -1,6 +1,7 @@
 <template>
-  <div 
-    class="flex flex-col h-dvh overflow-hidden"
+  <div
+    class="flex flex-col overflow-hidden"
+    style="height: var(--app-height, 100dvh)"
     :class="theme === 'light' ? 'light-mode' : ''"
   >
     <!-- Network Status Banner: แสดงเฉพาะเมื่อมีเน็ตและมีงานค้าง -->
