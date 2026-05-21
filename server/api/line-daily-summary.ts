@@ -61,7 +61,7 @@ export default defineEventHandler(async (event) => {
 
   const { data: orders, error: queryError } = await supabase
     .from('orders')
-    .select('id, total_amount, profit_amount')
+    .select('id, total_amount, profit_amount, created_at')
     .gte('created_at', startOfDay)
     .lte('created_at', endOfDay)
     .eq('is_deleted', false)
@@ -77,27 +77,46 @@ export default defineEventHandler(async (event) => {
   const revenue = orders?.reduce((s, o) => s + Number(o.total_amount), 0) ?? 0
   const gp = orders?.reduce((s, o) => s + Number(o.profit_amount), 0) ?? 0
 
-  // order_items: นับชิ้น + Top 5
+  // คำนวณระยะเวลาการขาย
+  let firstOrderTime: Date | null = null
+  let lastOrderTime: Date | null = null
+  let durationMin = 0
+  if (orderCount > 0) {
+    const times = orders!.map(o => new Date(o.created_at).getTime())
+    firstOrderTime = new Date(Math.min(...times))
+    lastOrderTime  = new Date(Math.max(...times))
+    durationMin = Math.round((lastOrderTime.getTime() - firstOrderTime.getTime()) / 60000)
+  }
+
+  // order_items: นับชิ้น + Top 5 ตามจำนวน + Top 5 ตามมูลค่า
   let itemCount = 0
   let top5: { name: string; qty: number }[] = []
+  let top5Revenue: { name: string; revenue: number }[] = []
   if (orderCount > 0) {
     const orderIds = orders!.map(o => o.id)
     const { data: itemRows } = await supabase
       .from('order_items')
-      .select('product_name, quantity')
+      .select('product_name, quantity, total_price')
       .in('order_id', orderIds)
 
     if (itemRows) {
-      const productMap = new Map<string, number>()
+      const productMap = new Map<string, { qty: number; revenue: number }>()
       for (const row of itemRows) {
         itemCount += row.quantity ?? 0
-        const qty = (productMap.get(row.product_name) ?? 0) + (row.quantity ?? 0)
-        productMap.set(row.product_name, qty)
+        const prev = productMap.get(row.product_name) ?? { qty: 0, revenue: 0 }
+        productMap.set(row.product_name, {
+          qty: prev.qty + (row.quantity ?? 0),
+          revenue: prev.revenue + (row.total_price ?? 0),
+        })
       }
       top5 = Array.from(productMap.entries())
-        .sort((a, b) => b[1] - a[1])
+        .sort((a, b) => b[1].qty - a[1].qty)
         .slice(0, 5)
-        .map(([name, qty]) => ({ name, qty }))
+        .map(([name, v]) => ({ name, qty: v.qty }))
+      top5Revenue = Array.from(productMap.entries())
+        .sort((a, b) => b[1].revenue - a[1].revenue)
+        .slice(0, 5)
+        .map(([name, v]) => ({ name, revenue: v.revenue }))
     }
   }
 
@@ -136,6 +155,21 @@ export default defineEventHandler(async (event) => {
 
   const gpPct = revenue > 0 ? ((gp / revenue) * 100).toFixed(1) : '0.0'
   const top5Lines = top5.map((p, i) => `  ${i + 1}. ${p.name}  ${p.qty} ชิ้น`)
+  const top5RevenueLines = top5Revenue.map((p, i) => `  ${i + 1}. ${p.name}  ฿${fmt(p.revenue)}`)
+
+  const fmtTime = (d: Date) =>
+    d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }) + ' น.'
+  const fmtDuration = (min: number) => {
+    if (min < 60) return `${min} นาที`
+    const h = Math.floor(min / 60)
+    const m = min % 60
+    return m > 0 ? `${h} ชม. ${m} นาที` : `${h} ชม.`
+  }
+  const durationLine = firstOrderTime && lastOrderTime
+    ? orderCount === 1
+      ? `⏱️ เวลาขาย      ${fmtTime(firstOrderTime)}`
+      : `⏱️ เวลาขาย      ${fmtTime(firstOrderTime)} – ${fmtTime(lastOrderTime)} (${fmtDuration(durationMin)})`
+    : null
 
   const message = orderCount === 0
     ? `📊 สรุปยอดขาย ${thaiDate}\n─────────────────\nวันนี้ยังไม่มีรายการขาย`
@@ -146,14 +180,20 @@ export default defineEventHandler(async (event) => {
         `🧾 จำนวนบิล    ${orderCount} บิล`,
         `📦 สินค้าขาย   ${itemCount} ชิ้น`,
         `💳 เฉลี่ยต่อบิล  ฿${fmt(avgPerBill)}`,
+        ...(durationLine ? [durationLine] : []),
         `─────────────────`,
         `🏷️ กำไรสินค้า (GP) ฿${fmt(gp)} (${gpPct}%)`,
         `💸 รายจ่าย/วัน   ฿${fmt(dailyAvgExpense)}`,
         `📈 กำไรสุทธิ   ${netProfit >= 0 ? '' : '-'}฿${fmt(Math.abs(netProfit))}`,
         ...(top5.length > 0 ? [
           `─────────────────`,
-          `⭐ Top ${top5.length} สินค้าขายดี`,
+          `⭐ Top ${top5.length} สินค้าขายดี (จำนวน)`,
           ...top5Lines,
+        ] : []),
+        ...(top5Revenue.length > 0 ? [
+          `─────────────────`,
+          `💎 Top ${top5Revenue.length} สินค้าขายดี (มูลค่า)`,
+          ...top5RevenueLines,
         ] : []),
       ].join('\n')
 
