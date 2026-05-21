@@ -291,8 +291,8 @@ export function useSync() {
         if (deleteError) throw deleteError
         const orderItemsData = order.items.map(item => ({
           order_id: insertedOrder.id,
-          product_uuid: item.productUuid,
-          category_uuid: item.categoryUuid,
+          product_uuid: item.productUuid || null,
+          category_uuid: item.categoryUuid || null,
           product_name: item.productName,
           product_sku: item.productSku,
           quantity: item.quantity,
