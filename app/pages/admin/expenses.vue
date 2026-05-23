@@ -132,6 +132,20 @@
         </div>
       </div>
 
+      <!-- Summary Card -->
+      <div class="bg-gradient-to-r from-primary-600/10 to-primary-500/5 border border-primary-500/20 rounded-2xl px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-primary-500/15 rounded-xl flex items-center justify-center text-primary-400">
+            <Banknote :size="20" />
+          </div>
+          <div>
+            <p class="text-[11px] font-black uppercase tracking-widest text-surface-500">รายจ่ายรวม{{ dateRangeLabel }}</p>
+            <p class="text-[11px] text-surface-600 mt-0.5">{{ filteredExpenses.length }} รายการ</p>
+          </div>
+        </div>
+        <p class="text-3xl font-black text-primary-400">฿{{ filterTotalAmount.toLocaleString() }}</p>
+      </div>
+
       <!-- Expense Table Container -->
       <div class="bg-surface-900 border border-surface-800 rounded-[2rem] overflow-hidden shadow-xl">
         <div class="overflow-x-auto">
@@ -618,6 +632,22 @@ const paginatedExpenses = computed(() => {
 
 const pageTotalAmount = computed(() => {
   return paginatedExpenses.value.reduce((sum, exp) => sum + exp.amount, 0)
+})
+
+const filterTotalAmount = computed(() =>
+  filteredExpenses.value.reduce((sum, e) => sum + e.amount, 0)
+)
+
+const dateRangeLabel = computed(() => {
+  const map: Record<string, string> = {
+    today: 'วันนี้',
+    this_week: 'สัปดาห์นี้',
+    this_month: 'เดือนนี้',
+    last_month: 'เดือนที่แล้ว',
+    this_year: 'ปีนี้',
+    custom: 'ช่วงที่เลือก'
+  }
+  return map[selectedDateRange.value] || ''
 })
 
 // --- Chart Data & Options ---
