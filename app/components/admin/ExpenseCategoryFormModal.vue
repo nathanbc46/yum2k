@@ -60,34 +60,57 @@
               :style="{ backgroundColor: cat.color || '#6366f1' }"
             ></div>
             
-            <div class="flex-1">
-              <input 
-                v-if="editingId === cat.id"
-                v-model="editingName"
-                type="text"
-                class="w-full bg-surface-950 border-surface-700 rounded-lg px-3 py-1 text-sm text-surface-50"
-                @blur="handleUpdate(cat)"
-                @keyup.enter="handleUpdate(cat)"
-                auto-focus
-              />
+            <div class="flex-1 flex items-center gap-2">
+              <template v-if="editingId === cat.id">
+                <input
+                  v-model="editingColor"
+                  type="color"
+                  class="w-9 h-9 p-1 bg-surface-900 border-surface-700 rounded-lg cursor-pointer shrink-0"
+                />
+                <input
+                  v-model="editingName"
+                  type="text"
+                  class="flex-1 bg-surface-950 border-surface-700 rounded-lg px-3 py-1 text-sm text-surface-50"
+                  @keyup.enter="handleUpdate(cat)"
+                  auto-focus
+                />
+              </template>
               <span v-else class="text-sm font-bold text-surface-100">{{ cat.name }}</span>
             </div>
 
             <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-              <button 
-                @click="startEdit(cat)"
-                class="p-2 text-surface-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all"
-                title="แก้ไขชื่อ"
-              >
-                <Pencil :size="16" />
-              </button>
-              <button 
-                @click="handleDelete(cat)"
-                class="p-2 text-surface-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
-                title="ลบ"
-              >
-                <Trash2 :size="16" />
-              </button>
+              <template v-if="editingId === cat.id">
+                <button
+                  @click="handleUpdate(cat)"
+                  class="p-2 text-surface-400 hover:text-green-400 hover:bg-green-400/10 rounded-lg transition-all"
+                  title="บันทึก"
+                >
+                  <Check :size="16" />
+                </button>
+                <button
+                  @click="editingId = null"
+                  class="p-2 text-surface-400 hover:text-surface-200 hover:bg-surface-700 rounded-lg transition-all"
+                  title="ยกเลิก"
+                >
+                  <X :size="16" />
+                </button>
+              </template>
+              <template v-else>
+                <button
+                  @click="startEdit(cat)"
+                  class="p-2 text-surface-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all"
+                  title="แก้ไข"
+                >
+                  <Pencil :size="16" />
+                </button>
+                <button
+                  @click="handleDelete(cat)"
+                  class="p-2 text-surface-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+                  title="ลบ"
+                >
+                  <Trash2 :size="16" />
+                </button>
+              </template>
             </div>
           </div>
         </div>
@@ -108,7 +131,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Plus, Pencil, Trash2 } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, Check, X } from 'lucide-vue-next'
 import { useExpenseCategories } from '~/composables/useExpenseCategories'
 import { useConfirm } from '~/composables/useConfirm'
 import { useToast } from '~/composables/useToast'
@@ -129,6 +152,7 @@ const newCategoryColor = ref('#6366f1')
 
 const editingId = ref<number | null>(null)
 const editingName = ref('')
+const editingColor = ref('#6366f1')
 
 async function handleAdd() {
   if (!newCategoryName.value.trim()) return
@@ -145,6 +169,7 @@ async function handleAdd() {
 function startEdit(cat: ExpenseCategoryRecord) {
   editingId.value = cat.id!
   editingName.value = cat.name
+  editingColor.value = cat.color || '#6366f1'
 }
 
 async function handleUpdate(cat: ExpenseCategoryRecord) {
@@ -153,7 +178,7 @@ async function handleUpdate(cat: ExpenseCategoryRecord) {
     return
   }
   try {
-    await updateCategory(cat.id!, { name: editingName.value.trim() })
+    await updateCategory(cat.id!, { name: editingName.value.trim(), color: editingColor.value })
     editingId.value = null
     toast.success('แก้ไขสำเร็จ')
     emit('updated')

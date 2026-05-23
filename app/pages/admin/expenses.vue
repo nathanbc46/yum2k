@@ -117,8 +117,22 @@
           </div>
         </template>
 
+        <!-- Search -->
+        <div class="flex items-center gap-2 px-4 h-11 bg-surface-950 rounded-xl border border-surface-800 min-w-[200px]">
+          <Search :size="16" class="text-surface-600 shrink-0" />
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="ค้นหาคำอธิบาย..."
+            class="bg-transparent border-none text-surface-50 focus:ring-0 text-sm w-full placeholder-surface-600"
+          />
+          <button v-if="searchQuery" @click="searchQuery = ''" class="text-surface-600 hover:text-surface-400 transition-colors shrink-0">
+            <X :size="14" />
+          </button>
+        </div>
+
         <!-- Category filter -->
-        <div class="flex-1 flex items-center gap-2 px-4 h-11 bg-surface-950 rounded-xl border border-surface-800">
+        <div class="flex items-center gap-2 px-4 h-11 bg-surface-950 rounded-xl border border-surface-800">
           <Filter :size="16" class="text-surface-600" />
           <select
             v-model="filterCategory"
@@ -483,7 +497,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Banknote, Plus, Calendar, Filter, Trash2, X, Save, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-vue-next'
+import { Banknote, Plus, Calendar, Filter, Trash2, X, Save, ChevronLeft, ChevronRight, BarChart3, Search } from 'lucide-vue-next'
 import { useProfitability } from '~/composables/useProfitability'
 import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import { useAuthStore } from '~/stores/auth'
@@ -517,6 +531,7 @@ const editingId = ref<number | null>(null)
 const isSubmitting = ref(false)
 const expenses = ref<Expense[]>([])
 const filterCategory = ref('')
+const searchQuery = ref('')
 const currentPage = ref(1)
 const itemsPerPage = 20
 
@@ -618,7 +633,10 @@ const filteredExpenses = computed(() => {
       matchCat = exp.categoryId === Number(filterCategory.value) || exp.category === filterCategory.value
     }
     
-    return matchStart && matchEnd && matchCat
+    const q = searchQuery.value.trim().toLowerCase()
+    const matchSearch = !q || exp.description.toLowerCase().includes(q)
+
+    return matchStart && matchEnd && matchCat && matchSearch
   })
 })
 
@@ -740,7 +758,7 @@ const monthlyChartOptions = computed(() => ({
 }))
 
 // รีเซ็ตหน้าเมื่อตัวกรองเปลี่ยน
-watch([selectedDateRange, customStart, customEnd, filterCategory], () => {
+watch([selectedDateRange, customStart, customEnd, filterCategory, searchQuery], () => {
   currentPage.value = 1
 })
 
