@@ -78,7 +78,7 @@
     </div>
 
     <!-- Main Content: Expense List -->
-    <div class="flex-1 overflow-hidden flex flex-col p-6 space-y-6">
+    <div class="flex-1 overflow-auto p-6 space-y-6">
       <!-- Filter Bar -->
       <div class="flex items-center gap-4 bg-surface-900 p-4 rounded-2xl border border-surface-800 shrink-0">
         <div class="flex items-center gap-2 px-3 h-11 bg-surface-950 rounded-xl border border-surface-800">
@@ -112,8 +112,8 @@
       </div>
 
       <!-- Expense Table Container -->
-      <div class="flex-1 min-h-0 bg-surface-900 border border-surface-800 rounded-[2rem] overflow-hidden shadow-xl flex flex-col">
-        <div class="flex-1 overflow-y-auto">
+      <div class="bg-surface-900 border border-surface-800 rounded-[2rem] overflow-hidden shadow-xl">
+        <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse relative">
             <thead class="sticky top-0 z-10 bg-surface-800 shadow-sm">
               <tr>
@@ -179,7 +179,7 @@
               </td>
             </tr>
           </tbody>
-          <tfoot v-if="paginatedExpenses.length > 0" class="sticky bottom-0 bg-surface-800 shadow-[0_-1px_0_rgba(0,0,0,0.5)]">
+          <tfoot v-if="paginatedExpenses.length > 0" class="bg-surface-800 border-t border-surface-800">
             <tr>
               <td colspan="4" class="px-6 py-4 text-sm font-black text-surface-400 text-right uppercase">รวมรายจ่ายในหน้านี้:</td>
               <td class="px-6 py-4 text-xl font-black text-primary-400 text-right">
@@ -193,7 +193,7 @@
     </div>
 
       <!-- Pagination Footer -->
-      <div v-if="totalPages > 1" class="shrink-0 flex items-center justify-between bg-surface-900 px-6 py-4 border-t border-surface-800 rounded-b-[2rem]">
+      <div v-if="totalPages > 1" class="flex items-center justify-between bg-surface-900 px-6 py-4 rounded-2xl border border-surface-800">
         <div class="text-xs text-surface-500 font-medium">
           แสดง {{ startIndex + 1 }} - {{ Math.min(endIndex, filteredExpenses.length) }} จากทั้งหมด {{ filteredExpenses.length }} รายการ
         </div>
