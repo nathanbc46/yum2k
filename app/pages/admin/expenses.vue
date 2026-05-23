@@ -160,6 +160,27 @@
         <p class="text-3xl font-black text-primary-400">฿{{ filterTotalAmount.toLocaleString() }}</p>
       </div>
 
+      <!-- Daily Summary -->
+      <div v-if="dailySummary.length > 0" class="bg-surface-900 border border-surface-800 rounded-2xl overflow-hidden">
+        <div class="px-5 py-3 border-b border-surface-800 flex items-center justify-between">
+          <span class="text-[11px] font-black uppercase tracking-widest text-surface-500">สรุปรายวัน</span>
+          <span class="text-[11px] text-surface-600">{{ dailySummary.length }} วัน</span>
+        </div>
+        <div class="divide-y divide-surface-800/60">
+          <div
+            v-for="day in dailySummary"
+            :key="day.date"
+            class="flex items-center justify-between px-5 py-3 hover:bg-surface-800/30 transition-colors"
+          >
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-bold text-surface-200">{{ formatThaiDate(day.date) }}</span>
+              <span class="text-[11px] text-surface-600 bg-surface-800 px-2 py-0.5 rounded-full">{{ day.count }} รายการ</span>
+            </div>
+            <span class="text-sm font-black text-surface-50">฿{{ day.total.toLocaleString() }}</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Expense Table Container -->
       <div class="bg-surface-900 border border-surface-800 rounded-[2rem] overflow-hidden shadow-xl">
         <div class="overflow-x-auto">
@@ -655,6 +676,18 @@ const pageTotalAmount = computed(() => {
 const filterTotalAmount = computed(() =>
   filteredExpenses.value.reduce((sum, e) => sum + e.amount, 0)
 )
+
+const dailySummary = computed(() => {
+  const map = new Map<string, { date: string; total: number; count: number }>()
+  for (const exp of filteredExpenses.value) {
+    const d = exp.expenseDate
+    if (!map.has(d)) map.set(d, { date: d, total: 0, count: 0 })
+    const entry = map.get(d)!
+    entry.total += exp.amount
+    entry.count++
+  }
+  return Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date))
+})
 
 const dateRangeLabel = computed(() => {
   const map: Record<string, string> = {
