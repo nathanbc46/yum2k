@@ -89,7 +89,7 @@
             <!-- Custom Tooltip (รองรับทั้ง Hover และ Click) -->
             <div 
               :class="[
-                'absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 p-4 bg-surface-950/95 backdrop-blur-xl border border-surface-700 rounded-2xl shadow-2xl transition-all duration-300 z-[100]',
+                'absolute top-full left-1/2 -translate-x-1/2 mt-2 w-72 p-4 bg-surface-950/95 backdrop-blur-xl border border-surface-700 rounded-2xl shadow-2xl transition-all duration-300 z-[100]',
                 showExpenseTooltip 
                   ? 'opacity-100 translate-y-0 pointer-events-auto' 
                   : 'opacity-0 -translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto'
@@ -99,14 +99,33 @@
                 <span>รายละเอียดรายจ่ายเฉลี่ย</span>
                 <span class="text-[9px] bg-surface-800 px-1.5 py-0.5 rounded text-surface-400">รายวัน</span>
               </div>
+
+              <!-- วิธีคำนวณ -->
+              <div class="mb-3 p-2.5 bg-surface-900 rounded-xl border border-surface-800 space-y-1.5 text-[10px] leading-relaxed">
+                <p class="text-surface-300 font-bold">วิธีคำนวณ</p>
+                <p class="text-surface-500">ยอดนี้ <span class="text-red-400 font-bold">ไม่ใช่ยอดรายจ่ายจริง</span> แต่เป็นยอดที่ปันส่วนเฉลี่ยรายวันตามช่วงที่เลือก</p>
+                <div class="border-t border-surface-800 pt-1.5 space-y-0.5 text-surface-600">
+                  <p>① รวมรายจ่ายจริงแต่ละเดือน</p>
+                  <p>② ÷ จำนวนวันในเดือน = ค่าเฉลี่ย/วัน</p>
+                  <p>③ × จำนวนวันที่เลือก = ยอดนี้</p>
+                </div>
+              </div>
+
               <div class="space-y-2">
                 <div v-for="(val, month) in monthlyAvgs" :key="month" class="flex justify-between items-center text-xs">
                   <span class="text-surface-400 font-medium">{{ month }}</span>
                   <span class="font-black text-red-400 bg-red-400/10 px-2 py-1 rounded-lg border border-red-400/20">
-                    ฿{{ Math.round(val).toLocaleString() }}
+                    ฿{{ Math.round(val).toLocaleString() }}/วัน
                   </span>
                 </div>
               </div>
+
+              <!-- ยอดรายจ่ายจริง -->
+              <div class="mt-2 pt-2 border-t border-surface-800 flex justify-between items-center text-[10px]">
+                <span class="text-surface-500">ยอดรายจ่ายจริง (DB)</span>
+                <span class="font-black text-surface-300">฿{{ Math.round(rawTotalExpenses).toLocaleString() }}</span>
+              </div>
+
               <!-- Arrow -->
               <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-[-1px] border-8 border-transparent border-b-surface-700" />
             </div>
