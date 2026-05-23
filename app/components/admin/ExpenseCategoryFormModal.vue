@@ -173,7 +173,13 @@ function startEdit(cat: ExpenseCategoryRecord) {
 }
 
 async function handleUpdate(cat: ExpenseCategoryRecord) {
-  if (!editingName.value.trim() || editingName.value === cat.name) {
+  if (!editingName.value.trim()) {
+    editingId.value = null
+    return
+  }
+  const nameUnchanged = editingName.value.trim() === cat.name
+  const colorUnchanged = editingColor.value === (cat.color || '#6366f1')
+  if (nameUnchanged && colorUnchanged) {
     editingId.value = null
     return
   }
