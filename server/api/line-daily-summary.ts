@@ -61,7 +61,7 @@ export default defineEventHandler(async (event) => {
 
   const { data: orders, error: queryError } = await supabase
     .from('orders')
-    .select('id, total_amount, profit_amount, created_at')
+    .select('id, total_amount, profit_amount, created_at, payment_method')
     .gte('created_at', startOfDay)
     .lte('created_at', endOfDay)
     .eq('is_deleted', false)
@@ -76,6 +76,20 @@ export default defineEventHandler(async (event) => {
   const orderCount = orders?.length ?? 0
   const revenue = orders?.reduce((s, o) => s + Number(o.total_amount), 0) ?? 0
   const gp = orders?.reduce((s, o) => s + Number(o.profit_amount), 0) ?? 0
+
+  // คำนวณยอดแยกตามประเภทชำระ
+  const pmLabels: Record<string, string> = { cash: 'เงินสด', promptpay: 'พร้อมเพย์', card: 'บัตรเครดิต', unpaid: 'ค้างจ่าย', other: 'อื่นๆ' }
+  const pmIcons: Record<string, string> = { cash: '💵', promptpay: '📲', card: '💳', unpaid: '⏳', other: '💰' }
+  const pmMap: Record<string, { total: number; count: number }> = {}
+  for (const o of orders ?? []) {
+    const m = (o.payment_method as string) || 'other'
+    if (!pmMap[m]) pmMap[m] = { total: 0, count: 0 }
+    pmMap[m]!.total += Number(o.total_amount)
+    pmMap[m]!.count++
+  }
+  const paymentLines = Object.entries(pmMap)
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([m, v]) => `  ${pmIcons[m] ?? '💰'} ${pmLabels[m] ?? 'อื่นๆ'}  ฿${fmt(v.total)} (${v.count} บิล)`)
 
   // คำนวณระยะเวลาการขาย
   let firstOrderTime: Date | null = null
@@ -194,6 +208,11 @@ export default defineEventHandler(async (event) => {
           `─────────────────`,
           `💎 Top ${top5Revenue.length} สินค้าขายดี (มูลค่า)`,
           ...top5RevenueLines,
+        ] : []),
+        ...(paymentLines.length > 0 ? [
+          `─────────────────`,
+          `💳 ยอดแยกตามประเภทชำระ`,
+          ...paymentLines,
         ] : []),
       ].join('\n')
 
