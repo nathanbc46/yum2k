@@ -160,8 +160,22 @@
         <p class="text-3xl font-black text-primary-400">฿{{ filterTotalAmount.toLocaleString() }}</p>
       </div>
 
+      <!-- Tabs -->
+      <div class="flex gap-1 bg-surface-900 p-1 rounded-2xl border border-surface-800 self-start">
+        <button
+          @click="activeTab = 'daily'"
+          class="px-5 py-2 rounded-xl text-sm font-bold transition-all"
+          :class="activeTab === 'daily' ? 'bg-primary-600 text-white shadow' : 'text-surface-400 hover:text-surface-200'"
+        >สรุปรายวัน</button>
+        <button
+          @click="activeTab = 'list'"
+          class="px-5 py-2 rounded-xl text-sm font-bold transition-all"
+          :class="activeTab === 'list' ? 'bg-primary-600 text-white shadow' : 'text-surface-400 hover:text-surface-200'"
+        >รายการทั้งหมด</button>
+      </div>
+
       <!-- Daily Summary -->
-      <div v-if="dailySummary.length > 0" class="bg-surface-900 border border-surface-800 rounded-2xl overflow-hidden">
+      <div v-show="activeTab === 'daily'" class="bg-surface-900 border border-surface-800 rounded-2xl overflow-hidden">
         <div class="px-5 py-3 border-b border-surface-800 flex items-center justify-between">
           <span class="text-[11px] font-black uppercase tracking-widest text-surface-500">สรุปรายวัน</span>
           <span class="text-[11px] text-surface-600">{{ dailySummary.length }} วัน</span>
@@ -170,7 +184,8 @@
           <div
             v-for="day in dailySummary"
             :key="day.date"
-            class="flex items-center justify-between px-5 py-3 hover:bg-surface-800/30 transition-colors"
+            class="flex items-center justify-between px-5 py-3 hover:bg-surface-800/60 transition-colors cursor-pointer active:scale-[0.99]"
+            @click="selectedDay = day.date"
           >
             <div class="flex items-center gap-3">
               <span class="text-sm font-bold text-surface-200">{{ formatThaiDate(day.date) }}</span>
@@ -182,7 +197,7 @@
       </div>
 
       <!-- Expense Table Container -->
-      <div class="bg-surface-900 border border-surface-800 rounded-[2rem] overflow-hidden shadow-xl">
+      <div v-show="activeTab === 'list'" class="bg-surface-900 border border-surface-800 rounded-[2rem] overflow-hidden shadow-xl">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse relative">
             <thead class="sticky top-0 z-10 bg-surface-800 shadow-sm">
@@ -263,7 +278,7 @@
     </div>
 
       <!-- Pagination Footer -->
-      <div v-if="totalPages > 1" class="flex items-center justify-between bg-surface-900 px-6 py-4 rounded-2xl border border-surface-800">
+      <div v-if="activeTab === 'list' && totalPages > 1" class="flex items-center justify-between bg-surface-900 px-6 py-4 rounded-2xl border border-surface-800">
         <div class="text-xs text-surface-500 font-medium">
           แสดง {{ startIndex + 1 }} - {{ Math.min(endIndex, filteredExpenses.length) }} จากทั้งหมด {{ filteredExpenses.length }} รายการ
         </div>
@@ -508,11 +523,76 @@
     />
 
     <!-- Modal: Manage Expense Categories -->
-    <ExpenseCategoryFormModal 
+    <ExpenseCategoryFormModal
       :is-open="showCategoryModal"
       @close="showCategoryModal = false"
       @updated="loadCategories"
     />
+
+    <!-- Modal: รายจ่ายของวันที่เลือก -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="selectedDay"
+          class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm"
+          @click.self="selectedDay = null"
+        >
+          <Transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0 scale-95 translate-y-2"
+            enter-to-class="opacity-100 scale-100 translate-y-0"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100 scale-100 translate-y-0"
+            leave-to-class="opacity-0 scale-95 translate-y-2"
+          >
+            <div v-if="selectedDay" class="bg-surface-900 border border-surface-800 rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden">
+              <!-- Header -->
+              <div class="px-7 pt-7 pb-4 flex items-center justify-between">
+                <div>
+                  <h3 class="text-xl font-black text-surface-50">{{ formatThaiDate(selectedDay) }}</h3>
+                  <p class="text-xs text-surface-500 mt-0.5">{{ selectedDayExpenses.length }} รายการ</p>
+                </div>
+                <button
+                  @click="selectedDay = null"
+                  class="w-10 h-10 bg-surface-800 text-surface-400 hover:text-surface-50 rounded-xl flex items-center justify-center transition-colors"
+                >
+                  <X :size="20" />
+                </button>
+              </div>
+              <!-- รายการ -->
+              <div class="max-h-[50vh] overflow-y-auto divide-y divide-surface-800">
+                <div
+                  v-for="exp in selectedDayExpenses"
+                  :key="exp.id"
+                  class="flex items-center justify-between px-7 py-3"
+                >
+                  <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <span
+                      class="px-2 py-0.5 rounded-lg text-[10px] font-black shrink-0"
+                      :style="getCategoryStyles(exp)"
+                    >{{ getCategoryName(exp) }}</span>
+                    <span class="text-sm text-surface-200 truncate">{{ exp.description }}</span>
+                  </div>
+                  <span class="text-sm font-black text-surface-50 ml-4 shrink-0">฿{{ exp.amount.toLocaleString() }}</span>
+                </div>
+              </div>
+              <!-- Footer ยอดรวม -->
+              <div class="px-7 py-4 border-t border-surface-800 flex items-center justify-between bg-surface-800/30">
+                <span class="text-xs font-black uppercase tracking-widest text-surface-500">รวมทั้งวัน</span>
+                <span class="text-2xl font-black text-primary-400">฿{{ selectedDayTotal.toLocaleString() }}</span>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -675,6 +755,16 @@ const pageTotalAmount = computed(() => {
 
 const filterTotalAmount = computed(() =>
   filteredExpenses.value.reduce((sum, e) => sum + e.amount, 0)
+)
+
+const activeTab = ref<'daily' | 'list'>('daily')
+const selectedDay = ref<string | null>(null)
+
+const selectedDayExpenses = computed(() =>
+  selectedDay.value ? filteredExpenses.value.filter(e => e.expenseDate === selectedDay.value) : []
+)
+const selectedDayTotal = computed(() =>
+  selectedDayExpenses.value.reduce((sum, e) => sum + e.amount, 0)
 )
 
 const dailySummary = computed(() => {
