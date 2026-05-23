@@ -81,25 +81,46 @@
     <div class="flex-1 overflow-auto p-6 space-y-6">
       <!-- Filter Bar -->
       <div class="flex items-center gap-4 bg-surface-900 p-4 rounded-2xl border border-surface-800 shrink-0">
+        <!-- Date range preset -->
         <div class="flex items-center gap-2 px-3 h-11 bg-surface-950 rounded-xl border border-surface-800">
-          <span class="text-[10px] font-black text-surface-500 uppercase">เริ่ม</span>
-          <input 
-            type="date" 
-            v-model="startDate"
+          <Calendar :size="14" class="text-surface-500 shrink-0" />
+          <select
+            v-model="selectedDateRange"
             class="bg-transparent border-none text-surface-50 focus:ring-0 text-sm"
-          />
+          >
+            <option value="today">วันนี้</option>
+            <option value="this_week">สัปดาห์นี้</option>
+            <option value="this_month">เดือนนี้</option>
+            <option value="last_month">เดือนที่แล้ว</option>
+            <option value="this_year">ปีนี้</option>
+            <option value="custom">กำหนดเอง</option>
+          </select>
         </div>
-        <div class="flex items-center gap-2 px-3 h-11 bg-surface-950 rounded-xl border border-surface-800">
-          <span class="text-[10px] font-black text-surface-500 uppercase">ถึง</span>
-          <input 
-            type="date" 
-            v-model="endDate"
-            class="bg-transparent border-none text-surface-50 focus:ring-0 text-sm"
-          />
-        </div>
+
+        <!-- Custom date inputs -->
+        <template v-if="selectedDateRange === 'custom'">
+          <div class="flex items-center gap-2 px-3 h-11 bg-surface-950 rounded-xl border border-surface-800">
+            <span class="text-[10px] font-black text-surface-500 uppercase">เริ่ม</span>
+            <input
+              type="date"
+              v-model="customStart"
+              class="bg-transparent border-none text-surface-50 focus:ring-0 text-sm"
+            />
+          </div>
+          <div class="flex items-center gap-2 px-3 h-11 bg-surface-950 rounded-xl border border-surface-800">
+            <span class="text-[10px] font-black text-surface-500 uppercase">ถึง</span>
+            <input
+              type="date"
+              v-model="customEnd"
+              class="bg-transparent border-none text-surface-50 focus:ring-0 text-sm"
+            />
+          </div>
+        </template>
+
+        <!-- Category filter -->
         <div class="flex-1 flex items-center gap-2 px-4 h-11 bg-surface-950 rounded-xl border border-surface-800">
           <Filter :size="16" class="text-surface-600" />
-          <select 
+          <select
             v-model="filterCategory"
             class="bg-transparent border-none text-surface-50 focus:ring-0 w-full text-sm"
           >
@@ -481,12 +502,57 @@ const showCategoryModal = ref(false)
 const editingId = ref<number | null>(null)
 const isSubmitting = ref(false)
 const expenses = ref<Expense[]>([])
-const currentYear = new Date().getFullYear() > 2400 ? new Date().getFullYear() - 543 : new Date().getFullYear()
-const startDate = ref(`${currentYear}-01-01`)
-const endDate = ref(`${currentYear}-12-31`)
 const filterCategory = ref('')
 const currentPage = ref(1)
 const itemsPerPage = 20
+
+const selectedDateRange = ref('this_month')
+const _now = new Date()
+const _pad = (n: number) => String(n).padStart(2, '0')
+const _todayStr = `${_now.getFullYear()}-${_pad(_now.getMonth() + 1)}-${_pad(_now.getDate())}`
+const customStart = ref(_todayStr)
+const customEnd = ref(_todayStr)
+
+function getDateRangeBounds(range: string): { start: string; end: string } {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = d.getMonth()
+  const p = (n: number) => String(n).padStart(2, '0')
+  switch (range) {
+    case 'today': {
+      const s = `${y}-${p(m + 1)}-${p(d.getDate())}`
+      return { start: s, end: s }
+    }
+    case 'this_week': {
+      const dow = d.getDay()
+      const diff = dow === 0 ? 6 : dow - 1
+      const mon = new Date(d); mon.setDate(d.getDate() - diff)
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6)
+      return {
+        start: `${mon.getFullYear()}-${p(mon.getMonth() + 1)}-${p(mon.getDate())}`,
+        end: `${sun.getFullYear()}-${p(sun.getMonth() + 1)}-${p(sun.getDate())}`
+      }
+    }
+    case 'this_month':
+      return { start: `${y}-${p(m + 1)}-01`, end: `${y}-${p(m + 1)}-${p(new Date(y, m + 1, 0).getDate())}` }
+    case 'last_month': {
+      const lm = m === 0 ? 11 : m - 1
+      const ly = m === 0 ? y - 1 : y
+      return { start: `${ly}-${p(lm + 1)}-01`, end: `${ly}-${p(lm + 1)}-${p(new Date(ly, lm + 1, 0).getDate())}` }
+    }
+    case 'this_year':
+      return { start: `${y}-01-01`, end: `${y}-12-31` }
+    default:
+      return { start: customStart.value, end: customEnd.value }
+  }
+}
+
+const startDate = computed(() =>
+  selectedDateRange.value === 'custom' ? customStart.value : getDateRangeBounds(selectedDateRange.value).start
+)
+const endDate = computed(() =>
+  selectedDateRange.value === 'custom' ? customEnd.value : getDateRangeBounds(selectedDateRange.value).end
+)
 
 const excelInput = ref<HTMLInputElement | null>(null)
 const isImportPreviewOpen = ref(false)
@@ -644,7 +710,7 @@ const monthlyChartOptions = computed(() => ({
 }))
 
 // รีเซ็ตหน้าเมื่อตัวกรองเปลี่ยน
-watch([startDate, endDate, filterCategory], () => {
+watch([selectedDateRange, customStart, customEnd, filterCategory], () => {
   currentPage.value = 1
 })
 
