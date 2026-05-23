@@ -134,8 +134,8 @@
                 </div>
               </td>
             </tr>
-            <tr 
-              v-for="expense in filteredExpenses" 
+            <tr
+              v-for="expense in paginatedExpenses"
               :key="expense.id"
               class="hover:bg-surface-800/30 transition-colors group"
             >
@@ -486,7 +486,7 @@ const startDate = ref(`${currentYear}-01-01`)
 const endDate = ref(`${currentYear}-12-31`)
 const filterCategory = ref('')
 const currentPage = ref(1)
-const itemsPerPage = 10
+const itemsPerPage = 20
 
 const excelInput = ref<HTMLInputElement | null>(null)
 const isImportPreviewOpen = ref(false)
