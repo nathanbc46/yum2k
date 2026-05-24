@@ -118,6 +118,7 @@ export function usePrinter() {
       if (s.shopPhone) push(center(`โทร: ${s.shopPhone}`))
     }
     push(center(new Date(order.createdAt).toLocaleString('th-TH')))
+    push(center(`Order #${order.orderNumber.slice(-4)}`))
     push(leftPad + line + '\n')
 
     // --- Order Info ---
