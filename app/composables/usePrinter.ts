@@ -694,6 +694,7 @@ export function usePrinter() {
       if (s.shopPhone) res += center(`โทร: ${s.shopPhone}`)
     }
     res += center(new Date(order.createdAt).toLocaleString('th-TH'))
+    res += center(`Order #${order.orderNumber.slice(-4)}`)
     res += line
 
     if (s.showOrderNumber) res += leftPad + `เลขที่บิล: ${order.orderNumber}\n`
@@ -801,6 +802,7 @@ export function usePrinter() {
       if (s.shopPhone) lines.push({ type: 'text', text: `โทร: ${s.shopPhone}`, align: 'center' })
     }
     lines.push({ type: 'text', text: new Date(order.createdAt).toLocaleString('th-TH'), align: 'center' })
+    lines.push({ type: 'text', text: `Order #${order.orderNumber.slice(-4)}`, align: 'center' })
     lines.push({ type: 'separator' })
 
     if (s.showOrderNumber) lines.push({ type: 'text', text: `เลขที่บิล: ${order.orderNumber}` })

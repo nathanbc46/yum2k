@@ -1004,6 +1004,7 @@
                   <p v-if="form.shopPhone" class="text-[9px]">📞 {{ form.shopPhone }}</p>
                   <p v-if="form.shopAddress" class="text-[8px] leading-tight">{{ form.shopAddress }}</p>
                   <p class="text-[8px] text-gray-400 mt-0.5">07/04/2026 13:30</p>
+                  <p class="font-black text-sm mt-1">#0001</p>
                 </div>
                 <div class="text-[9px] space-y-0.5 mb-2">
                   <p v-if="form.showOrderNumber">เลขที่บิล: <strong>YUM-260407-1330-{{ form.deviceCode || 'D1' }}-0001</strong></p>

@@ -58,6 +58,7 @@ const paperWidthClass = computed(() =>
       <p v-if="receiptSettings.shopAddress" class="text-[9px] mt-0.5 leading-relaxed">{{ receiptSettings.shopAddress }}</p>
       <p v-if="receiptSettings.shopPhone" class="text-[10px] mt-0.5">📞 {{ receiptSettings.shopPhone }}</p>
       <p class="text-[9px] mt-1 text-gray-500">{{ formatDate(order.createdAt) }}</p>
+      <p class="text-sm font-black mt-1">#{{ order.orderNumber.slice(-4) }}</p>
     </div>
 
     <!-- ===== Order Info ===== -->
