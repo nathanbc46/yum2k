@@ -51,6 +51,17 @@
 
             <!-- แถวล่าง: Controls -->
             <div class="px-6 py-2 flex items-center gap-2 flex-wrap border-t border-surface-800/60">
+              <!-- ชื่อเมนู -->
+              <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5">
+                <label class="text-xs text-surface-400 whitespace-nowrap">ชื่อเมนู</label>
+                <input
+                  v-model="menuTitle"
+                  type="text"
+                  placeholder="ชื่อเมนู"
+                  class="bg-surface-900 border border-surface-700 text-surface-100 text-xs rounded-md px-1.5 py-0.5 outline-none focus:border-amber-500 w-32"
+                />
+              </div>
+
               <!-- Select: ความหนาแน่น -->
               <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5">
                 <label class="text-xs text-surface-400 whitespace-nowrap">ระยะ</label>
@@ -174,7 +185,7 @@
                 <!-- Watermarks (Spicy Salad Elements) -->
                 <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; z-index: 0;">
                   <!-- Lime slice: Top-left -->
-                  <div style="position: absolute; top: 4%; left: -6%; width: 160px; height: 160px; opacity: 0.09; transform: rotate(-15deg);" :style="{ color: currentTheme.accent }">
+                  <div style="position: absolute; top: 4%; left: -6%; width: 160px; height: 160px; opacity: 0.30; transform: rotate(-15deg);" :style="{ color: currentTheme.accent }">
                     <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                       <circle cx="50" cy="50" r="45" />
                       <circle cx="50" cy="50" r="39" stroke-dasharray="4 2" />
@@ -186,7 +197,7 @@
                   </div>
 
                   <!-- Chili: Top-right -->
-                  <div style="position: absolute; top: 8%; right: -2%; width: 140px; height: 140px; opacity: 0.09; transform: rotate(25deg);" :style="{ color: currentTheme.accent }">
+                  <div style="position: absolute; top: 8%; right: -2%; width: 140px; height: 140px; opacity: 0.30; transform: rotate(25deg);" :style="{ color: currentTheme.accent }">
                     <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M30,25 C45,20 65,32 75,55 C81,70 73,85 55,82 C38,79 25,60 22,42 C20,28 25,26 30,25 Z" />
                       <path d="M30,25 C28,18 22,12 15,14" />
@@ -195,7 +206,7 @@
                   </div>
 
                   <!-- Shallot/Onion: Middle-right -->
-                  <div style="position: absolute; top: 45%; right: -6%; width: 150px; height: 150px; opacity: 0.08; transform: rotate(-30deg);" :style="{ color: currentTheme.accent }">
+                  <div style="position: absolute; top: 45%; right: -6%; width: 150px; height: 150px; opacity: 0.28; transform: rotate(-30deg);" :style="{ color: currentTheme.accent }">
                     <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M50,10 C65,30 85,50 85,70 C85,85 70,90 50,90 C30,90 15,85 15,70 C15,50 35,30 50,10 Z" />
                       <path d="M45,90 L42,95 M50,90 L50,97 M55,90 L58,95" />
@@ -206,7 +217,7 @@
                   </div>
 
                   <!-- Tomato slice: Bottom-left -->
-                  <div style="position: absolute; bottom: 6%; left: -4%; width: 150px; height: 150px; opacity: 0.09; transform: rotate(40deg);" :style="{ color: currentTheme.accent }">
+                  <div style="position: absolute; bottom: 6%; left: -4%; width: 150px; height: 150px; opacity: 0.30; transform: rotate(40deg);" :style="{ color: currentTheme.accent }">
                     <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                       <circle cx="50" cy="50" r="45" />
                       <path d="M35,35 C38,25 62,25 65,35 C68,45 68,55 65,65 C62,75 38,75 35,65 C32,55 32,45 35,35 Z" stroke-dasharray="3 3" />
@@ -218,7 +229,7 @@
                   </div>
 
                   <!-- Garlic: Bottom-right -->
-                  <div style="position: absolute; bottom: 4%; right: -2%; width: 130px; height: 130px; opacity: 0.09; transform: rotate(-10deg);" :style="{ color: currentTheme.accent }">
+                  <div style="position: absolute; bottom: 4%; right: -2%; width: 130px; height: 130px; opacity: 0.30; transform: rotate(-10deg);" :style="{ color: currentTheme.accent }">
                     <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M50,15 C65,32 78,50 78,72 C78,84 66,90 50,90 C34,90 22,84 22,72 C22,50 35,32 50,15 Z" />
                       <path d="M50,15 C58,35 63,55 63,75" />
@@ -233,7 +244,7 @@
                     style="font-weight: 900; line-height: 1;"
                     :style="{ color: currentTheme.accent, fontSize: `calc(${currentDensity.titleSize}px * var(--menu-font-scale))` }"
                   >
-                    เมนูยำ
+                    {{ menuTitle }}
                   </div>
                   <!-- decorative underline -->
                   <div
@@ -392,14 +403,6 @@
                   </div>
                 </div>
 
-                <!-- FOOTER -->
-                <div style="text-align: center; position: relative; z-index: 10;" :style="{ marginTop: currentDensity.footerMargin }">
-                  <div style="height: 1px; background: linear-gradient(90deg, transparent, #ccc, transparent);" :style="{ marginBottom: currentDensity.footerLineMargin }"></div>
-                  <div style="color: #bbb; letter-spacing: 1px;" :style="{ fontSize: `calc(${currentDensity.footerTextSize}px * var(--menu-font-scale))` }">— ขอบคุณที่อุดหนุน —</div>
-                  <div style="color: #ccc; margin-top: 2px;" :style="{ fontSize: `calc(${currentDensity.footerSubTextSize}px * var(--menu-font-scale))` }">
-                    ราคาอาจมีการเปลี่ยนแปลงโดยไม่ต้องแจ้งล่วงหน้า &nbsp;·&nbsp; พิมพ์เมื่อ {{ printDate }}
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -423,6 +426,9 @@ const props = defineProps<{
 
 defineEmits(['close'])
 
+// --- ชื่อเมนู ---
+const menuTitle = ref('เมนูยำ')
+
 // --- ขนาดตัวหนังสือแบบ Manual Scale (%) ---
 const fontSizeScale = ref(100)
 function decreaseFontSize() {
@@ -440,7 +446,7 @@ const densities = [
     label: 'ระยะปกติ (กว้าง)',
     a4Padding: '32px 40px 40px',
     headerMargin: '24px',
-    titleSize: 52,
+    titleSize: 36,
     gridGap: '20px 28px',
     catMargin: '12px',
     catPadding: '8px 16px',
@@ -459,7 +465,7 @@ const densities = [
     label: 'กระชับพอดี',
     a4Padding: '20px 32px 32px',
     headerMargin: '16px',
-    titleSize: 44,
+    titleSize: 30,
     gridGap: '12px 20px',
     catMargin: '8px',
     catPadding: '6px 14px',
@@ -478,7 +484,7 @@ const densities = [
     label: 'ประหยัดพื้นที่พิเศษ (สินค้าเยอะ)',
     a4Padding: '12px 24px 24px',
     headerMargin: '10px',
-    titleSize: 36,
+    titleSize: 24,
     gridGap: '8px 16px',
     catMargin: '4px',
     catPadding: '4px 10px',
@@ -692,7 +698,7 @@ async function handleSaveImage() {
     })
     const link = document.createElement('a')
     const date = new Date().toLocaleDateString('th-TH').replace(/\//g, '-')
-    link.download = `เมนูยำ_${date}.png`
+    link.download = `${menuTitle.value}_${date}.png`
     link.href = canvas.toDataURL('image/png')
     link.click()
   } catch (e) {
@@ -725,7 +731,7 @@ function handlePrint() {
       <html lang="th">
       <head>
         <meta charset="UTF-8">
-        <title>เมนูยำ</title>
+        <title>${menuTitle.value}</title>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,400;0,500;0,700;0,900;1,700;1,900&display=swap" rel="stylesheet">
         <style>
