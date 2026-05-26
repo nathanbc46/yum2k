@@ -32,25 +32,24 @@ export default defineEventHandler(async (event) => {
 
   // ============================================================
   // ป้องกันส่งซ้ำ: INSERT with UNIQUE constraint
-  // force=true (ปุ่มทดสอบ) → ลบ row เก่าออกก่อนเสมอ
+  // force=true (ปุ่มทดสอบ) → ข้าม lock ทั้งหมด ไม่แตะ daily_summaries
+  // เพื่อไม่ให้การทดสอบไปบล็อก Vercel Cron ที่ยิงตอน 22:00
   // ============================================================
-  if (force) {
-    await supabase.from('daily_summaries').delete().eq('sent_date', todayICTStr)
-  }
+  if (!force) {
+    const { error: lockError, count } = await supabase
+      .from('daily_summaries')
+      .insert({ sent_date: todayICTStr, order_count: 0, revenue: 0 }, { count: 'exact' })
+      .select()
 
-  const { error: lockError, count } = await supabase
-    .from('daily_summaries')
-    .insert({ sent_date: todayICTStr, order_count: 0, revenue: 0 }, { count: 'exact' })
-    .select()
+    if (lockError?.code === '23505' || (count !== null && count === 0)) {
+      // duplicate key → วันนี้ส่งไปแล้ว
+      return { status: 'skipped', reason: 'already_sent_today', date: todayICTStr }
+    }
 
-  if (lockError?.code === '23505' || (count !== null && count === 0)) {
-    // duplicate key → วันนี้ส่งไปแล้ว
-    return { status: 'skipped', reason: 'already_sent_today', date: todayICTStr }
-  }
-
-  if (lockError) {
-    console.error('❌ lock error:', lockError.message)
-    return { status: 'error', message: lockError.message }
+    if (lockError) {
+      console.error('❌ lock error:', lockError.message)
+      return { status: 'error', message: lockError.message }
+    }
   }
 
   // ============================================================
