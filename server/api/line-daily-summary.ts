@@ -76,7 +76,7 @@ export default defineEventHandler(async (event) => {
   const revenue = orders?.reduce((s, o) => s + Number(o.total_amount), 0) ?? 0
   const gp = orders?.reduce((s, o) => s + Number(o.profit_amount), 0) ?? 0
 
-  // คำนวณยอดแยกตามประเภทชำระ
+  // คำนวณยอดแยกตามประเภทชำระ (เก็บ pmMap ไว้ใช้ทีหลังหลัง fmt ถูก define)
   const pmLabels: Record<string, string> = { cash: 'เงินสด', promptpay: 'พร้อมเพย์', card: 'บัตรเครดิต', unpaid: 'ค้างจ่าย', other: 'อื่นๆ' }
   const pmIcons: Record<string, string> = { cash: '💵', promptpay: '📲', card: '💳', unpaid: '⏳', other: '💰' }
   const pmMap: Record<string, { total: number; count: number }> = {}
@@ -86,9 +86,6 @@ export default defineEventHandler(async (event) => {
     pmMap[m]!.total += Number(o.total_amount)
     pmMap[m]!.count++
   }
-  const paymentLines = Object.entries(pmMap)
-    .sort((a, b) => b[1].total - a[1].total)
-    .map(([m, v]) => `  ${pmIcons[m] ?? '💰'} ${pmLabels[m] ?? 'อื่นๆ'}  ฿${fmt(v.total)} (${v.count} บิล)`)
 
   // คำนวณระยะเวลาการขาย
   let firstOrderTime: Date | null = null
@@ -169,6 +166,9 @@ export default defineEventHandler(async (event) => {
   const gpPct = revenue > 0 ? ((gp / revenue) * 100).toFixed(1) : '0.0'
   const top5Lines = top5.map((p, i) => `  ${i + 1}. ${p.name}  ${p.qty} ชิ้น`)
   const top5RevenueLines = top5Revenue.map((p, i) => `  ${i + 1}. ${p.name}  ฿${fmt(p.revenue)}`)
+  const paymentLines = Object.entries(pmMap)
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([m, v]) => `  ${pmIcons[m] ?? '💰'} ${pmLabels[m] ?? 'อื่นๆ'}  ฿${fmt(v.total)} (${v.count} บิล)`)
 
   const fmtTime = (d: Date) =>
     d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }) + ' น.'
