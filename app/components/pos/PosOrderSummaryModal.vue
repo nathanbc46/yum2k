@@ -150,8 +150,8 @@ watch(selectedPayment, (newVal) => {
             <div :class="selectedPayment === 'cash' ? 'lg:col-span-4 space-y-6' : 'space-y-6'">
               <!-- Items List -->
               <div class="space-y-3">
-                <h4 class="text-xs uppercase tracking-widest text-surface-500 font-bold">รายการสินค้า</h4>
-                <div class="bg-surface-950/50 rounded-2xl border border-surface-800 p-4 space-y-3">
+                <h4 class="text-xs uppercase tracking-widest text-surface-500 font-bold">รายการสินค้า <span class="normal-case">({{ items.length }} รายการ)</span></h4>
+                <div class="bg-surface-950/50 rounded-2xl border border-surface-800 p-4 space-y-3 max-h-64 overflow-y-auto scrollbar-thin">
                   <div v-for="item in items" :key="item.product.id" class="flex justify-between items-start text-sm">
                     <div class="flex-1 pr-4">
                       <div class="flex items-center gap-1.5">
@@ -197,11 +197,7 @@ watch(selectedPayment, (newVal) => {
 
               <!-- Total Summary -->
               <div class="border-t border-dashed border-surface-700 pt-4 space-y-2">
-                <div class="flex justify-between text-sm text-surface-400">
-                  <span>ยอดสั่งซื้อ</span>
-                  <span>฿{{ subtotal.toLocaleString() }}</span>
-                </div>
-                <div v-if="discount > 0" class="flex justify-between text-sm text-success">
+<div v-if="discount > 0" class="flex justify-between text-sm text-success">
                   <span>ส่วนลด</span>
                   <span>-฿{{ discount.toLocaleString() }}</span>
                 </div>
@@ -256,14 +252,14 @@ watch(selectedPayment, (newVal) => {
                     <div class="flex justify-between items-center mb-4">
                       <h4 class="text-sm uppercase tracking-widest text-surface-500 font-bold">รับเงินสด</h4>
                       <div class="flex gap-2">
-                        <button @click="undoCash" class="px-3 py-1.5 bg-surface-800 text-surface-400 border border-surface-700 rounded-xl hover:bg-surface-700 transition-colors text-xs font-bold">ย้อนกลับ (⌫)</button>
+                        <button v-if="cashHistory.length > 0" @click="undoCash" class="px-3 py-1.5 bg-surface-800 text-surface-400 border border-surface-700 rounded-xl hover:bg-surface-700 transition-colors text-xs font-bold">ย้อนกลับ (⌫)</button>
                       </div>
                     </div>
 
                     <!-- ยอดสุทธิ (เด่นขึ้น) -->
-                    <div class="bg-primary-900/20 border-2 border-primary-500/50 rounded-3xl py-5 px-6 text-center shadow-lg shadow-primary-900/20 mb-4 flex-1 flex flex-col justify-center min-h-[110px]">
-                      <div class="text-primary-400 font-bold mb-1 text-sm">ยอดสุทธิที่ต้องชำระ</div>
-                      <div class="text-5xl font-black text-primary-400">฿{{ totalAmount.toLocaleString() }}</div>
+                    <div class="bg-primary-900/20 border-2 border-primary-500/50 rounded-2xl py-3 px-5 text-center shadow-lg shadow-primary-900/20 mb-3 flex flex-col justify-center">
+                      <div class="text-primary-400 font-bold mb-0.5 text-xs">ยอดสุทธิที่ต้องชำระ</div>
+                      <div class="text-3xl font-black text-primary-400">฿{{ totalAmount.toLocaleString() }}</div>
                     </div>
 
                     <div class="space-y-4">
@@ -312,7 +308,7 @@ watch(selectedPayment, (newVal) => {
                           v-for="val in [100, 500, 1000]"
                           :key="val"
                           @click="addCash(val)"
-                          class="py-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-500 font-bold hover:bg-amber-500/25 active:scale-95 transition-all flex flex-col items-center justify-center shadow-sm relative overflow-hidden h-[64px]"
+                          class="py-2 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-500 font-bold hover:bg-amber-500/25 active:scale-95 transition-all flex flex-col items-center justify-center shadow-sm relative overflow-hidden h-16"
                         >
                           <span class="text-2xl leading-none">{{ val.toLocaleString() }}</span>
                           
@@ -323,7 +319,7 @@ watch(selectedPayment, (newVal) => {
                         </button>
                         <button 
                           @click="setExactAmount"
-                          class="py-3 rounded-2xl bg-primary-600/20 border border-primary-500/30 text-primary-400 font-bold text-lg hover:bg-primary-600/30 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-primary-900/10 h-[64px]"
+                          class="py-2 rounded-2xl bg-primary-600/20 border border-primary-500/30 text-primary-400 font-bold text-lg hover:bg-primary-600/30 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-primary-900/10 h-16"
                         >
                           จ่ายพอดี
                         </button>
@@ -331,16 +327,16 @@ watch(selectedPayment, (newVal) => {
 
                       <!-- Numpad -->
                       <div class="grid grid-cols-3 gap-3">
-                        <button v-for="num in [7, 8, 9, 4, 5, 6, 1, 2, 3]" :key="num" @click="appendNumber(num)" class="py-4 bg-surface-900 border border-surface-700 rounded-2xl text-2xl font-black text-surface-100 hover:bg-surface-800 hover:border-surface-600 active:scale-95 active:bg-surface-700 transition-all shadow-sm">
+                        <button v-for="num in [7, 8, 9, 4, 5, 6, 1, 2, 3]" :key="num" @click="appendNumber(num)" class="py-2.5 bg-surface-900 border border-surface-700 rounded-2xl text-2xl font-black text-surface-100 hover:bg-surface-800 hover:border-surface-600 active:scale-95 active:bg-surface-700 transition-all shadow-sm">
                           {{ num }}
                         </button>
-                        <button @click="clearCash" class="py-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl text-lg font-bold text-orange-400 hover:bg-orange-500/20 active:scale-95 transition-all shadow-sm flex items-center justify-center">
+                        <button @click="clearCash" class="py-2.5 bg-orange-500/10 border border-orange-500/20 rounded-2xl text-lg font-bold text-orange-400 hover:bg-orange-500/20 active:scale-95 transition-all shadow-sm flex items-center justify-center">
                           ล้าง
                         </button>
-                        <button @click="appendNumber(0)" class="py-4 bg-surface-900 border border-surface-700 rounded-2xl text-2xl font-black text-surface-100 hover:bg-surface-800 hover:border-surface-600 active:scale-95 active:bg-surface-700 transition-all shadow-sm">
+                        <button @click="appendNumber(0)" class="py-2.5 bg-surface-900 border border-surface-700 rounded-2xl text-2xl font-black text-surface-100 hover:bg-surface-800 hover:border-surface-600 active:scale-95 active:bg-surface-700 transition-all shadow-sm">
                           0
                         </button>
-                        <button @click="deleteNumber" class="py-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-xl font-bold text-red-400 hover:bg-red-500/20 active:scale-95 transition-all shadow-sm flex items-center justify-center">
+                        <button @click="deleteNumber" class="py-2.5 bg-red-500/10 border border-red-500/20 rounded-2xl text-xl font-bold text-red-400 hover:bg-red-500/20 active:scale-95 transition-all shadow-sm flex items-center justify-center">
                           ⌫ ลบ
                         </button>
                       </div>
@@ -354,25 +350,25 @@ watch(selectedPayment, (newVal) => {
         </div>
 
         <!-- Footer Buttons -->
-        <div class="px-6 py-6 border-t border-surface-800 flex gap-4 shrink-0 bg-surface-950/30">
-          <button 
+        <div class="px-6 py-4 border-t border-surface-800 flex gap-3 justify-end shrink-0 bg-surface-950/30">
+          <button
             @click="emit('close')"
-            class="flex-1 btn-touch bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-2xl transition-all"
+            class="w-36 btn-touch bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-2xl transition-all"
           >
             กลับไปแก้ไข
           </button>
-          <button 
+          <button
             @click="confirmSaleNoPrint"
             :disabled="!isAmountEnough"
-            class="flex-1 btn-touch text-primary-400 font-bold rounded-2xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed border border-primary-500/30 hover:bg-primary-500/10"
+            class="w-32 btn-touch text-primary-400 font-bold rounded-2xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed border border-primary-500/30 hover:bg-primary-500/10"
             :class="!isAmountEnough ? 'bg-surface-800 text-surface-500 border-surface-700' : 'bg-surface-900'"
           >
             <span>ยืนยัน</span>
           </button>
-          <button 
+          <button
             @click="confirmSale"
             :disabled="!isAmountEnough"
-            class="flex-[1.5] btn-touch text-white font-bold text-lg rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
+            class="w-44 btn-touch text-white font-bold text-lg rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
             :class="isAmountEnough ? 'bg-primary-600 hover:bg-primary-500 shadow-primary-900/30' : 'bg-surface-700 text-surface-400'"
           >
             <span>ยืนยันและปริ้น</span>
