@@ -134,7 +134,7 @@ watch(selectedPayment, (newVal) => {
       >
         
         <!-- Header -->
-        <div class="px-6 py-4 border-b border-surface-800 bg-surface-950/50 flex justify-between items-center shrink-0">
+        <div class="px-6 py-2 border-b border-surface-800 bg-surface-950/50 flex justify-between items-center shrink-0">
           <h3 class="text-xl font-bold flex items-center gap-2 text-surface-50">
             <span>📝</span>
             <span>สรุปคำสั่งซื้อ</span>
