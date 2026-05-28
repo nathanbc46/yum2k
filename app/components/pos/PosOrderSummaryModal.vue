@@ -143,11 +143,11 @@ watch(selectedPayment, (newVal) => {
         </div>
 
         <!-- Body -->
-        <div class="flex-1 overflow-y-auto p-6 scrollbar-thin">
-          <div :class="selectedPayment === 'cash' ? 'grid grid-cols-1 lg:grid-cols-12 gap-8 items-start' : 'space-y-6'">
+        <div class="flex-1 overflow-y-auto py-2 px-4 scrollbar-thin">
+          <div :class="selectedPayment === 'cash' ? 'grid grid-cols-1 lg:grid-cols-12 gap-4 items-start' : 'space-y-3'">
             
             <!-- Left Column: Order Summary & Payment Type -->
-            <div :class="selectedPayment === 'cash' ? 'lg:col-span-4 space-y-6' : 'space-y-6'">
+            <div :class="selectedPayment === 'cash' ? 'lg:col-span-4 space-y-3' : 'space-y-3'">
               <!-- Items List -->
               <div class="space-y-3">
                 <h4 class="text-xs uppercase tracking-widest text-surface-500 font-bold">รายการสินค้า <span class="normal-case">({{ items.length }} รายการ)</span></h4>
@@ -196,7 +196,7 @@ watch(selectedPayment, (newVal) => {
               </div>
 
               <!-- Total Summary -->
-              <div class="border-t border-dashed border-surface-700 pt-4 space-y-2">
+              <div class="border-t border-dashed border-surface-700 pt-2 space-y-1">
 <div v-if="discount > 0" class="flex justify-between text-sm text-success">
                   <span>ส่วนลด</span>
                   <span>-฿{{ discount.toLocaleString() }}</span>
@@ -208,7 +208,7 @@ watch(selectedPayment, (newVal) => {
               </div>
 
               <!-- Payment Selection -->
-              <div class="space-y-3 pt-4">
+              <div class="space-y-2 pt-2">
                 <h4 class="text-xs uppercase tracking-widest text-surface-500 font-bold">ช่องทางการชำระเงิน</h4>
                 <div class="grid grid-cols-3 gap-3">
                   <button 
@@ -241,15 +241,15 @@ watch(selectedPayment, (newVal) => {
 
             <!-- Right Column: Cash Payment Details (แสดงเมื่อเลือกเงินสด) -->
             <div v-if="selectedPayment === 'cash'" class="lg:col-span-8 flex flex-col">
-              <div class="p-6 bg-surface-950/40 rounded-3xl border border-surface-800 flex-1 flex flex-col justify-between">
-                
-                <div class="flex flex-col lg:flex-row gap-6 h-full">
+              <div class="p-3 bg-surface-950/40 rounded-3xl border border-surface-800 flex-1 flex flex-col justify-between">
+
+                <div class="flex flex-col lg:flex-row gap-3 h-full">
                   
                   <!-- Left Side (Amounts) -->
                   <div class="flex-1 flex flex-col justify-between h-full">
                     
                     <!-- Header -->
-                    <div class="flex justify-between items-center mb-4">
+                    <div class="flex justify-between items-center mb-2">
                       <h4 class="text-sm uppercase tracking-widest text-surface-500 font-bold">รับเงินสด</h4>
                       <div class="flex gap-2">
                         <button v-if="cashHistory.length > 0" @click="undoCash" class="px-3 py-1.5 bg-surface-800 text-surface-400 border border-surface-700 rounded-xl hover:bg-surface-700 transition-colors text-xs font-bold">ย้อนกลับ (⌫)</button>
@@ -262,7 +262,7 @@ watch(selectedPayment, (newVal) => {
                       <div class="text-3xl font-black text-primary-400">฿{{ totalAmount.toLocaleString() }}</div>
                     </div>
 
-                    <div class="space-y-4">
+                    <div class="space-y-2">
                       <!-- จำนวนเงินที่รับ -->
                       <div class="space-y-2">
                         <span class="text-xs text-surface-500 font-bold">จำนวนเงินที่รับ</span>
@@ -290,7 +290,7 @@ watch(selectedPayment, (newVal) => {
                     </div>
                     
                     <!-- Warning if not enough -->
-                    <div class="h-[38px] mt-4">
+                    <div class="h-[32px] mt-2">
                       <div v-if="amountReceived > 0 && amountReceived < totalAmount" class="h-full flex items-center justify-center bg-red-500/10 rounded-2xl border border-red-500/20 px-4">
                         <span class="text-xs text-red-400 font-bold animate-pulse italic">⚠️ ยอดเงินรับไม่เพียงพอ ขาดอีก ฿{{ (totalAmount - amountReceived).toLocaleString() }}</span>
                       </div>
@@ -301,9 +301,9 @@ watch(selectedPayment, (newVal) => {
                   <!-- Right Side (Keypad) -->
                   <div class="w-full lg:w-[320px] shrink-0 flex flex-col justify-end">
                     <!-- Quick Cash & Numpad Layout -->
-                    <div class="space-y-3">
+                    <div class="space-y-2">
                       <!-- Quick Cash Buttons -->
-                      <div class="grid grid-cols-2 gap-3">
+                      <div class="grid grid-cols-2 gap-2">
                         <button
                           v-for="val in [100, 500, 1000]"
                           :key="val"
@@ -326,7 +326,7 @@ watch(selectedPayment, (newVal) => {
                       </div>
 
                       <!-- Numpad -->
-                      <div class="grid grid-cols-3 gap-3">
+                      <div class="grid grid-cols-3 gap-2">
                         <button v-for="num in [7, 8, 9, 4, 5, 6, 1, 2, 3]" :key="num" @click="appendNumber(num)" class="py-2.5 bg-surface-900 border border-surface-700 rounded-2xl text-2xl font-black text-surface-100 hover:bg-surface-800 hover:border-surface-600 active:scale-95 active:bg-surface-700 transition-all shadow-sm">
                           {{ num }}
                         </button>
