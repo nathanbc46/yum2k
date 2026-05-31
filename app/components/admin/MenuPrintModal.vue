@@ -99,6 +99,24 @@
                 </button>
               </div>
 
+              <!-- แปลภาษาอัตโนมัติ -->
+              <button
+                @click="translateMenuNames"
+                :disabled="isTranslating || selectedCategoryIds.length === 0"
+                class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5 text-xs text-surface-300 hover:text-surface-100 hover:border-surface-500 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                <span v-if="isTranslating" class="w-3 h-3 border-2 border-surface-400/30 border-t-surface-300 rounded-full animate-spin shrink-0"></span>
+                <span>{{ isTranslating ? 'กำลังแปล...' : '🌐 แปลภาษาอัตโนมัติ' }}</span>
+              </button>
+
+              <!-- Toggle: ชื่อภาษาอื่น -->
+              <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5" :class="altNames.size === 0 ? 'opacity-40' : ''">
+                <label class="text-xs text-surface-400 whitespace-nowrap">EN/MY</label>
+                <button @click="showAltNames = !showAltNames" :disabled="altNames.size === 0" class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:cursor-not-allowed" :class="showAltNames ? 'bg-amber-500' : 'bg-surface-600'">
+                  <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm" :class="showAltNames ? 'translate-x-4' : 'translate-x-1'" />
+                </button>
+              </div>
+
               <!-- Theme Color -->
               <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5">
                 <label class="text-xs text-surface-400 whitespace-nowrap">สีธีม</label>
@@ -390,6 +408,13 @@
                           >
                             ({{ product.description }})
                           </span>
+                          <span
+                            v-if="showAltNames && altNames.get(product.name)"
+                            style="display: block; font-style: italic; font-weight: 400; color: #555; line-height: 1.3; margin-top: 1px;"
+                            :style="{ fontSize: `calc(${currentDensity.prodNameSize * 0.72}px * var(--menu-font-scale))` }"
+                          >
+                            {{ altNames.get(product.name)?.en }}<span v-if="altNames.get(product.name)?.en && altNames.get(product.name)?.my" style="margin: 0 3px; opacity: 0.5;">·</span>{{ altNames.get(product.name)?.my }}
+                          </span>
                         </span>
                         <span
                           v-if="showPrice"
@@ -417,6 +442,7 @@
 import { ref, computed, watch } from 'vue'
 import html2canvas from 'html2canvas'
 import type { Product, Category } from '~/types'
+import { useSettings } from '~/composables/useSettings'
 
 const props = defineProps<{
   isOpen: boolean
@@ -549,6 +575,161 @@ const currentTheme = computed<ThemeConfig>(() => {
 // --- Options ---
 const showPrice = ref(true)
 const showBestsellerStars = ref(true)
+
+// --- แปลภาษาอัตโนมัติ ---
+const { receiptSettings, loadReceiptSettings } = useSettings()
+const aiConfig = useRuntimeConfig().public
+const altNames = ref<Map<string, { en: string; my: string }>>(new Map())
+const isTranslating = ref(false)
+const showAltNames = ref(false)
+
+function resolveKey(saved: string | undefined, envKey: string) {
+  return saved || envKey || ''
+}
+
+function safeParseTranslations(text: string): Array<{ th: string; en: string; my: string }> | null {
+  try {
+    const match = text.match(/\[[\s\S]*\]/)
+    const parsed = JSON.parse(match ? match[0] : text)
+    return Array.isArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+async function translateWithGemini(apiKey: string, prompt: string) {
+  const model = receiptSettings.value.geminiModel || 'gemini-2.0-flash-lite'
+  const modelFull = model.startsWith('models/') ? model : `models/${model}`
+  const url = `https://generativelanguage.googleapis.com/v1beta/${modelFull}:generateContent?key=${apiKey}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: 'application/json' }
+    })
+  })
+  if (!res.ok) throw new Error(`Gemini error ${res.status}`)
+  const data = await res.json()
+  return safeParseTranslations(data.candidates[0].content.parts[0].text)
+}
+
+async function translateWithOpenRouter(apiKey: string, prompt: string) {
+  const models = receiptSettings.value.openRouterModels
+    ? receiptSettings.value.openRouterModels.split(',').map((m: string) => m.trim()).filter(Boolean)
+    : ['inclusionai/ling-2.6-1t:free', 'z-ai/glm-4.5-air:free', 'openai/gpt-oss-120b:free']
+  for (const modelId of models) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`, 'X-Title': 'Yum2K POS' },
+        body: JSON.stringify({
+          model: modelId,
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
+          temperature: 0.1
+        })
+      })
+      if (res.status === 429) continue
+      if (!res.ok) continue
+      const data = await res.json()
+      const parsed = safeParseTranslations(data.choices[0].message.content)
+      if (parsed) return parsed
+    } catch { continue }
+  }
+  return null
+}
+
+async function translateWithGroq(apiKey: string, prompt: string) {
+  const model = receiptSettings.value.groqModel || 'llama-3.3-70b-versatile'
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' },
+      temperature: 0.1
+    })
+  })
+  if (!res.ok) throw new Error(`Groq error ${res.status}`)
+  const data = await res.json()
+  return safeParseTranslations(data.choices[0].message.content)
+}
+
+async function translateMenuNames() {
+  await loadReceiptSettings()
+  const names = [...new Set(filteredGroups.value.flatMap(g => g.products.map(p => p.name)))]
+  if (!names.length) return
+
+  isTranslating.value = true
+  altNames.value = new Map()
+
+  try {
+    const prompt = `คุณคือผู้แปลชื่อเมนูอาหารสำหรับร้านยำไทย ตอบเป็น JSON array เท่านั้น ห้ามมีข้อความอื่นนอกจาก JSON
+แปลชื่ออาหารไทยต่อไปนี้เป็นภาษาอังกฤษ (en) และภาษาพม่า (my, ใช้อักษรพม่า)
+
+คำศัพท์เฉพาะที่ต้องแปลให้ถูกต้อง (ภาษาอังกฤษ → ภาษาพม่า):
+- ยำ = Spicy Thai Salad → သုပ်
+- เส้นแก้ว = Glass Noodle (ห้ามแปลว่า Seaweed Noodle) → ကြာဇံ
+- วุ้นเส้น = Glass Noodle / Vermicelli → ကြာဇံ
+- มามา = Mama Instant Noodle → မာမာခေါက်ဆွဲ
+- เส้นมันหนึบ = Chewy Starch Noodle → ကော်ခေါက်ဆွဲ
+- เส้นบุก = Konjac Noodle → ဘူကျိုးခေါက်ဆွဲ
+- หมูสับ = Minced Pork → ဝက်သားကြိတ်
+- หมูยอ = Vietnamese Pork Sausage → ဗီယက်နမ်ဝက်သားပေါင်း
+- รวมมิตร = Mixed / Combination → ရောစပ်
+- รวมทะเล = Seafood Mix → ပင်လယ်စာရောစပ်
+- ทะเล = Seafood → ပင်လယ်စာ
+- กุ้ง = Shrimp → ပုဇွန်
+- ปลาหมึก = Squid → ဗြောင်
+- ปูอัด = Crab Stick → ဂဏန်းချောင်း
+- ลูกชิ้น = Meatball → အသားလုံး
+- ลูกชิ้นปลา = Fish Ball → ငါးလုံး
+- แมงกะพรุน = Jellyfish → တောင်ကြောင်
+- ไข่เยี่ยวม้า = Century Egg → ပုပ်ကြက်ဥ
+- ปลาร้า = Fermented Fish Sauce → ငါးပိ
+- น้ำมันงา = Sesame Oil → နှမ်းဆီ
+- ธรรมดา = Plain / Regular → ရိုးရိုး
+- ไม่มีเส้น = No Noodles → ခေါက်ဆွဲမပါ
+- แซลมอน = Salmon → ဆော်လမွန်
+
+รายชื่อ: ${JSON.stringify(names)}
+รูปแบบที่ต้องการ: [{"th":"ชื่อไทย","en":"English Name","my":"မြန်မာနာမည်"}]`
+
+    const geminiKey = resolveKey(receiptSettings.value.geminiApiKey, aiConfig.defaultGeminiKey as string)
+    const orKey = resolveKey(receiptSettings.value.openRouterApiKey, aiConfig.defaultOpenRouterKey as string)
+    const groqKey = resolveKey(receiptSettings.value.groqApiKey, aiConfig.defaultGroqKey as string)
+
+    let result: Array<{ th: string; en: string; my: string }> | null = null
+
+    if (geminiKey && receiptSettings.value.geminiEnabled !== false) {
+      result = await translateWithGemini(geminiKey, prompt).catch(() => null)
+    }
+    if (!result && orKey && receiptSettings.value.openRouterEnabled !== false) {
+      result = await translateWithOpenRouter(orKey, prompt)
+    }
+    if (!result && groqKey && receiptSettings.value.groqEnabled !== false) {
+      result = await translateWithGroq(groqKey, prompt).catch(() => null)
+    }
+
+    if (result) {
+      const map = new Map<string, { en: string; my: string }>()
+      for (const item of result) {
+        if (item.th && (item.en || item.my)) map.set(item.th, { en: item.en || '', my: item.my || '' })
+      }
+      altNames.value = map
+      showAltNames.value = true
+    } else {
+      alert('ไม่สามารถแปลภาษาได้ กรุณาตรวจสอบการตั้งค่า AI ใน Settings')
+    }
+  } catch (e: any) {
+    console.error('แปลภาษาไม่สำเร็จ:', e)
+    alert('แปลภาษาไม่สำเร็จ: ' + (e?.message || 'ไม่ทราบสาเหตุ'))
+  } finally {
+    isTranslating.value = false
+  }
+}
 
 // --- Top 5 ขายดี: Map<productId, rank 1-5> ---
 const bestsellerRankMap = computed(() => {

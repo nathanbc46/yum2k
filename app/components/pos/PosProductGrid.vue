@@ -38,12 +38,17 @@
 
         <!-- ปุ่ม Reset กลับสู่หน้าหลัก (Root) -->
         <button
-          v-if="store.currentParentId || store.activeCategoryId"
           @click="store.resetNavigation()"
-          class="w-12 h-12 flex items-center justify-center bg-surface-900 border border-surface-800 hover:border-primary-500/50 hover:bg-primary-500/10 text-surface-400 hover:text-primary-400 rounded-2xl transition-all active:scale-95 shadow-lg group/home"
+          :class="[
+            'h-14 px-4 flex items-center gap-2 rounded-2xl transition-all active:scale-95 shadow-lg group/home font-bold',
+            (store.currentParentId || store.activeCategoryId)
+              ? 'bg-primary-600 border border-primary-500 hover:bg-primary-500 text-white'
+              : 'bg-surface-800 border border-surface-700 hover:bg-surface-700 text-surface-300 hover:text-white'
+          ]"
           title="กลับไปหน้าหลัก"
         >
           <span class="text-2xl transition-transform group-hover/home:scale-110">🏠</span>
+          <span class="text-sm">หน้าหลัก</span>
         </button>
       </div>
     </header>
