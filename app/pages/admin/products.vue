@@ -542,7 +542,7 @@ const showTrash = ref(false)
 const searchQuery = ref('')
 const filterCategoryId = ref<number | null>(null)
 const filterMappingType = ref<string>('')
-const filterActive = ref<string>('')
+const filterActive = ref<string>('active')
 
 // modal state
 const isProductModalOpen = ref(false)
@@ -657,7 +657,7 @@ function clearFilters() {
   searchQuery.value = ''
   filterCategoryId.value = null
   filterMappingType.value = ''
-  filterActive.value = ''
+  filterActive.value = 'active'
 }
 
 // --- Data Loading ---

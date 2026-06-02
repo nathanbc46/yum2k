@@ -725,7 +725,7 @@ function decreaseFontSize() {
   if (fontSizeScale.value > 50) fontSizeScale.value -= 5
 }
 function increaseFontSize() {
-  if (fontSizeScale.value < 200) fontSizeScale.value += 5
+  if (fontSizeScale.value < 300) fontSizeScale.value += 5
 }
 
 // --- Density / Space Spacing Configs ---
