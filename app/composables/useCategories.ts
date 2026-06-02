@@ -170,20 +170,24 @@ export function useCategories() {
 
     const now = new Date()
     const toUpdate: Category[] = []
-    
+
     for (let i = 0; i < orderedItems.length; i++) {
       const item = orderedItems[i]
       if (!item?.id) continue
-      toUpdate.push({ ...item, sortOrder: i + 1, updatedAt: now })
+      if (item.sortOrder === i + 1) continue // ไม่เปลี่ยน ข้ามไป
+      // JSON round-trip เพื่อ strip Vue reactive Proxy ทั้งหมด (รวม nested addonGroups/options)
+      const plain = JSON.parse(JSON.stringify(item))
+      toUpdate.push({ ...plain, sortOrder: i + 1, updatedAt: now })
     }
 
-    for (const c of toUpdate) {
-      await _syncCategoryToCloud(c)
-    }
+    if (toUpdate.length === 0) return
+
+    // sync cloud พร้อมกัน
+    await Promise.all(toUpdate.map(c => _syncCategoryToCloud(c)))
 
     await db.transaction('rw?', db.categories, async () => {
       for (const c of toUpdate) {
-          await db.categories.update(c.id!, c as any)
+        await db.categories.update(c.id!, c as any)
       }
     })
   }

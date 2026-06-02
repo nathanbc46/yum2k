@@ -3,10 +3,14 @@
     <Transition name="modal-fade">
       <div
         v-if="isOpen"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+        :class="isFullscreen ? 'fixed inset-0 z-50 flex bg-black/70' : 'fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4'"
         @click.self="$emit('close')"
       >
-        <div class="bg-surface-900 border border-surface-700 rounded-3xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden">
+        <div
+          :class="isFullscreen
+            ? 'bg-surface-900 w-screen h-screen flex flex-col overflow-hidden'
+            : 'bg-surface-900 border border-surface-700 rounded-3xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden'"
+        >
 
           <!-- ===== Modal Top Bar ===== -->
           <div class="border-b border-surface-800 shrink-0">
@@ -39,6 +43,13 @@
                   class="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-black text-sm font-bold rounded-xl transition-all shadow-lg"
                 >
                   🖨️ ปริ้น
+                </button>
+                <button
+                  @click="isFullscreen = !isFullscreen"
+                  class="w-8 h-8 rounded-xl bg-surface-800 hover:bg-surface-700 flex items-center justify-center text-surface-400 hover:text-surface-200 transition-colors"
+                  :title="isFullscreen ? 'ย่อลง' : 'เต็มหน้าจอ'"
+                >
+                  <span class="text-sm font-bold">{{ isFullscreen ? '⊟' : '⊞' }}</span>
                 </button>
                 <button
                   @click="$emit('close')"
@@ -99,6 +110,54 @@
                 </button>
               </div>
 
+              <!-- Watermark Opacity -->
+              <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5">
+                <label class="text-xs text-surface-400 whitespace-nowrap">Watermark</label>
+                <div class="flex items-center gap-1">
+                  <button @click="wmOpacity = Math.max(0, wmOpacity - 5)" class="w-5 h-5 rounded bg-surface-700 hover:bg-surface-600 active:scale-90 text-surface-200 flex items-center justify-center font-bold text-xs transition-all">-</button>
+                  <span class="text-xs font-mono font-bold text-surface-100 w-8 text-center">{{ wmOpacity }}%</span>
+                  <button @click="wmOpacity = Math.min(100, wmOpacity + 5)" class="w-5 h-5 rounded bg-surface-700 hover:bg-surface-600 active:scale-90 text-surface-200 flex items-center justify-center font-bold text-xs transition-all">+</button>
+                </div>
+              </div>
+
+              <!-- Style Presets -->
+              <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5">
+                <label class="text-xs text-surface-400 whitespace-nowrap">Styles</label>
+                <select
+                  v-model="selectedPresetName"
+                  @change="applyPreset(selectedPresetName)"
+                  class="bg-surface-900 border border-surface-700 text-surface-100 text-xs rounded-md px-1.5 py-0.5 outline-none focus:border-amber-500 cursor-pointer max-w-[100px]"
+                >
+                  <option value="">— เลือก —</option>
+                  <option v-for="p in savedPresets" :key="p.name" :value="p.name">{{ p.name }}</option>
+                </select>
+                <button
+                  @click="showPresetInput = !showPresetInput; if (showPresetInput) newPresetName = selectedPresetName || ''"
+                  class="px-2 py-0.5 rounded text-xs font-bold transition-all bg-surface-700 text-surface-300 hover:text-white"
+                  title="บันทึก Style ปัจจุบัน"
+                >💾</button>
+                <template v-if="showPresetInput">
+                  <input
+                    v-model="newPresetName"
+                    type="text"
+                    placeholder="ชื่อ Style"
+                    @keyup.enter="savePreset"
+                    class="bg-surface-900 border border-surface-700 text-surface-100 text-xs rounded-md px-1.5 py-0.5 outline-none focus:border-amber-500 w-24"
+                  />
+                  <button
+                    @click="savePreset"
+                    :disabled="!newPresetName.trim()"
+                    class="px-2 py-0.5 rounded text-xs font-bold transition-all bg-amber-500 text-black disabled:opacity-40"
+                  >ตกลง</button>
+                </template>
+                <button
+                  v-if="selectedPresetName && !showPresetInput"
+                  @click="deletePreset"
+                  class="px-2 py-0.5 rounded text-xs font-bold transition-all bg-danger/10 text-danger hover:bg-danger hover:text-white border border-danger/20"
+                  title="ลบ Style นี้"
+                >✕</button>
+              </div>
+
               <!-- แปลภาษาอัตโนมัติ -->
               <button
                 @click="translateMenuNames"
@@ -115,6 +174,74 @@
                 <button @click="showAltNames = !showAltNames" :disabled="altNames.size === 0" class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:cursor-not-allowed" :class="showAltNames ? 'bg-amber-500' : 'bg-surface-600'">
                   <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm" :class="showAltNames ? 'translate-x-4' : 'translate-x-1'" />
                 </button>
+              </div>
+
+              <!-- หมวดหมู่: สีพื้น สีขอบ สีอักษร ขนาด -->
+              <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5">
+                <label class="text-xs text-surface-400 whitespace-nowrap">หมวดหมู่</label>
+                <div class="flex items-center gap-2">
+                  <div class="flex items-center gap-1">
+                    <span class="text-[10px] text-surface-500">พื้น</span>
+                    <button
+                      @click="catBgTransparent = !catBgTransparent"
+                      class="px-1.5 py-0.5 rounded text-[10px] font-bold transition-all border"
+                      :class="catBgTransparent ? 'bg-surface-600 border-surface-500 text-surface-200' : 'bg-surface-700 border-surface-600 text-surface-400 hover:text-surface-200'"
+                      title="โปร่งใส"
+                    >∅</button>
+                    <input v-if="!catBgTransparent" type="color" v-model="catBgColor" class="w-6 h-5 rounded cursor-pointer border-0 p-0" />
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <span class="text-[10px] text-surface-500">ขอบ</span>
+                    <button
+                      @click="showCatBorder = !showCatBorder"
+                      class="w-4 h-4 rounded border transition-colors"
+                      :class="showCatBorder ? 'bg-amber-500 border-amber-400' : 'bg-surface-700 border-surface-600'"
+                    />
+                    <input v-if="showCatBorder" type="color" v-model="catBorderColor" class="w-6 h-5 rounded cursor-pointer border-0 p-0" />
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <span class="text-[10px] text-surface-500">ข้อ</span>
+                    <input type="color" v-model="catTextColor" class="w-6 h-5 rounded cursor-pointer border-0 p-0" />
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <button @click="catFontSizePx = Math.max(8, catFontSizePx - 1)" class="w-4 h-4 rounded bg-surface-700 hover:bg-surface-600 active:scale-90 text-surface-200 text-xs flex items-center justify-center transition-all">−</button>
+                    <span class="text-[10px] font-mono text-surface-100 w-6 text-center">{{ catFontSizePx }}</span>
+                    <button @click="catFontSizePx = Math.min(40, catFontSizePx + 1)" class="w-4 h-4 rounded bg-surface-700 hover:bg-surface-600 active:scale-90 text-surface-200 text-xs flex items-center justify-center transition-all">+</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ขนาดกระดาษ -->
+              <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5">
+                <label class="text-xs text-surface-400 whitespace-nowrap">กระดาษ</label>
+                <div class="flex gap-1">
+                  <button
+                    v-for="s in ['a4', 'a2']"
+                    :key="s"
+                    @click="selectedPaperSize = s as 'a4' | 'a2'"
+                    class="px-2 py-0.5 rounded text-xs font-bold transition-all"
+                    :class="selectedPaperSize === s ? 'bg-amber-500 text-black' : 'bg-surface-700 text-surface-300 hover:text-white'"
+                  >{{ s.toUpperCase() }}</button>
+                </div>
+              </div>
+
+              <!-- แนวปริ้น -->
+              <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5">
+                <label class="text-xs text-surface-400 whitespace-nowrap">แนว</label>
+                <div class="flex gap-1">
+                  <button
+                    @click="selectedOrientation = 'portrait'"
+                    title="Portrait (แนวตั้ง)"
+                    class="w-6 h-6 rounded text-xs transition-all flex items-center justify-center font-bold"
+                    :class="selectedOrientation === 'portrait' ? 'bg-amber-500 text-black' : 'bg-surface-700 text-surface-300 hover:text-white'"
+                  >↕</button>
+                  <button
+                    @click="selectedOrientation = 'landscape'"
+                    title="Landscape (แนวนอน)"
+                    class="w-6 h-6 rounded text-xs transition-all flex items-center justify-center font-bold"
+                    :class="selectedOrientation === 'landscape' ? 'bg-amber-500 text-black' : 'bg-surface-700 text-surface-300 hover:text-white'"
+                  >↔</button>
+                </div>
               </div>
 
               <!-- Theme Color -->
@@ -142,29 +269,36 @@
                 </button>
               </div>
 
-              <div class="flex-1 py-2">
-                <label
-                  v-for="group in allGroups"
-                  :key="group.categoryId"
-                  class="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-surface-800/60 transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    :checked="selectedCategoryIds.includes(group.categoryId)"
-                    @change="toggleCategory(group.categoryId)"
-                    class="w-4 h-4 rounded accent-amber-500 shrink-0 cursor-pointer"
-                  />
-                  <div class="min-w-0">
-                    <div class="text-sm font-semibold text-surface-200 truncate">{{ group.categoryName }}</div>
-                    <div class="text-[10px] text-surface-500">{{ group.products.length }} รายการ</div>
-                  </div>
-                  <!-- color dot -->
-                  <div
-                    class="w-2 h-2 rounded-full shrink-0 ml-auto"
-                    :style="{ background: group.color }"
-                  />
-                </label>
-              </div>
+              <draggable
+                v-model="orderedGroupIds"
+                :item-key="(id: number) => id"
+                handle=".cat-drag-handle"
+                class="flex-1 py-2 flex flex-col"
+                :animation="150"
+                tag="div"
+              >
+                <template #item="{ element: catId }">
+                  <label
+                    class="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-surface-800/60 transition-colors"
+                  >
+                    <span class="cat-drag-handle cursor-grab active:cursor-grabbing text-surface-600 hover:text-surface-400 transition-colors shrink-0">⠿</span>
+                    <input
+                      type="checkbox"
+                      :checked="selectedCategoryIds.includes(catId)"
+                      @change="toggleCategory(catId)"
+                      class="w-4 h-4 rounded accent-amber-500 shrink-0 cursor-pointer"
+                    />
+                    <div class="min-w-0 flex-1">
+                      <div class="text-sm font-semibold text-surface-200 truncate">{{ allGroups.find(g => g.categoryId === catId)?.categoryName }}</div>
+                      <div class="text-[10px] text-surface-500">{{ allGroups.find(g => g.categoryId === catId)?.products.length ?? 0 }} รายการ</div>
+                    </div>
+                    <div
+                      class="w-2 h-2 rounded-full shrink-0"
+                      :style="{ background: allGroups.find(g => g.categoryId === catId)?.color ?? '#888' }"
+                    />
+                  </label>
+                </template>
+              </draggable>
 
               <!-- Stats -->
               <div class="px-4 py-3 border-t border-surface-800 text-[10px] text-surface-600">
@@ -187,23 +321,25 @@
                 id="menu-print-area"
                 class="mx-auto shadow-2xl"
                 style="
-                  width: 794px;
-                  min-height: 1123px;
-                  background: #ffffff;
                   font-family: 'Sarabun', 'Noto Sans Thai', sans-serif;
                   box-sizing: border-box;
                   position: relative;
                   overflow: hidden;
                 "
                 :style="{
+                  width: paperConfig.widthPx + 'px',
+                  minHeight: paperConfig.heightPx + 'px',
+                  background: currentTheme.bgColor,
                   padding: currentDensity.a4Padding,
-                  '--menu-font-scale': fontSizeScale / 100
+                  '--menu-font-scale': fontSizeScale / 100,
+                  '--wm-scale': paperConfig.widthPx / 794,
+                  '--wm-opacity': wmOpacity / 100
                 }"
               >
                 <!-- Watermarks (Spicy Salad Elements) -->
                 <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; z-index: 0;">
                   <!-- Lime slice: Top-left -->
-                  <div style="position: absolute; top: 4%; left: -6%; width: 160px; height: 160px; opacity: 0.30; transform: rotate(-15deg);" :style="{ color: currentTheme.accent }">
+                  <div style="position: absolute; top: 2%; left: 1%; width: calc(160px * var(--wm-scale)); height: calc(160px * var(--wm-scale)); opacity: var(--wm-opacity); transform: rotate(-15deg);" :style="{ color: currentTheme.accent }">
                     <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                       <circle cx="50" cy="50" r="45" />
                       <circle cx="50" cy="50" r="39" stroke-dasharray="4 2" />
@@ -215,7 +351,7 @@
                   </div>
 
                   <!-- Chili: Top-right -->
-                  <div style="position: absolute; top: 8%; right: -2%; width: 140px; height: 140px; opacity: 0.30; transform: rotate(25deg);" :style="{ color: currentTheme.accent }">
+                  <div style="position: absolute; top: 4%; right: 1%; width: calc(140px * var(--wm-scale)); height: calc(140px * var(--wm-scale)); opacity: var(--wm-opacity); transform: rotate(25deg);" :style="{ color: currentTheme.accent }">
                     <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M30,25 C45,20 65,32 75,55 C81,70 73,85 55,82 C38,79 25,60 22,42 C20,28 25,26 30,25 Z" />
                       <path d="M30,25 C28,18 22,12 15,14" />
@@ -224,7 +360,7 @@
                   </div>
 
                   <!-- Shallot/Onion: Middle-right -->
-                  <div style="position: absolute; top: 45%; right: -6%; width: 150px; height: 150px; opacity: 0.28; transform: rotate(-30deg);" :style="{ color: currentTheme.accent }">
+                  <div style="position: absolute; top: 42%; right: 1%; width: calc(150px * var(--wm-scale)); height: calc(150px * var(--wm-scale)); opacity: var(--wm-opacity); transform: rotate(-30deg);" :style="{ color: currentTheme.accent }">
                     <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M50,10 C65,30 85,50 85,70 C85,85 70,90 50,90 C30,90 15,85 15,70 C15,50 35,30 50,10 Z" />
                       <path d="M45,90 L42,95 M50,90 L50,97 M55,90 L58,95" />
@@ -235,7 +371,7 @@
                   </div>
 
                   <!-- Tomato slice: Bottom-left -->
-                  <div style="position: absolute; bottom: 6%; left: -4%; width: 150px; height: 150px; opacity: 0.30; transform: rotate(40deg);" :style="{ color: currentTheme.accent }">
+                  <div style="position: absolute; bottom: 3%; left: 1%; width: calc(150px * var(--wm-scale)); height: calc(150px * var(--wm-scale)); opacity: var(--wm-opacity); transform: rotate(40deg);" :style="{ color: currentTheme.accent }">
                     <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                       <circle cx="50" cy="50" r="45" />
                       <path d="M35,35 C38,25 62,25 65,35 C68,45 68,55 65,65 C62,75 38,75 35,65 C32,55 32,45 35,35 Z" stroke-dasharray="3 3" />
@@ -247,7 +383,7 @@
                   </div>
 
                   <!-- Garlic: Bottom-right -->
-                  <div style="position: absolute; bottom: 4%; right: -2%; width: 130px; height: 130px; opacity: 0.30; transform: rotate(-10deg);" :style="{ color: currentTheme.accent }">
+                  <div style="position: absolute; bottom: 2%; right: 1%; width: calc(130px * var(--wm-scale)); height: calc(130px * var(--wm-scale)); opacity: var(--wm-opacity); transform: rotate(-10deg);" :style="{ color: currentTheme.accent }">
                     <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M50,15 C65,32 78,50 78,72 C78,84 66,90 50,90 C34,90 22,84 22,72 C22,50 35,32 50,15 Z" />
                       <path d="M50,15 C58,35 63,55 63,75" />
@@ -271,10 +407,10 @@
                   />
                 </div>
 
-                <!-- TWO COLUMN GRID -->
+                <!-- GRID -->
                 <div
-                  style="display: grid; grid-template-columns: 1fr 1fr; align-items: start; position: relative; z-index: 10;"
-                  :style="{ gap: currentDensity.gridGap }"
+                  style="display: grid; align-items: start; position: relative; z-index: 10;"
+                  :style="{ gap: paperGridGap, gridTemplateColumns: `repeat(${paperConfig.cols}, 1fr)` }"
                 >
                   <div
                     v-for="group in filteredGroups"
@@ -289,17 +425,18 @@
                         border-radius: 100px;
                       "
                       :style="{
-                        background: currentTheme.accent,
+                        background: catBgTransparent ? 'transparent' : catBgColor,
+                        border: showCatBorder ? `2.5px solid ${catBorderColor}` : 'none',
                         padding: currentDensity.catPadding,
                         marginBottom: currentDensity.catBottomMargin
                       }"
                     >
                       <span
-                        style="font-weight: 900; color: #fff; letter-spacing: 0.5px; font-style: italic; display: flex; align-items: center; gap: 6px;"
-                        :style="{ fontSize: `calc(${currentDensity.catSize}px * var(--menu-font-scale))` }"
+                        style="font-weight: 900; letter-spacing: 0.5px; font-style: italic; display: flex; align-items: center; gap: 6px;"
+                        :style="{ color: catTextColor, fontSize: `calc(${catFontSizePx}px * var(--menu-font-scale))` }"
                       >
-                        <!-- Dynamic White SVGs -->
-                        <span style="display: inline-flex; align-items: center;" :style="{ width: `calc(${currentDensity.catSize * 1.1}px * var(--menu-font-scale))`, height: `calc(${currentDensity.catSize * 1.1}px * var(--menu-font-scale))` }">
+                        <!-- Dynamic SVGs -->
+                        <span style="display: inline-flex; align-items: center;" :style="{ width: `calc(${catFontSizePx * 1.1}px * var(--menu-font-scale))`, height: `calc(${catFontSizePx * 1.1}px * var(--menu-font-scale))` }">
                           <svg v-if="getCategoryIconKey(group.categoryName) === 'noodle'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
                             <path d="M3 12h18" />
                             <path d="M3 12a9 9 0 0 0 18 0" />
@@ -363,6 +500,16 @@
                             <path d="M12 2c-.5 2-1.5 3.5-3.5 4.5A8.5 8.5 0 0 0 12 22c4.7 0 8.5-3.8 8.5-8.5C20.5 8 16 3 12 2z" />
                             <path d="M12 2c-.5-1-1.5-1.5-2.5-1" />
                           </svg>
+                          <svg v-else-if="getCategoryIconKey(group.categoryName) === 'salmon'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
+                            <!-- ลำตัวปลา -->
+                            <path d="M22 12c-2-3.5-5.5-6-10-6S3.5 8.5 2 12c1.5 3.5 5 6 10 6s8-2.5 10-6z" />
+                            <!-- หาง -->
+                            <path d="M2 12L-1 8M2 12L-1 16" />
+                            <!-- ครีบหลัง -->
+                            <path d="M11 6c1-2.5 3.5-3 5-2" />
+                            <!-- ตา -->
+                            <circle cx="17" cy="10.5" r="1" fill="currentColor" stroke="none" />
+                          </svg>
                           <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
                             <path d="M12 2v20M6 2v10a6 6 0 0 0 12 0V2" />
                           </svg>
@@ -381,14 +528,13 @@
                           display: flex;
                           align-items: baseline;
                           justify-content: space-between;
-                          border-bottom: 1px dotted #ddd;
                         "
-                        :style="{ padding: currentDensity.prodPadding }"
+                        :style="{ padding: currentDensity.prodPadding, borderBottom: `1px dotted ${currentTheme.separatorColor}` }"
                       >
                         <!-- ชื่อสินค้า + วงเล็บรายละเอียด (ถ้ามี) -->
                         <span
-                          style="color: #222; font-weight: 500; padding-right: 8px; flex: 1; line-height: 1.3;"
-                          :style="{ fontSize: `calc(${currentDensity.prodNameSize}px * var(--menu-font-scale))` }"
+                          style="font-weight: 500; padding-right: 8px; flex: 1; line-height: 1.3;"
+                          :style="{ color: currentTheme.textColor, fontSize: `calc(${currentDensity.prodNameSize}px * var(--menu-font-scale))` }"
                         >
                           <span
                             v-if="showBestsellerStars && bestsellerRankMap.has(product.id!)"
@@ -403,15 +549,15 @@
                           >★</span>{{ product.name }}
                           <span
                             v-if="product.description"
-                            style="color: #666; font-weight: normal; margin-left: 4px;"
-                            :style="{ fontSize: `calc(${currentDensity.prodNameSize * 0.85}px * var(--menu-font-scale))` }"
+                            style="font-weight: normal; margin-left: 4px;"
+                            :style="{ color: currentTheme.subTextColor, fontSize: `calc(${currentDensity.prodNameSize * 0.85}px * var(--menu-font-scale))` }"
                           >
                             ({{ product.description }})
                           </span>
                           <span
                             v-if="showAltNames && altNames.get(product.name)"
-                            style="display: block; font-style: italic; font-weight: 400; color: #555; line-height: 1.3; margin-top: 1px;"
-                            :style="{ fontSize: `calc(${currentDensity.prodNameSize * 0.72}px * var(--menu-font-scale))` }"
+                            style="display: block; font-style: italic; font-weight: 400; line-height: 1.3; margin-top: 1px;"
+                            :style="{ color: currentTheme.altTextColor, fontSize: `calc(${currentDensity.prodNameSize * 0.72}px * var(--menu-font-scale))` }"
                           >
                             {{ altNames.get(product.name)?.en }}<span v-if="altNames.get(product.name)?.en && altNames.get(product.name)?.my" style="margin: 0 3px; opacity: 0.5;">·</span>{{ altNames.get(product.name)?.my }}
                           </span>
@@ -439,10 +585,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
+import draggable from 'vuedraggable'
 import html2canvas from 'html2canvas'
 import type { Product, Category } from '~/types'
 import { useSettings } from '~/composables/useSettings'
+import { useToast } from '~/composables/useToast'
 
 const props = defineProps<{
   isOpen: boolean
@@ -451,6 +599,122 @@ const props = defineProps<{
 }>()
 
 defineEmits(['close'])
+
+const toast = useToast()
+
+// --- Style Presets ---
+interface StylePreset {
+  name: string
+  savedAt: string
+  settings: {
+    menuTitle: string
+    fontSizeScale: number
+    selectedDensity: string
+    selectedTheme: string
+    wmOpacity: number
+    catBgColor: string
+    catBgTransparent: boolean
+    catBorderColor: string
+    showCatBorder: boolean
+    catTextColor: string
+    catFontSizePx: number
+    selectedPaperSize: 'a4' | 'a2'
+    selectedOrientation: 'portrait' | 'landscape'
+    showPrice: boolean
+    showBestsellerStars: boolean
+    categoryOrder: number[]
+  }
+}
+const PRESET_KEY = 'menu-print-style-presets'
+const savedPresets       = ref<StylePreset[]>([])
+const selectedPresetName = ref('')
+const newPresetName      = ref('')
+const showPresetInput    = ref(false)
+
+function loadPresets() {
+  try {
+    const raw = localStorage.getItem(PRESET_KEY)
+    savedPresets.value = raw ? JSON.parse(raw) : []
+  } catch {
+    savedPresets.value = []
+  }
+}
+
+function savePreset() {
+  if (!newPresetName.value.trim()) return
+  const preset: StylePreset = {
+    name: newPresetName.value.trim(),
+    savedAt: new Date().toISOString(),
+    settings: {
+      menuTitle: menuTitle.value,
+      fontSizeScale: fontSizeScale.value,
+      selectedDensity: selectedDensity.value,
+      selectedTheme: selectedTheme.value,
+      wmOpacity: wmOpacity.value,
+      catBgColor: catBgColor.value,
+      catBgTransparent: catBgTransparent.value,
+      catBorderColor: catBorderColor.value,
+      showCatBorder: showCatBorder.value,
+      catTextColor: catTextColor.value,
+      catFontSizePx: catFontSizePx.value,
+      selectedPaperSize: selectedPaperSize.value,
+      selectedOrientation: selectedOrientation.value,
+      showPrice: showPrice.value,
+      showBestsellerStars: showBestsellerStars.value,
+      categoryOrder: [...orderedGroupIds.value],
+    }
+  }
+  const idx = savedPresets.value.findIndex(p => p.name === preset.name)
+  if (idx >= 0) savedPresets.value[idx] = preset
+  else savedPresets.value.push(preset)
+  localStorage.setItem(PRESET_KEY, JSON.stringify(savedPresets.value))
+  selectedPresetName.value = preset.name
+  newPresetName.value = ''
+  showPresetInput.value = false
+  toast.success(`บันทึก Style "${preset.name}" สำเร็จ`)
+}
+
+async function applyPreset(name: string) {
+  const preset = savedPresets.value.find(p => p.name === name)
+  if (!preset) return
+  const s = preset.settings
+  skipThemeWatch.value = true
+  menuTitle.value           = s.menuTitle
+  fontSizeScale.value       = s.fontSizeScale
+  selectedDensity.value     = s.selectedDensity
+  selectedTheme.value       = s.selectedTheme
+  wmOpacity.value           = s.wmOpacity
+  selectedPaperSize.value   = s.selectedPaperSize
+  selectedOrientation.value = s.selectedOrientation
+  showPrice.value           = s.showPrice
+  showBestsellerStars.value = s.showBestsellerStars
+  await nextTick()
+  // ตั้งค่าหมวดหมู่หลัง nextTick เพื่อให้ watch selectedTheme ไม่ override
+  catBgColor.value       = s.catBgColor
+  catBgTransparent.value = s.catBgTransparent
+  catBorderColor.value   = s.catBorderColor
+  showCatBorder.value    = s.showCatBorder
+  catTextColor.value     = s.catTextColor
+  catFontSizePx.value    = s.catFontSizePx
+  if (s.categoryOrder?.length) {
+    const validIds = new Set(orderedGroupIds.value)
+    const saved = s.categoryOrder.filter(id => validIds.has(id))
+    const newIds = orderedGroupIds.value.filter(id => !saved.includes(id))
+    orderedGroupIds.value = [...saved, ...newIds]
+  }
+  skipThemeWatch.value = false
+}
+
+function deletePreset() {
+  if (!selectedPresetName.value) return
+  const name = selectedPresetName.value
+  savedPresets.value = savedPresets.value.filter(p => p.name !== name)
+  localStorage.setItem(PRESET_KEY, JSON.stringify(savedPresets.value))
+  selectedPresetName.value = ''
+  toast.success(`ลบ Style "${name}" สำเร็จ`)
+}
+
+loadPresets()
 
 // --- ชื่อเมนู ---
 const menuTitle = ref('เมนูยำ')
@@ -551,6 +815,12 @@ interface ThemeConfig {
   label: string
   accent: string
   priceColor: string
+  bgColor: string
+  textColor: string
+  subTextColor: string
+  altTextColor: string
+  separatorColor: string
+  catOutlined: boolean
 }
 
 const selectedDensity = ref('compact')
@@ -561,10 +831,13 @@ const currentDensity = computed<DensityConfig>(() => {
 
 // --- Themes ---
 const themes: ThemeConfig[] = [
-  { id: 'amber',  label: 'ส้มทอง',    accent: '#E87B00', priceColor: '#c75c00' },
-  { id: 'red',    label: 'แดงเผ็ด',   accent: '#c0392b', priceColor: '#a93226' },
-  { id: 'green',  label: 'เขียวสด',   accent: '#27ae60', priceColor: '#1e8449' },
-  { id: 'indigo', label: 'น้ำเงิน',   accent: '#2c3e99', priceColor: '#2133a0' },
+  { id: 'amber',      label: 'ส้มทอง',    accent: '#E87B00', priceColor: '#c75c00', bgColor: '#ffffff', textColor: '#222222', subTextColor: '#666666', altTextColor: '#555555', separatorColor: '#dddddd', catOutlined: false },
+  { id: 'red',        label: 'แดงเผ็ด',   accent: '#c0392b', priceColor: '#a93226', bgColor: '#ffffff', textColor: '#222222', subTextColor: '#666666', altTextColor: '#555555', separatorColor: '#dddddd', catOutlined: false },
+  { id: 'green',      label: 'เขียวสด',   accent: '#27ae60', priceColor: '#1e8449', bgColor: '#ffffff', textColor: '#222222', subTextColor: '#666666', altTextColor: '#555555', separatorColor: '#dddddd', catOutlined: false },
+  { id: 'indigo',     label: 'น้ำเงิน',   accent: '#2c3e99', priceColor: '#2133a0', bgColor: '#ffffff', textColor: '#222222', subTextColor: '#666666', altTextColor: '#555555', separatorColor: '#dddddd', catOutlined: false },
+  { id: 'black',      label: 'ขาวดำ',     accent: '#1a1a1a', priceColor: '#444444', bgColor: '#ffffff', textColor: '#222222', subTextColor: '#666666', altTextColor: '#555555', separatorColor: '#dddddd', catOutlined: false },
+  { id: 'dark-black', label: 'พื้นดำ',    accent: '#ffffff', priceColor: '#e0e0e0', bgColor: '#111111', textColor: '#f0f0f0', subTextColor: '#aaaaaa', altTextColor: '#888888', separatorColor: '#444444', catOutlined: true  },
+  { id: 'dark-gray',  label: 'พื้นเทา',   accent: '#ffffff', priceColor: '#e0e0e0', bgColor: '#2d2d2d', textColor: '#f0f0f0', subTextColor: '#b0b0b0', altTextColor: '#909090', separatorColor: '#555555', catOutlined: true  },
 ]
 const selectedTheme = ref('amber')
 const currentTheme = computed<ThemeConfig>(() => {
@@ -572,7 +845,51 @@ const currentTheme = computed<ThemeConfig>(() => {
   return found || (themes[0] as ThemeConfig)
 })
 
+// column gap เพิ่มสำหรับ A2
+const paperGridGap = computed(() => {
+  const parts = currentDensity.value.gridGap.split(' ')
+  const rowGap = parts[0]
+  const colGap = parts.length > 1 ? parts[1] : parts[0]
+  const colPx = parseInt(colGap) + (selectedPaperSize.value === 'a2' ? 48 : 0)
+  return `${rowGap} ${colPx}px`
+})
+
+// --- ปรับแต่ง Category Pill ---
+const wmOpacity         = ref(30)
+const catBgColor        = ref('#E87B00')
+const catBgTransparent  = ref(false)
+const catBorderColor    = ref('#ffffff')
+const showCatBorder     = ref(false)
+const catTextColor      = ref('#ffffff')
+const catFontSizePx     = ref(16)
+
+const skipThemeWatch = ref(false)
+
+watch(selectedTheme, () => {
+  if (skipThemeWatch.value) return
+  const t = currentTheme.value
+  catBgColor.value     = t.catOutlined ? '#111111' : t.accent
+  showCatBorder.value  = t.catOutlined
+  catBorderColor.value = '#ffffff'
+  catTextColor.value   = '#ffffff'
+})
+
+// --- ขนาดกระดาษและแนวปริ้น ---
+const selectedPaperSize = ref<'a4' | 'a2'>('a4')
+const selectedOrientation = ref<'portrait' | 'landscape'>('portrait')
+
+const paperConfig = computed(() => {
+  const map: Record<string, { widthPx: number; heightPx: number; widthMm: string; pageSize: string; cols: number }> = {
+    'a4-portrait':  { widthPx: 794,  heightPx: 1123, widthMm: '210mm', pageSize: 'A4 portrait',  cols: 2 },
+    'a4-landscape': { widthPx: 1123, heightPx: 794,  widthMm: '297mm', pageSize: 'A4 landscape', cols: 3 },
+    'a2-portrait':  { widthPx: 1587, heightPx: 2245, widthMm: '420mm', pageSize: 'A2 portrait',  cols: 2 },
+    'a2-landscape': { widthPx: 2245, heightPx: 1587, widthMm: '594mm', pageSize: 'A2 landscape', cols: 3 },
+  }
+  return map[`${selectedPaperSize.value}-${selectedOrientation.value}`]
+})
+
 // --- Options ---
+const isFullscreen = ref(false)
 const showPrice = ref(true)
 const showBestsellerStars = ref(true)
 
@@ -762,6 +1079,7 @@ function getCategoryIconKey(name: string): string {
   if (lower.includes('เส้นบุก') || lower.includes('เส้น')) return 'noodle'
   if (lower.includes('ลูกชิ้น')) return 'meatball'
   if (lower.includes('ขนมจีน')) return 'kanomjeen'
+  if (lower.includes('แซลมอน')) return 'salmon'
   if (lower.includes('ทะเล') || lower.includes('กุ้ง') || lower.includes('หอย') || lower.includes('ปู') || lower.includes('ปลา')) return 'seafood'
   if (lower.includes('addon') || lower.includes('add on') || lower.includes('เพิ่มเติม') || lower.includes('พิเศษ') || lower.includes('เครื่องเคียง')) return 'addon'
   if (lower.includes('เครื่องดื่ม') || lower.includes('น้ำ')) return 'drink'
@@ -808,19 +1126,24 @@ const allGroups = computed(() => {
   return Object.values(groups).sort((a, b) => a.sortOrder - b.sortOrder)
 })
 
-// --- Category Selection ---
+// --- Category Selection + Ordering ---
 const selectedCategoryIds = ref<number[]>([])
+const orderedGroupIds     = ref<number[]>([])
 
-// sync ให้ selectedCategoryIds ครบเมื่อ allGroups อัปเดต
 watch(
   allGroups,
   (groups) => {
-    const current = new Set(selectedCategoryIds.value)
+    const validIds = groups.map(g => g.categoryId)
     for (const g of groups) {
-      if (!current.has(g.categoryId)) {
+      if (!orderedGroupIds.value.includes(g.categoryId)) {
+        orderedGroupIds.value.push(g.categoryId)
+      }
+      if (!selectedCategoryIds.value.includes(g.categoryId)) {
         selectedCategoryIds.value.push(g.categoryId)
       }
     }
+    orderedGroupIds.value     = orderedGroupIds.value.filter(id => validIds.includes(id))
+    selectedCategoryIds.value = selectedCategoryIds.value.filter(id => validIds.includes(id))
   },
   { immediate: true }
 )
@@ -843,10 +1166,14 @@ function toggleSelectAll() {
   }
 }
 
-// --- กลุ่มที่จะแสดงใน Preview/Print ---
-const filteredGroups = computed(() =>
-  allGroups.value.filter(g => selectedCategoryIds.value.includes(g.categoryId))
-)
+// --- กลุ่มที่จะแสดงใน Preview/Print (ตามลำดับที่ผู้ใช้เรียง) ---
+const filteredGroups = computed(() => {
+  const groupMap = new Map(allGroups.value.map(g => [g.categoryId, g]))
+  return orderedGroupIds.value
+    .filter(id => selectedCategoryIds.value.includes(id))
+    .map(id => groupMap.get(id)!)
+    .filter(Boolean)
+})
 
 const totalPrintProducts = computed(() =>
   filteredGroups.value.reduce((sum, g) => sum + g.products.length, 0)
@@ -874,7 +1201,7 @@ async function handleSaveImage() {
     const canvas = await html2canvas(printArea.value, {
       scale: 2,
       useCORS: true,
-      backgroundColor: '#ffffff',
+      backgroundColor: currentTheme.value.bgColor,
       logging: false,
     })
     const link = document.createElement('a')
@@ -898,8 +1225,9 @@ function handlePrint() {
     document.head.appendChild(link)
   }
 
+  const { widthPx, heightPx, widthMm, pageSize } = paperConfig.value
   const iframe = document.createElement('iframe')
-  iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:794px;height:1123px;border:0;'
+  iframe.style.cssText = `position:fixed;top:-9999px;left:-9999px;width:${widthPx}px;height:${heightPx}px;border:0;`
   document.body.appendChild(iframe)
 
   const content = printArea.value?.innerHTML ?? ''
@@ -917,14 +1245,16 @@ function handlePrint() {
         <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,400;0,500;0,700;0,900;1,700;1,900&display=swap" rel="stylesheet">
         <style>
           * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
-          html, body { width:210mm; background:#ffffff; font-family:'Sarabun','Noto Sans Thai',sans-serif; }
+          html, body { width:${widthMm}; background:${currentTheme.value.bgColor}; font-family:'Sarabun','Noto Sans Thai',sans-serif; }
           body {
             --menu-font-scale: ${fontSizeScale.value / 100};
+            --wm-scale: ${paperConfig.value.widthPx / 794};
+            --wm-opacity: ${wmOpacity.value / 100};
             padding: ${currentDensity.value.a4Padding};
           }
-          @page { size: A4 portrait; margin: 0; }
+          @page { size: ${pageSize}; margin: 0; }
           @media print {
-            html, body { width:210mm; }
+            html, body { width:${widthMm}; }
             * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
           }
         </style>
