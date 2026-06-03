@@ -294,6 +294,13 @@ export const usePosStore = defineStore('pos', () => {
     }
   }
 
+  function updateLocalProductOrder(orderedItems: ProductWithCategory[]) {
+    const orderedIds = new Set(orderedItems.map(p => p.id))
+    const others = products.value.filter(p => !orderedIds.has(p.id))
+    const reordered = orderedItems.map((p, i) => ({ ...p, sortOrder: i + 1 }))
+    products.value = [...others, ...reordered]
+  }
+
   return {
     // state
     activeCategoryId,
@@ -330,6 +337,7 @@ export const usePosStore = defineStore('pos', () => {
     setSelectedCartItemIndex,
     refreshPendingOrdersCount,
     setViewMode: (mode: 'pos' | 'kds') => viewMode.value = mode,
-    setKitchenFilter: (filter: 'all' | 'ready') => kitchenFilter.value = filter
+    setKitchenFilter: (filter: 'all' | 'ready') => kitchenFilter.value = filter,
+    updateLocalProductOrder
   }
 })

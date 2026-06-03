@@ -16,9 +16,25 @@
           </template>
         </div>
 
-        <h2 class="text-2xl font-bold text-surface-50">
-          {{ store.activePromotionFilter?.name ?? store.activeCategory?.name ?? 'สินค้าทั้งหมด' }}
-        </h2>
+        <div class="flex items-center gap-2">
+          <button
+            v-if="canReorder"
+            @click="isDragLocked = !isDragLocked"
+            :class="[
+              'w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-90 border shrink-0',
+              isDragLocked
+                ? 'bg-surface-800/60 border-surface-700/50 text-surface-500 hover:text-surface-300 hover:bg-surface-700/60'
+                : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30'
+            ]"
+            :title="isDragLocked ? 'คลิกเพื่อจัดเรียงสินค้า' : 'กำลังจัดเรียง — คลิกเพื่อล็อก'"
+          >
+            <Lock v-if="isDragLocked" :size="16" />
+            <Unlock v-else :size="16" />
+          </button>
+          <h2 class="text-2xl font-bold text-surface-50">
+            {{ store.activePromotionFilter?.name ?? store.activeCategory?.name ?? 'สินค้าทั้งหมด' }}
+          </h2>
+        </div>
       </div>
 
       <div class="flex items-center gap-4">
@@ -112,6 +128,31 @@
             <span class="text-5xl opacity-40">🍽️</span>
             <p>ไม่พบสินค้าในหมวดหมู่นี้</p>
           </div>
+          <!-- โหมดจัดเรียง (unlock) -->
+          <draggable
+            v-else-if="!isDragLocked && canReorder"
+            v-model="draggableProducts"
+            tag="div"
+            :component-data="{ class: 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4' }"
+            item-key="id"
+            :delay="300"
+            :animation="200"
+            :force-fallback="true"
+            ghost-class="drag-ghost"
+            chosen-class="drag-chosen"
+            @end="onDragEnd"
+          >
+            <template #item="{ element: product }">
+              <PosProductCard
+                :product="product"
+                :has-promotion="store.promotedProductIds.has(product.id!)"
+                :is-birthday="store.birthdayProductIds.has(product.id!)"
+                @add="handleAddProduct(product)"
+              />
+            </template>
+          </draggable>
+
+          <!-- โหมดปกติ (lock) -->
           <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             <PosProductCard
               v-for="product in store.filteredProducts"
@@ -170,11 +211,30 @@ import { useCart } from '~/composables/useCart'
 import type { ProductWithCategory, AddonOption } from '~/types'
 import PosAddonSelection from './PosAddonSelection.vue'
 import PosSpecialMenuModal from './PosSpecialMenuModal.vue'
-import { Heart, X } from 'lucide-vue-next'
+import { Heart, X, Lock, Unlock } from 'lucide-vue-next'
 import { useFavorites } from '~/composables/useFavorites'
+import draggable from 'vuedraggable'
+import { useProducts } from '~/composables/useProducts'
 
 const store = usePosStore()
 const { favoriteIds } = useFavorites()
+const { reorderProducts } = useProducts()
+
+const isDragLocked = ref(true)
+watch(() => store.activeCategoryId, () => { isDragLocked.value = true })
+
+const canReorder = computed(() =>
+  !!store.activeCategoryId && !store.activePromotionFilter
+)
+
+const draggableProducts = computed({
+  get: () => store.filteredProducts,
+  set: (val) => store.updateLocalProductOrder(val)
+})
+
+async function onDragEnd() {
+  await reorderProducts(draggableProducts.value)
+}
 
 const favoriteProducts = computed(() =>
   store.products.filter(p => p.id != null && favoriteIds.value.has(p.id))
@@ -215,3 +275,8 @@ function handleSpecialMenuConfirm(product: ProductWithCategory) {
   specialMenuOpen.value = false
 }
 </script>
+
+<style scoped>
+.drag-ghost { opacity: 0.3; }
+.drag-chosen { outline: 2px solid rgb(99 102 241 / 0.6); transform: scale(0.96); box-shadow: 0 20px 40px rgb(0 0 0 / 0.4); }
+</style>
