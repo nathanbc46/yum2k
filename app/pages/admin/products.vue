@@ -477,6 +477,7 @@
     <AdminProductImportPreviewModal
       :is-open="isImportPreviewOpen"
       :items="importPreviewItems"
+      :is-saving="isImporting"
       @close="closeImportPreview"
       @confirm="handleConfirmImport"
     />
@@ -589,6 +590,7 @@ async function onMassEditSaved(count: number) {
 // Excel Import Preview State
 const isImportPreviewOpen = ref(false)
 const importPreviewItems = ref<ImportPreviewItem[]>([])
+const isImporting = ref(false)
 
 // --- Computed: Filtered Products ---
 const filteredProducts = computed(() => {
@@ -814,25 +816,24 @@ function closeImportPreview() {
 }
 
 async function handleConfirmImport() {
-  isLoading.value = true
+  isImporting.value = true
   try {
-    toast.info('กำลังบันทึกข้อมูลสินค้า...')
     const result = await executeImport(importPreviewItems.value)
-    
+
     if (result.success > 0) {
       toast.success(`นำเข้าสำเร็จ ${result.success} รายการ`)
     }
-    
+
     if (result.failed > 0) {
       toast.error(`ล้มเหลว ${result.failed} รายการ`)
     }
-    
+
     closeImportPreview()
     await loadData()
   } catch (err: any) {
     toast.error('เกิดข้อผิดพลาดในการนำเข้า: ' + err.message)
   } finally {
-    isLoading.value = false
+    isImporting.value = false
   }
 }
 

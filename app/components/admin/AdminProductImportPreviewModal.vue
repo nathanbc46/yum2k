@@ -168,12 +168,14 @@
         >
           ยกเลิก
         </button>
-        <button 
+        <button
           @click="$emit('confirm')"
-          :disabled="validItemsCount === 0"
-          class="px-10 py-3 rounded-2xl bg-primary-600 hover:bg-primary-500 disabled:opacity-30 disabled:cursor-not-allowed text-white text-sm font-bold shadow-xl shadow-primary-900/20 transition-all active:scale-95 flex items-center gap-3"
+          :disabled="validItemsCount === 0 || props.isSaving"
+          class="px-10 py-3 rounded-2xl bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold shadow-xl shadow-primary-900/20 transition-all active:scale-95 flex items-center gap-2"
         >
-          <span>🚀 บันทึกข้อมูล {{ validItemsCount }} รายการ</span>
+          <span v-if="props.isSaving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+          <span v-else>🚀</span>
+          <span>{{ props.isSaving ? `กำลังบันทึก...` : `บันทึกข้อมูล ${validItemsCount} รายการ` }}</span>
         </button>
       </footer>
 
@@ -187,6 +189,7 @@ import type { ImportPreviewItem } from '~/composables/useProductExcel'
 const props = defineProps<{
   isOpen: boolean
   items: ImportPreviewItem[]
+  isSaving?: boolean
 }>()
 
 defineEmits(['close', 'confirm'])
