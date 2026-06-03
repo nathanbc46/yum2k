@@ -768,6 +768,7 @@ export function usePrinter() {
     const labels: Record<string, string> = {
       cash: 'เงินสด',
       promptpay: 'พร้อมเพย์',
+      thaithawthai: 'ไทยช่วยไทย',
       card: 'บัตรเครดิต',
       unpaid: 'ค้างจ่าย',
       other: 'อื่นๆ'

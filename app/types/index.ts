@@ -33,11 +33,12 @@ export type SyncStatus =
 
 /** ประเภทของการชำระเงิน */
 export type PaymentMethod =
-  | 'cash'          // เงินสด
-  | 'promptpay'     // พร้อมเพย์
-  | 'card'          // บัตรเครดิต/เดบิต
-  | 'other'         // อื่นๆ
-  | 'unpaid'        // ยังไม่ชำระเงิน (ค้างจ่าย)
+  | 'cash'           // เงินสด
+  | 'promptpay'      // พร้อมเพย์
+  | 'thaithawthai'   // ไทยช่วยไทย
+  | 'card'           // บัตรเครดิต/เดบิต
+  | 'other'          // อื่นๆ
+  | 'unpaid'         // ยังไม่ชำระเงิน (ค้างจ่าย)
 
 /** ประเภทของ Inventory Mapping */
 export type InventoryMappingType =
