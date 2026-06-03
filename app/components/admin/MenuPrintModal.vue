@@ -168,6 +168,16 @@
                 <span>{{ isTranslating ? 'กำลังแปล...' : '🌐 แปลภาษาอัตโนมัติ' }}</span>
               </button>
 
+              <!-- Export Excel -->
+              <button
+                @click="exportToExcel"
+                :disabled="altNames.size === 0"
+                class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5 text-xs text-surface-300 hover:text-surface-100 hover:border-surface-500 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                title="Export ข้อมูลชื่อสินค้า EN/MY เป็น Excel (ต้องแปลภาษาก่อน)"
+              >
+                📊 Export Excel
+              </button>
+
               <!-- Toggle: ชื่อภาษาอื่น -->
               <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5" :class="altNames.size === 0 ? 'opacity-40' : ''">
                 <label class="text-xs text-surface-400 whitespace-nowrap">EN/MY</label>
@@ -588,6 +598,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import draggable from 'vuedraggable'
 import html2canvas from 'html2canvas'
+import * as XLSX from 'xlsx'
 import type { Product, Category } from '~/types'
 import { useSettings } from '~/composables/useSettings'
 import { useToast } from '~/composables/useToast'
@@ -1214,6 +1225,24 @@ async function handleSaveImage() {
   } finally {
     isSavingImage.value = false
   }
+}
+
+function exportToExcel() {
+  const rows = filteredGroups.value.flatMap(group =>
+    group.products.map(p => ({
+      'รหัสสินค้า': p.sku ?? '',
+      'ชื่อสินค้า': p.name,
+      'ชื่อภาษาอังกฤษ': altNames.value.get(p.name)?.en ?? '',
+      'ชื่อภาษาพม่า': altNames.value.get(p.name)?.my ?? '',
+      'หมวดหมู่': group.categoryName,
+      'ราคา (บาท)': p.salePrice,
+    }))
+  )
+  const ws = XLSX.utils.json_to_sheet(rows)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'เมนูสินค้า')
+  const date = new Date().toLocaleDateString('th-TH').replace(/\//g, '-')
+  XLSX.writeFile(wb, `${menuTitle.value}_${date}.xlsx`)
 }
 
 function handlePrint() {
