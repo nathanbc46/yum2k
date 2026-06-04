@@ -843,6 +843,7 @@ const currentDensity = computed<DensityConfig>(() => {
 // --- Themes ---
 const themes: ThemeConfig[] = [
   { id: 'amber',      label: 'ส้มทอง',    accent: '#E87B00', priceColor: '#c75c00', bgColor: '#ffffff', textColor: '#222222', subTextColor: '#666666', altTextColor: '#555555', separatorColor: '#dddddd', catOutlined: false },
+  { id: 'chili-red',  label: 'แดงสด🌶',   accent: '#E8192C', priceColor: '#c00f1f', bgColor: '#ffffff', textColor: '#222222', subTextColor: '#666666', altTextColor: '#555555', separatorColor: '#dddddd', catOutlined: false },
   { id: 'red',        label: 'แดงเผ็ด',   accent: '#c0392b', priceColor: '#a93226', bgColor: '#ffffff', textColor: '#222222', subTextColor: '#666666', altTextColor: '#555555', separatorColor: '#dddddd', catOutlined: false },
   { id: 'green',      label: 'เขียวสด',   accent: '#27ae60', priceColor: '#1e8449', bgColor: '#ffffff', textColor: '#222222', subTextColor: '#666666', altTextColor: '#555555', separatorColor: '#dddddd', catOutlined: false },
   { id: 'indigo',     label: 'น้ำเงิน',   accent: '#2c3e99', priceColor: '#2133a0', bgColor: '#ffffff', textColor: '#222222', subTextColor: '#666666', altTextColor: '#555555', separatorColor: '#dddddd', catOutlined: false },
