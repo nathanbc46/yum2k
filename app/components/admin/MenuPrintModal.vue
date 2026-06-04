@@ -861,7 +861,7 @@ const currentTheme = computed<ThemeConfig>(() => {
 const paperGridGap = computed(() => {
   const parts = currentDensity.value.gridGap.split(' ')
   const rowGap = parts[0]
-  const colGap = parts.length > 1 ? parts[1] : parts[0]
+  const colGap = (parts.length > 1 ? parts[1] : parts[0]) ?? '0'
   const colPx = parseInt(colGap) + (selectedPaperSize.value === 'a2' ? 48 : 0)
   return `${rowGap} ${colPx}px`
 })
@@ -890,6 +890,9 @@ watch(selectedTheme, () => {
 const selectedPaperSize = ref<'a4' | 'a2'>('a4')
 const selectedOrientation = ref<'portrait' | 'landscape'>('portrait')
 
+// ค่า fallback กรณี key ไม่ตรง (ป้องกัน TypeScript undefined error)
+const PAPER_FALLBACK = { widthPx: 794, heightPx: 1123, widthMm: '210mm', pageSize: 'A4 portrait', cols: 2 }
+
 const paperConfig = computed(() => {
   const map: Record<string, { widthPx: number; heightPx: number; widthMm: string; pageSize: string; cols: number }> = {
     'a4-portrait':  { widthPx: 794,  heightPx: 1123, widthMm: '210mm', pageSize: 'A4 portrait',  cols: 2 },
@@ -897,7 +900,7 @@ const paperConfig = computed(() => {
     'a2-portrait':  { widthPx: 1587, heightPx: 2245, widthMm: '420mm', pageSize: 'A2 portrait',  cols: 2 },
     'a2-landscape': { widthPx: 2245, heightPx: 1587, widthMm: '594mm', pageSize: 'A2 landscape', cols: 3 },
   }
-  return map[`${selectedPaperSize.value}-${selectedOrientation.value}`]
+  return map[`${selectedPaperSize.value}-${selectedOrientation.value}`] ?? PAPER_FALLBACK
 })
 
 // --- Options ---
