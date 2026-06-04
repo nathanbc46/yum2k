@@ -3,8 +3,8 @@
     class="flex flex-col bg-surface-800 rounded-2xl overflow-hidden border border-surface-700 hover:border-primary-500 hover:ring-2 hover:ring-primary-500/50 transition-all text-left shadow-sm active:scale-95 group relative"
     @click="$emit('add', product)"
   >
-    <!-- รูปภาพสินค้า (ลดความสูง 30%) -->
-    <div class="h-[72px] w-full bg-surface-900 relative overflow-hidden">
+    <!-- รูปภาพสินค้า (สี่เหลี่ยมจัตุรัส) -->
+    <div class="aspect-square w-full bg-surface-900 relative overflow-hidden">
       <img
         v-if="product.imageUrl"
         :src="product.imageUrl"
@@ -22,7 +22,7 @@
         class="absolute top-1.5 left-1.5 text-lg z-10 drop-shadow-md leading-none"
       >{{ isBirthday ? '🎂' : '🎁' }}</span>
 
-      <!-- Badge สินค้าโปร / สต็อกหมด / เตือนใกล้หมด -->
+      <!-- Badge สินค้าโปร / สต็อกหมด / เตือนใกล้หมด — บนขวา -->
       <div class="absolute top-1.5 right-1.5 flex flex-col gap-1 items-end">
         <span
           v-if="product.mappingType === 'promotion' || product.mappingType === 'bundle'"
@@ -43,36 +43,33 @@
           เหลือ {{ product.stockQuantity }}
         </span>
       </div>
+
+      <!-- ราคา — มุมล่างขวาของรูป -->
+      <span
+        class="absolute bottom-1.5 right-1.5 font-black text-xs px-2 py-0.5 rounded-lg shadow-lg z-10 text-white"
+        style="background: rgba(0,0,0,0.62); backdrop-filter: blur(4px);"
+      >
+        ฿{{ product.salePrice.toLocaleString() }}
+      </span>
     </div>
 
     <!-- รายละเอียดสินค้า -->
-    <div class="p-2 flex flex-col flex-1 justify-between w-full">
-      <h3 class="font-semibold text-surface-50 text-sm line-clamp-2 mb-1.5 leading-snug">
+    <div class="px-2 pt-1.5 pb-2 flex items-center justify-between w-full">
+      <h3 class="font-semibold text-surface-50 text-sm line-clamp-2 leading-snug flex-1 min-w-0 pr-1">
         {{ product.name }}
       </h3>
 
-      <div class="flex items-end justify-between mt-auto">
-        <span
-          class="font-black text-sm px-2 py-0.5 rounded-lg"
-          :style="{
-            color: catColor || '#818cf8',
-            backgroundColor: rgba(catColor || '#6366f1', 0.15),
-          }"
-        >
-          ฿{{ product.salePrice.toLocaleString() }}
-        </span>
-
-        <!-- Favorite Button — มุมขวาล่าง ห่างจากพื้นที่กดหลัก -->
-        <button
-          @click.stop="toggleFavorite(props.product.id!)"
-          class="w-7 h-7 flex items-center justify-center rounded-lg transition-all active:scale-90"
-          :class="isFavorite(props.product.id!)
-            ? 'text-red-500'
-            : 'text-surface-600 hover:text-surface-400'"
-        >
-          <Heart :size="14" :fill="isFavorite(props.product.id!) ? 'currentColor' : 'none'" />
-        </button>
-      </div>
+      <!-- Favorite Button — แสดงเฉพาะเมื่อปลดล็อก -->
+      <button
+        v-if="favoriteUnlocked"
+        @click.stop="toggleFavorite(props.product.id!)"
+        class="w-7 h-7 flex items-center justify-center rounded-lg transition-all active:scale-90 shrink-0"
+        :class="isFavorite(props.product.id!)
+          ? 'text-red-500'
+          : 'text-surface-600 hover:text-surface-400'"
+      >
+        <Heart :size="14" :fill="isFavorite(props.product.id!) ? 'currentColor' : 'none'" />
+      </button>
     </div>
   </button>
 </template>
@@ -82,7 +79,7 @@ import type { ProductWithCategory } from '~/types'
 import { Heart } from 'lucide-vue-next'
 import { useFavorites } from '~/composables/useFavorites'
 
-const props = defineProps<{ product: ProductWithCategory; hasPromotion?: boolean; isBirthday?: boolean }>()
+const props = defineProps<{ product: ProductWithCategory; hasPromotion?: boolean; isBirthday?: boolean; favoriteUnlocked?: boolean }>()
 defineEmits<{ (e: 'add', item: ProductWithCategory): void }>()
 
 const { isFavorite, toggleFavorite } = useFavorites()

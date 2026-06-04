@@ -18,7 +18,6 @@
 
         <div class="flex items-center gap-2">
           <button
-            v-if="canReorder"
             @click="isDragLocked = !isDragLocked"
             :class="[
               'w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-90 border shrink-0',
@@ -26,7 +25,7 @@
                 ? 'bg-surface-800/60 border-surface-700/50 text-surface-500 hover:text-surface-300 hover:bg-surface-700/60'
                 : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30'
             ]"
-            :title="isDragLocked ? 'คลิกเพื่อจัดเรียงสินค้า' : 'กำลังจัดเรียง — คลิกเพื่อล็อก'"
+            :title="isDragLocked ? 'คลิกเพื่อแก้ไขรายการโปรด / จัดเรียงสินค้า' : 'กำลังแก้ไข — คลิกเพื่อล็อก'"
           >
             <Lock v-if="isDragLocked" :size="16" />
             <Unlock v-else :size="16" />
@@ -113,6 +112,7 @@
                   :product="product"
                   :has-promotion="store.promotedProductIds.has(product.id!)"
                   :is-birthday="store.birthdayProductIds.has(product.id!)"
+                  :favorite-unlocked="!isDragLocked"
                   @add="handleAddProduct(product)"
                 />
               </div>
@@ -147,6 +147,7 @@
                 :product="product"
                 :has-promotion="store.promotedProductIds.has(product.id!)"
                 :is-birthday="store.birthdayProductIds.has(product.id!)"
+                :favorite-unlocked="!isDragLocked"
                 @add="handleAddProduct(product)"
               />
             </template>
@@ -160,6 +161,7 @@
               :product="product"
               :has-promotion="store.promotedProductIds.has(product.id!)"
               :is-birthday="store.birthdayProductIds.has(product.id!)"
+              :favorite-unlocked="!isDragLocked"
               @add="handleAddProduct(product)"
             />
           </div>

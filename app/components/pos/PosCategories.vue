@@ -24,9 +24,6 @@
           </div>
           <div v-if="cat.iconUrl && !cat.iconUrl.startsWith('http')" class="text-2xl leading-none">{{ cat.iconUrl }}</div>
           <div class="font-black text-surface-50 text-xs leading-tight line-clamp-2">{{ cat.name }}</div>
-          <div class="text-[10px] font-bold px-2 py-0.5 rounded-full" :style="{ color: cat.color || '#818cf8', backgroundColor: (cat.color || '#6366f1') + '25' }">
-            {{ store.categoryProductCounts[cat.id!] ?? 0 }}
-          </div>
         </button>
       </div>
 
@@ -162,13 +159,6 @@
             class="font-black text-xs leading-tight line-clamp-2 w-full text-center"
             :class="store.activeCategoryId === cat.id ? 'text-white' : 'text-surface-50'"
           >{{ cat.name }}</div>
-          <div
-            class="text-[10px] font-bold px-2 py-0.5 rounded-full"
-            :class="store.activeCategoryId === cat.id ? 'bg-white/20 text-white' : ''"
-            :style="store.activeCategoryId !== cat.id ? { color: cat.color || '#818cf8', backgroundColor: (cat.color || '#6366f1') + '25' } : {}"
-          >
-            {{ store.categoryProductCounts[cat.id!] ?? 0 }}
-          </div>
         </button>
       </div>
 
