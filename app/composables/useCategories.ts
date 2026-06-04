@@ -13,6 +13,7 @@ export interface CategoryFormData {
   parentUuid?: string
   description?: string
   color?: string
+  iconUrl?: string
   sortOrder: number
   isActive: boolean
   addonGroups?: AddonGroup[]
@@ -75,6 +76,7 @@ export function useCategories() {
       parentUuid: form.parentUuid,
       description: form.description?.trim() || undefined,
       color: form.color || '#6366f1',
+      iconUrl: form.iconUrl?.trim() || undefined,
       sortOrder: form.sortOrder,
       isActive: form.isActive,
       addonGroups: form.addonGroups?.length
@@ -116,6 +118,7 @@ export function useCategories() {
       parentUuid: form.parentUuid,
       description: form.description?.trim() || undefined,
       color: form.color || '#6366f1',
+      iconUrl: form.iconUrl?.trim() || undefined,
       sortOrder: form.sortOrder,
       isActive: form.isActive,
       addonGroups: form.addonGroups?.length

@@ -84,10 +84,8 @@
                   <!-- ชื่อ + สี -->
                   <td class="px-6 py-4">
                     <div class="flex items-center gap-3">
-                      <span
-                        class="w-3 h-3 rounded-full shrink-0"
-                        :style="{ backgroundColor: cat.color ?? '#6366f1' }"
-                      />
+                      <span v-if="cat.iconUrl && !cat.iconUrl.startsWith('http')" class="text-xl leading-none shrink-0">{{ cat.iconUrl }}</span>
+                      <span v-else class="w-3 h-3 rounded-full shrink-0" :style="{ backgroundColor: cat.color ?? '#6366f1' }" />
                       <span class="font-semibold text-surface-50">{{ cat.name }}</span>
                     </div>
                   </td>

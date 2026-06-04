@@ -102,6 +102,39 @@
               </div>
             </div>
 
+            <!-- ไอคอน Emoji -->
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-surface-400 uppercase tracking-widest">ไอคอน (Emoji)</label>
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-surface-800 flex items-center justify-center text-3xl border-2 border-surface-700 shrink-0">
+                  {{ form.iconUrl || '📦' }}
+                </div>
+                <input
+                  v-model="form.iconUrl"
+                  type="text"
+                  maxlength="4"
+                  placeholder="วางหรือพิมพ์ emoji..."
+                  class="flex-1 bg-surface-950 border border-surface-700 rounded-xl px-3 py-2 text-xl text-center focus:border-primary-500 outline-none transition-colors text-surface-50"
+                />
+                <button
+                  v-if="form.iconUrl"
+                  type="button"
+                  @click="form.iconUrl = ''"
+                  class="px-3 py-2 bg-surface-800 border border-surface-700 rounded-xl text-surface-400 text-xs shrink-0 hover:bg-surface-700 transition-colors"
+                >ล้าง</button>
+              </div>
+              <div class="flex flex-wrap gap-1.5 pt-1">
+                <button
+                  v-for="e in foodEmojis"
+                  :key="e"
+                  type="button"
+                  @click="form.iconUrl = e"
+                  class="w-9 h-9 rounded-xl bg-surface-800 hover:bg-surface-700 border border-surface-700 text-xl transition-all active:scale-90"
+                  :class="form.iconUrl === e ? 'border-primary-500 bg-primary-500/10' : ''"
+                >{{ e }}</button>
+              </div>
+            </div>
+
             <!-- สถานะ -->
             <div class="flex items-center justify-between bg-surface-950 rounded-xl px-4 py-3 border border-surface-800">
               <div>
@@ -342,12 +375,20 @@ const isSaving = ref(false)
 const errorMsg = ref('')
 
 // ฟอร์มเริ่มต้น
+const foodEmojis = [
+  '🍢','🍖','🥗','🥤','🍚','🍜','🍣','🥩','🍗','🦑',
+  '🍤','🥘','🍲','🍱','🥡','🍛','🫕','🧆','🥙','🌮',
+  '🍹','🧃','☕','🧋','🍺','🥂','🫖','🍵','💧','🧊',
+  '🍰','🧁','🍮','🍩','🍪','🎂','🍦','🍧','🍨','🍡',
+]
+
 const defaultForm = (): CategoryFormData => ({
   name: '',
   parentId: undefined,
   parentUuid: undefined,
   description: '',
   color: '#6366f1',
+  iconUrl: '',
   sortOrder: 1,
   isActive: true,
   addonGroups: [],
@@ -441,6 +482,7 @@ watch(
         parentUuid: props.editItem.parentUuid,
         description: props.editItem.description ?? '',
         color: props.editItem.color ?? '#6366f1',
+        iconUrl: props.editItem.iconUrl ?? '',
         sortOrder: props.editItem.sortOrder,
         isActive: props.editItem.isActive,
       }
