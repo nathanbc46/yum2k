@@ -405,16 +405,22 @@ export function useSync() {
       await masterSync.pullAll().catch(err => console.error('⚠️ Master Pull Error:', err))
     }
 
-    const { data: remoteOrders, error } = await withTimeout(
-      supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .order('created_at', { ascending: false })
-        .limit(limit)
-    )
+    // ดึง 2 ทิศทางพร้อมกัน: newest (recent updates) + oldest (historical gap)
+    const halfLimit = Math.ceil(limit / 2)
+    const [newestResult, oldestResult] = await Promise.all([
+      withTimeout(supabase.from('orders').select('*, order_items(*)')
+        .order('created_at', { ascending: false }).limit(halfLimit)),
+      withTimeout(supabase.from('orders').select('*, order_items(*)')
+        .order('created_at', { ascending: true }).limit(halfLimit))
+    ])
+    if (newestResult.error) throw newestResult.error
+    if (oldestResult.error) throw oldestResult.error
 
-    if (error) throw error
-    if (!remoteOrders?.length) return 0
+    const seenMerge = new Set<string>()
+    const remoteOrders = [...(newestResult.data || []), ...(oldestResult.data || [])]
+      .filter(o => { if (seenMerge.has(o.uuid)) return false; seenMerge.add(o.uuid); return true })
+
+    if (!remoteOrders.length) return 0
 
     // --- Bulk Fetch: สร้าง Maps ก่อนเข้าลูปหลัก ---
     // ดึงออร์เดอร์ที่มีอยู่แล้วมาตรวจสอบ Bulk เพื่อหาเฉพาะรายการใหม่
@@ -507,12 +513,16 @@ export function useSync() {
         }
 
         if (existing) {
-          // ถ้ามีอยู่แล้ว ตรวจสอบว่าข้อมูลบน Cloud ใหม่กว่าหรือไม่
           const remoteDate = new Date(remote.updated_at)
           const localDate = new Date(existing.updatedAt)
-          
+
           if (remoteDate > localDate) {
+            // Cloud ใหม่กว่า → update ทั้งหมด
             await db.orders.update(existing.id!, orderData)
+            count++
+          } else if (existing.syncStatus !== 'synced') {
+            // Cloud มีออร์เดอร์นี้แล้ว แต่ local ยังเป็น pending/failed → mark synced
+            await db.orders.update(existing.id!, { syncStatus: 'synced' as SyncStatus, syncedAt: new Date() })
             count++
           }
         } else {

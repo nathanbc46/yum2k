@@ -53,7 +53,7 @@ const cashSummaryString = computed(() => {
 })
 
 const isAmountEnough = computed(() => {
-  if (['unpaid', 'promptpay', 'thaithawthai'].includes(selectedPayment.value)) return true
+  if (!getPaymentConfig(selectedPayment.value).requiresAmount) return true
   return amountReceived.value >= props.totalAmount
 })
 
@@ -212,36 +212,14 @@ watch(selectedPayment, (newVal) => {
                 <h4 class="text-xs uppercase tracking-widest text-surface-500 font-bold">ช่องทางการชำระเงิน</h4>
                 <div class="grid grid-cols-2 gap-2">
                   <button
-                    @click="selectedPayment = 'cash'"
-                    class="flex flex-row items-center justify-center gap-2 py-2 px-3 rounded-xl border-2 transition-all group"
-                    :class="selectedPayment === 'cash' ? 'bg-primary-600/10 border-primary-500 shadow-lg shadow-primary-900/20' : 'bg-surface-800 border-surface-700 hover:border-surface-600 grayscale opacity-80'"
+                    v-for="pm in POS_PAYMENT_METHODS"
+                    :key="pm.value"
+                    @click="selectedPayment = pm.value"
+                    class="flex flex-row items-center justify-center gap-2 py-4 px-3 rounded-xl border-2 transition-all group"
+                    :class="selectedPayment === pm.value ? pm.activeClass : 'bg-surface-800 border-surface-700 hover:border-surface-600 grayscale opacity-80'"
                   >
-                    <span class="text-xl group-active:scale-90 transition-transform">💵</span>
-                    <span class="text-xs font-bold" :class="selectedPayment === 'cash' ? 'text-primary-400' : 'text-surface-400'">เงินสด</span>
-                  </button>
-                  <button
-                    @click="selectedPayment = 'promptpay'"
-                    class="flex flex-row items-center justify-center gap-2 py-2 px-3 rounded-xl border-2 transition-all group"
-                    :class="selectedPayment === 'promptpay' ? 'bg-secondary-500/10 border-secondary-500 shadow-lg shadow-secondary-900/10' : 'bg-surface-800 border-surface-700 hover:border-surface-600 grayscale opacity-80'"
-                  >
-                    <span class="text-xl group-active:scale-90 transition-transform">📱</span>
-                    <span class="text-xs font-bold" :class="selectedPayment === 'promptpay' ? 'text-secondary-400' : 'text-surface-400'">พร้อมเพย์</span>
-                  </button>
-                  <button
-                    @click="selectedPayment = 'thaithawthai'"
-                    class="flex flex-row items-center justify-center gap-2 py-2 px-3 rounded-xl border-2 transition-all group"
-                    :class="selectedPayment === 'thaithawthai' ? 'bg-red-600/10 border-red-500 shadow-lg shadow-red-900/20' : 'bg-surface-800 border-surface-700 hover:border-surface-600 grayscale opacity-80'"
-                  >
-                    <span class="text-xl group-active:scale-90 transition-transform">🇹🇭</span>
-                    <span class="text-xs font-bold" :class="selectedPayment === 'thaithawthai' ? 'text-red-400' : 'text-surface-400'">ไทยช่วยไทย</span>
-                  </button>
-                  <button
-                    @click="selectedPayment = 'unpaid'"
-                    class="flex flex-row items-center justify-center gap-2 py-2 px-3 rounded-xl border-2 transition-all group"
-                    :class="selectedPayment === 'unpaid' ? 'bg-blue-600/10 border-blue-500 shadow-lg shadow-blue-900/20' : 'bg-surface-800 border-surface-700 hover:border-surface-600 grayscale opacity-80'"
-                  >
-                    <span class="text-xl group-active:scale-90 transition-transform">⏳</span>
-                    <span class="text-xs font-bold" :class="selectedPayment === 'unpaid' ? 'text-blue-400' : 'text-surface-400'">ยังไม่ชำระ</span>
+                    <span class="text-xl group-active:scale-90 transition-transform">{{ pm.icon }}</span>
+                    <span class="text-xs font-bold" :class="selectedPayment === pm.value ? pm.activeTextClass : 'text-surface-400'">{{ pm.label }}</span>
                   </button>
                 </div>
               </div>

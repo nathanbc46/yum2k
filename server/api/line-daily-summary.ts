@@ -77,8 +77,8 @@ export default defineEventHandler(async (event) => {
   const gp = orders?.reduce((s, o) => s + Number(o.profit_amount), 0) ?? 0
 
   // คำนวณยอดแยกตามประเภทชำระ (เก็บ pmMap ไว้ใช้ทีหลังหลัง fmt ถูก define)
-  const pmLabels: Record<string, string> = { cash: 'เงินสด', promptpay: 'พร้อมเพย์', card: 'บัตรเครดิต', unpaid: 'ค้างจ่าย', other: 'อื่นๆ' }
-  const pmIcons: Record<string, string> = { cash: '💵', promptpay: '📲', card: '💳', unpaid: '⏳', other: '💰' }
+  const pmLabels: Record<string, string> = { cash: 'เงินสด', promptpay: 'พร้อมเพย์', thaithawthai: 'ไทยช่วยไทย', card: 'บัตรเครดิต', unpaid: 'ค้างจ่าย', other: 'อื่นๆ' }
+  const pmIcons: Record<string, string> = { cash: '💵', promptpay: '📲', thaithawthai: '🇹🇭', card: '💳', unpaid: '⏳', other: '💰' }
   const pmMap: Record<string, { total: number; count: number }> = {}
   for (const o of orders ?? []) {
     const m = (o.payment_method as string) || 'other'

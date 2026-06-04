@@ -256,7 +256,7 @@
                 </td>
                 <td class="py-2 pr-4 whitespace-nowrap">
                   <span class="text-xs px-2 py-0.5 rounded-full bg-surface-800 text-surface-300">
-                    {{ order.paymentMethod === 'cash' ? '💵 เงินสด' : order.paymentMethod === 'promptpay' ? '📲 พร้อมเพย์' : order.paymentMethod === 'card' ? '💳 บัตร' : order.paymentMethod }}
+                    {{ getPaymentDisplay(order.paymentMethod) }}
                   </span>
                 </td>
                 <td class="py-2 text-right font-bold text-success whitespace-nowrap">฿{{ order.totalAmount.toLocaleString() }}</td>
@@ -364,7 +364,7 @@
                 <div class="bg-surface-800/60 rounded-xl p-3">
                   <div class="text-xs text-surface-500 mb-1">ประเภทชำระ</div>
                   <div class="font-medium">
-                    {{ selectedOrder.paymentMethod === 'cash' ? '💵 เงินสด' : selectedOrder.paymentMethod === 'promptpay' ? '📲 พร้อมเพย์' : selectedOrder.paymentMethod === 'card' ? '💳 บัตร' : 'อื่นๆ' }}
+                    {{ getPaymentDisplay(selectedOrder.paymentMethod) }}
                   </div>
                 </div>
                 <div class="bg-surface-800/60 rounded-xl p-3">
@@ -660,8 +660,8 @@ const paymentBreakdown = computed(() => {
     if (!methods[m]) {
       methods[m] = {
         method: m,
-        label: m === 'cash' ? 'เงินสด' : m === 'promptpay' ? 'พร้อมเพย์' : m === 'card' ? 'บัตรเครดิต' : 'อื่นๆ',
-        icon: m === 'cash' ? '💵' : m === 'promptpay' ? '📲' : m === 'card' ? '💳' : '💰',
+        label: getPaymentLabel(m),
+        icon: getPaymentIcon(m),
         total: 0, count: 0
       }
     }

@@ -1297,11 +1297,9 @@ async function loadData() {
 
     // คำนวณ paymentBreakdown
     const pmMap: Record<string, { method: string; label: string; icon: string; total: number; count: number }> = {}
-    const pmLabels: Record<string, string> = { cash: 'เงินสด', promptpay: 'พร้อมเพย์', card: 'บัตรเครดิต', unpaid: 'ค้างจ่าย', other: 'อื่นๆ' }
-    const pmIcons: Record<string, string> = { cash: '💵', promptpay: '📲', card: '💳', unpaid: '⏳', other: '💰' }
     for (const o of filteredOrders) {
       const m = o.paymentMethod || 'other'
-      if (!pmMap[m]) pmMap[m] = { method: m, label: pmLabels[m] ?? 'อื่นๆ', icon: pmIcons[m] ?? '💰', total: 0, count: 0 }
+      if (!pmMap[m]) pmMap[m] = { method: m, label: getPaymentLabel(m), icon: getPaymentIcon(m), total: 0, count: 0 }
       pmMap[m]!.total += o.totalAmount
       pmMap[m]!.count++
     }

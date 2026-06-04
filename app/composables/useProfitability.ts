@@ -37,6 +37,7 @@ export function useProfitability() {
     const paymentBreakdown = {
       cash: 0,
       promptpay: 0,
+      thaithawthai: 0,
       card: 0,
       other: 0
     }

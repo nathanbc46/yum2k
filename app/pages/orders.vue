@@ -201,21 +201,11 @@
                     <!-- ช่องทาง / สถานะ -->
                     <td class="px-6 py-4">
                       <div class="flex flex-col gap-2">
-                        <span 
+                        <span
                           class="px-2 py-0.5 rounded text-[10px] font-bold border w-fit"
-                          :class="[
-                            order.paymentMethod === 'cash' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
-                            order.paymentMethod === 'promptpay' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                            order.paymentMethod === 'unpaid' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' :
-                            'bg-surface-800 text-surface-600 border-surface-700'
-                          ]"
+                          :class="getPaymentBadgeClass(order.paymentMethod)"
                         >
-                          {{ 
-                            order.paymentMethod === 'cash' ? '💵 เงินสด' : 
-                            order.paymentMethod === 'promptpay' ? '📱 พร้อมเพย์' : 
-                            order.paymentMethod === 'card' ? '💳 บัตร' : 
-                            order.paymentMethod === 'unpaid' ? '⏳ ยังไม่ชำระ' : '🌀 อื่นๆ' 
-                          }}
+                          {{ getPaymentDisplay(order.paymentMethod) }}
                         </span>
                         <div v-if="order.deliveryRef" class="flex items-center gap-1.5">
                           <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
@@ -303,7 +293,7 @@
       <div v-if="isPayModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm">
         <div 
           class="bg-surface-900 rounded-[2.5rem] border border-surface-800 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 duration-300 transition-all"
-          :class="paymentMethodToUpdate === 'cash' ? 'w-full max-w-4xl' : 'w-full max-w-md'"
+          :class="getPaymentConfig(paymentMethodToUpdate).requiresAmount ? 'w-full max-w-4xl' : 'w-full max-w-lg'"
         >
           
           <!-- Modal Header -->
@@ -317,10 +307,10 @@
 
           <!-- Modal Body -->
           <div class="p-8">
-            <div :class="paymentMethodToUpdate === 'cash' ? 'grid grid-cols-1 md:grid-cols-12 gap-8' : 'space-y-8'">
+            <div :class="getPaymentConfig(paymentMethodToUpdate).requiresAmount ? 'grid grid-cols-1 md:grid-cols-12 gap-8' : 'space-y-8'">
               
               <!-- Left Column: Amount & Selection -->
-              <div :class="paymentMethodToUpdate === 'cash' ? 'md:col-span-5 space-y-6' : 'space-y-8'">
+              <div :class="getPaymentConfig(paymentMethodToUpdate).requiresAmount ? 'md:col-span-5 space-y-6' : 'space-y-8'">
                 <!-- Amount Display -->
                 <div class="text-center">
                   <div class="text-[10px] uppercase tracking-widest text-surface-600 font-bold mb-1">ยอดรวมที่ต้องชำระ</div>
@@ -331,29 +321,22 @@
                 <div class="space-y-4">
                   <label class="text-[10px] uppercase tracking-widest text-surface-600 font-bold ml-1">เลือกวิธีชำระเงิน</label>
                   <div class="grid grid-cols-2 gap-4">
-                    <button 
-                      @click="paymentMethodToUpdate = 'cash'"
+                    <button
+                      v-for="pm in PAY_MODAL_METHODS"
+                      :key="pm.value"
+                      @click="paymentMethodToUpdate = pm.value"
                       class="flex flex-col items-center gap-3 p-5 rounded-3xl border-2 transition-all active:scale-95 group relative overflow-hidden"
-                      :class="paymentMethodToUpdate === 'cash' ? 'bg-primary-600/10 border-primary-500 shadow-md' : 'bg-surface-800 border-surface-700 opacity-60'"
+                      :class="[paymentMethodToUpdate === pm.value ? pm.activeClass : 'bg-surface-800 border-surface-700 opacity-60', PAY_MODAL_METHODS.indexOf(pm) === PAY_MODAL_METHODS.length - 1 && PAY_MODAL_METHODS.length % 2 !== 0 ? 'col-span-2' : '']"
                     >
-                      <span class="text-3xl transition-transform group-hover:scale-110">💵</span>
-                      <span class="font-bold whitespace-nowrap" :class="paymentMethodToUpdate === 'cash' ? 'text-primary-600' : 'text-surface-600'">เงินสด</span>
-                    </button>
-
-                    <button 
-                      @click="paymentMethodToUpdate = 'promptpay'"
-                      class="flex flex-col items-center gap-3 p-5 rounded-3xl border-2 transition-all active:scale-95 group relative overflow-hidden"
-                      :class="paymentMethodToUpdate === 'promptpay' ? 'bg-secondary-500/10 border-secondary-500 shadow-md' : 'bg-surface-800 border-surface-700 opacity-60'"
-                    >
-                      <span class="text-3xl transition-transform group-hover:scale-110">📱</span>
-                      <span class="font-bold whitespace-nowrap" :class="paymentMethodToUpdate === 'promptpay' ? 'text-secondary-600' : 'text-surface-600'">พร้อมเพย์</span>
+                      <span class="text-3xl transition-transform group-hover:scale-110">{{ pm.icon }}</span>
+                      <span class="font-bold whitespace-nowrap" :class="paymentMethodToUpdate === pm.value ? pm.activeTextClass : 'text-surface-600'">{{ pm.label }}</span>
                     </button>
                   </div>
                 </div>
               </div>
 
-              <!-- Right Column: Cash Calculator (Only for Cash) -->
-              <div v-if="paymentMethodToUpdate === 'cash'" class="md:col-span-7 space-y-6">
+              <!-- Right Column: Cash Calculator -->
+              <div v-if="getPaymentConfig(paymentMethodToUpdate).requiresAmount" class="md:col-span-7 space-y-6">
                 <div class="flex justify-between items-end">
                   <h4 class="text-[10px] uppercase tracking-widest text-surface-600 font-bold ml-1">คำนวณเงินสด</h4>
                   <div class="flex gap-2">
@@ -445,7 +428,7 @@
 
 <script setup lang="ts">
 import { db } from '~/db'
-import type { Order } from '~/types'
+import type { Order, PaymentMethod } from '~/types'
 import { usePosStore } from '~/stores/pos'
 import { useInventory } from '~/composables/useInventory'
 import { useSync } from '~/composables/useSync'
@@ -483,7 +466,7 @@ const { print } = usePrinter()
 // State สำหรับ Modal ชำระเงิน
 const isPayModalOpen = ref(false)
 const selectedOrderToPay = ref<Order | null>(null)
-const paymentMethodToUpdate = ref<'cash' | 'promptpay'>('cash')
+const paymentMethodToUpdate = ref<PaymentMethod>('cash')
 const isProcessingPayment = ref(false)
 
 // ระบบคำนวณเงินสด
@@ -505,7 +488,7 @@ const changeAmount = computed(() => {
 })
 
 const isAmountEnough = computed(() => {
-  if (paymentMethodToUpdate.value !== 'cash') return true
+  if (!getPaymentConfig(paymentMethodToUpdate.value).requiresAmount) return true
   if (!selectedOrderToPay.value) return false
   return amountReceived.value >= selectedOrderToPay.value.totalAmount
 })
