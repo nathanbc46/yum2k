@@ -16,7 +16,7 @@
           <!-- Header -->
           <div class="flex items-center justify-between px-6 py-5 border-b border-surface-800 shrink-0">
             <h2 class="font-bold text-lg text-surface-50">
-              {{ isEditing ? '✏️ แก้ไขสินค้า' : '➕ เพิ่มสินค้าใหม่' }}
+              {{ isEditing ? '✏️ แก้ไขสินค้า' : duplicateFrom ? '📋 คัดลอกสินค้า' : '➕ เพิ่มสินค้าใหม่' }}
             </h2>
             <button
               @click="handleCancel"
@@ -478,7 +478,7 @@
               :disabled="isSaving || !isOnline"
               class="flex-1 py-3 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-primary-900/20"
             >
-              {{ isSaving ? 'กำลังบันทึก...' : (isEditing ? 'บันทึกการแก้ไข' : 'เพิ่มสินค้า') }}
+              {{ isSaving ? 'กำลังบันทึก...' : (isEditing ? 'บันทึกการแก้ไข' : duplicateFrom ? 'สร้างสินค้าใหม่จากต้นแบบ' : 'เพิ่มสินค้า') }}
             </button>
           </div>
         </div>
@@ -499,6 +499,7 @@ const props = defineProps<{
   categories: Category[]
   editItem?: Product | null
   defaultCategoryId?: number | null
+  duplicateFrom?: Product | null
 }>()
 
 const emit = defineEmits<{
@@ -798,6 +799,34 @@ watch(
       }
       originalImageUrl.value = props.editItem.imageUrl
       uploadedInSession.value = []
+    } else if (props.duplicateFrom) {
+      const src = props.duplicateFrom
+      form.value = {
+        categoryId: src.categoryId,
+        sku: '',
+        name: `${src.name} (copy)`,
+        description: src.description ?? '',
+        salePrice: src.salePrice,
+        costPrice: src.costPrice,
+        stockQuantity: 0,
+        alertThreshold: src.alertThreshold,
+        trackInventory: src.trackInventory,
+        mappingType: src.mappingType,
+        inventoryMappings: src.inventoryMappings
+          ? JSON.parse(JSON.stringify(src.inventoryMappings))
+          : [],
+        addonGroups: src.addonGroups
+          ? JSON.parse(JSON.stringify(src.addonGroups))
+          : [],
+        isActive: src.isActive,
+        sortOrder: src.sortOrder,
+        imageUrl: src.imageUrl,
+      }
+      originalImageUrl.value = undefined
+      uploadedInSession.value = []
+      getNextSku().then((sku: string) => {
+        form.value.sku = sku
+      })
     } else {
       form.value = defaultForm()
       originalImageUrl.value = undefined

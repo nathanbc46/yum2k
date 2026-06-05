@@ -423,6 +423,13 @@
                           แก้ไข
                         </button>
                         <button
+                          @click="openDuplicateModal(product)"
+                          class="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-surface-300 rounded-lg text-xs font-bold transition-all border border-surface-700"
+                          title="คัดลอกสินค้านี้"
+                        >
+                          📋 Duplicate
+                        </button>
+                        <button
                           @click="handleToggle(product)"
                           class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border"
                           :class="product.isActive
@@ -463,7 +470,8 @@
       :is-open="isProductModalOpen"
       :categories="categories"
       :edit-item="selectedProduct"
-      :default-category-id="selectedProduct ? null : filterCategoryId"
+      :duplicate-from="duplicateProduct"
+      :default-category-id="selectedProduct || duplicateProduct ? null : filterCategoryId"
       @close="closeProductModal"
       @saved="handleProductSaved"
     />
@@ -548,6 +556,7 @@ const filterActive = ref<string>('active')
 
 // modal state
 const isProductModalOpen = ref(false)
+const duplicateProduct = ref<Product | null>(null)
 const isAdjustModalOpen = ref(false)
 const selectedProduct = ref<Product | null>(null)
 const excelInput = ref<HTMLInputElement | null>(null)
@@ -702,9 +711,16 @@ function openAdjustModal(product: Product) {
   isAdjustModalOpen.value = true
 }
 
+function openDuplicateModal(product: Product) {
+  selectedProduct.value = null
+  duplicateProduct.value = product
+  isProductModalOpen.value = true
+}
+
 function closeProductModal() {
   isProductModalOpen.value = false
   selectedProduct.value = null
+  duplicateProduct.value = null
 }
 
 async function handleProductSaved() {
