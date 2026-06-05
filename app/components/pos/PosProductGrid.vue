@@ -171,7 +171,7 @@
       <!-- 2. เมื่อมีการเลือกรายการในตะกร้า: แสดงพื้นที่เลือก Add-on แบบกึ่งกลาง (Compact Center) -->
       <div 
         v-else 
-        class="h-full flex items-start justify-center p-6 bg-surface-950/40 backdrop-blur-[2px] animate-in fade-in duration-300 cursor-pointer"
+        class="h-full flex items-start justify-center bg-surface-950/40 backdrop-blur-[2px] animate-in fade-in duration-300 cursor-pointer"
         @click="store.setSelectedCartItemIndex(null)"
       >
         <!-- Tablet/Desktop: แสดงแบบ Inline -->

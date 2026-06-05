@@ -214,12 +214,11 @@
 
       <!-- Delivery Ref -->
       <div class="mb-4 pt-3 border-t border-surface-800/50">
-        <input 
-          v-model="deliveryRef" 
-          type="number"
-          inputmode="numeric"
-          placeholder="เลขอ้างอิง Delivery (ตัวเลขเท่านั้น)"
-          class="w-full bg-surface-950 border border-surface-800 rounded-lg px-3 py-3 text-sm focus:border-primary-500 outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        <input
+          v-model="note"
+          type="text"
+          placeholder="รายละเอียดเพิ่มเติมของการสั่งซื้อครั้งนี้"
+          class="w-full bg-surface-950 border border-surface-800 rounded-lg px-3 py-3 text-sm focus:border-primary-500 outline-none transition-colors"
         />
       </div>
 

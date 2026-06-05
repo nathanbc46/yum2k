@@ -14,7 +14,7 @@
           'z-[100]',
           isInline 
             ? 'w-full h-full flex items-center justify-center p-4' 
-            : 'fixed inset-0 flex items-end md:items-center justify-center p-0 md:p-10'
+            : 'fixed inset-0 flex items-end md:items-start justify-center p-0 md:p-3'
         ]"
       >
         <!-- Backdrop (แสดงเฉพาะโหมด Modal) -->
@@ -32,21 +32,21 @@
             'bg-surface-900 overflow-hidden flex flex-col transition-all duration-300',
             isInline 
               ? 'w-full max-w-5xl h-fit max-h-full rounded-3xl border border-surface-800 shadow-xl' 
-              : 'relative w-full max-w-6xl h-[90vh] md:h-auto md:max-h-[85vh] border-t md:border-2 border-primary-500/30 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-[0_0_50px_-12px_rgba(0,0,0,0.8)] animate-in slide-in-from-bottom md:zoom-in-95'
+              : 'relative w-full max-w-6xl h-[90vh] md:h-auto md:max-h-[92vh] border-t md:border-2 border-primary-500/30 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-[0_0_50px_-12px_rgba(0,0,0,0.8)] animate-in slide-in-from-bottom md:zoom-in-95'
           ]"
         >
           <!-- Header -->
           <div 
             :class="[
               'border-b border-surface-800 flex items-center justify-between bg-gradient-to-r from-primary-500/10 to-transparent shrink-0',
-              isInline ? 'px-6 py-3.5' : 'px-6 md:px-8 py-4 md:py-5'
+              isInline ? 'px-4 py-2' : 'px-4 py-2'
             ]"
           >
             <div class="flex items-center gap-4">
               <div 
                 :class="[
                   'bg-primary-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-primary-900/40',
-                  isInline ? 'w-8 h-8 text-lg' : 'w-10 h-10 md:w-12 md:h-12 text-xl md:text-2xl'
+                  isInline ? 'w-7 h-7 text-base' : 'w-7 h-7 text-base'
                 ]"
               >
                 🍱
@@ -55,7 +55,7 @@
                 <h3 
                   :class="[
                     'font-black text-surface-50 tracking-tight leading-tight uppercase',
-                    isInline ? 'text-base' : 'text-base md:text-xl'
+                    isInline ? 'text-sm' : 'text-sm'
                   ]"
                 >
                   {{ selectedItem?.product.name }}
@@ -66,9 +66,9 @@
             
             <button 
               @click="posStore.setSelectedCartItemIndex(null)"
-              class="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center bg-surface-800 hover:bg-surface-700 rounded-xl text-surface-400 hover:text-white transition-all active:scale-90"
+              class="w-7 h-7 flex items-center justify-center bg-surface-800 hover:bg-surface-700 rounded-xl text-surface-400 hover:text-white transition-all active:scale-90"
             >
-              <span class="text-xl md:text-2xl font-light">×</span>
+              <span class="text-lg font-light">×</span>
             </button>
           </div>
 
@@ -80,51 +80,53 @@
             <div
               :class="[
                 'grid gap-2 md:gap-3',
-                isInline ? 'p-3 md:p-4' : 'px-4 md:px-6 py-3 md:py-4',
+                isInline ? 'p-2' : 'p-2',
                 'grid-cols-1'
               ]"
             >
               <div
                 v-for="group in mergedAddonGroups"
                 :key="group.id"
-                class="flex flex-col bg-surface-900/60 rounded-2xl border border-surface-800/50 shadow-inner h-fit hover:border-surface-700/50 transition-colors p-3 md:p-4"
+                class="flex items-start gap-2 bg-surface-900/60 rounded-xl border border-surface-800/50 hover:border-surface-700/50 transition-colors px-2 py-1.5"
               >
-                <!-- Group Header -->
-                <div class="flex items-center justify-between mb-3 px-1">
-                  <div class="flex items-center gap-2">
-                    <div class="w-1.5 h-5 bg-primary-500 rounded-full" />
-                    <span class="text-sm font-black text-surface-50 uppercase tracking-tight">{{ group.name }}</span>
-                    <span 
-                      v-if="group.isRequired"
-                      class="text-[9px] bg-red-500 text-white px-1.5 py-0.5 rounded-full font-black animate-pulse"
-                    >บังคับ</span>
+                <!-- Group Label (คอลัมน์ซ้าย fixed width) -->
+                <div class="w-20 shrink-0 flex flex-col gap-1 pt-2.5">
+                  <div class="flex items-center gap-1">
+                    <div class="w-1 h-3.5 bg-primary-500 rounded-full shrink-0" />
+                    <span class="text-[11px] font-black text-surface-300 uppercase tracking-tight leading-tight">{{ group.name }}</span>
                   </div>
-                  <span v-if="group.maxSelect" class="text-[9px] text-surface-500 font-bold uppercase tracking-widest bg-surface-800 px-2 py-0.5 rounded-md">
-                    {{ group.maxSelect }}
-                  </span>
+                  <div class="flex items-center gap-1 pl-2">
+                    <span
+                      v-if="group.isRequired"
+                      class="text-[8px] bg-red-500 text-white px-1 py-0.5 rounded-full font-black animate-pulse"
+                    >บังคับ</span>
+                    <span v-if="group.maxSelect" class="text-[8px] text-surface-500 font-bold bg-surface-800 px-1.5 py-0.5 rounded">
+                      {{ group.maxSelect }}
+                    </span>
+                  </div>
                 </div>
 
-                <!-- Options List (Compact Grid Layout) -->
-                <div class="grid grid-cols-4 gap-2">
+                <!-- Option Buttons (4-column grid) -->
+                <div class="flex-1 grid grid-cols-4 gap-1.5">
                   <button
                     v-for="opt in group.options"
                     :key="opt.id"
                     @click="toggleAddon(group.id, opt)"
-                    class="w-full flex items-center justify-between px-3 py-4 rounded-xl border font-bold transition-all relative overflow-hidden group/opt"
+                    class="flex items-center justify-between px-2.5 py-3 rounded-xl border font-bold transition-all relative overflow-hidden group/opt"
                     :class="[
                       isSelected(group.id, opt.id)
                         ? 'bg-primary-500 border-primary-400 text-white shadow-md active:scale-95'
                         : 'bg-surface-800 border-surface-700 text-surface-50 hover:border-surface-600 hover:bg-surface-750 [.light-mode_&]:bg-surface-800 [.light-mode_&]:text-surface-50 active:scale-98'
                     ]"
                   >
-                    <span class="text-sm md:text-base leading-tight text-left font-black">{{ opt.name }}</span>
-                    <span 
-                      class="text-[11px] md:text-xs font-black shrink-0 ml-1"
+                    <span class="text-xs leading-tight font-black">{{ opt.name }}</span>
+                    <span
+                      v-if="opt.price > 0"
+                      class="text-[10px] font-black shrink-0 ml-1"
                       :class="isSelected(group.id, opt.id) ? 'text-primary-100' : 'text-primary-500 [.light-mode_&]:text-primary-600'"
                     >
-                      {{ opt.price > 0 ? `+฿${opt.price}` : 'ฟรี' }}
+                      +฿{{ opt.price }}
                     </span>
-                    
                     <div class="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent opacity-0 group-hover/opt:opacity-100 transition-opacity pointer-events-none" />
                   </button>
                 </div>
@@ -136,7 +138,7 @@
           <div 
             :class="[
               'bg-surface-900 border-t border-surface-800 flex items-center justify-between gap-4 shadow-[0_-10px_30px_rgba(0,0,0,0.3)] shrink-0',
-              isInline ? 'px-6 py-3.5' : 'px-6 md:px-8 py-5 md:py-6 flex-col md:flex-row'
+              isInline ? 'px-4 py-2' : 'px-4 py-2 flex-col md:flex-row'
             ]"
           >
             <div class="w-full md:w-auto">
@@ -172,7 +174,7 @@
                   hasRequiredGroups 
                     ? 'bg-surface-800 text-surface-500 cursor-not-allowed border border-surface-700' 
                     : 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20',
-                  isInline ? 'px-5 py-3 rounded-2xl text-base' : 'flex-1 md:flex-none px-6 md:px-8 py-4 md:py-4 rounded-2xl md:rounded-3xl text-base md:text-lg'
+                  isInline ? 'px-4 py-2 rounded-xl text-sm' : 'flex-1 md:flex-none px-4 py-2 rounded-xl text-sm'
                 ]"
               >
                 🗑️ เคลียร์
@@ -185,10 +187,10 @@
                   isSelectionValid 
                     ? 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-900/40 hover:shadow-primary-900/60 ring-4 ring-primary-500/10 hover:ring-primary-500/20'
                     : 'bg-surface-800 text-surface-600 cursor-not-allowed opacity-50 grayscale',
-                  isInline ? 'px-8 py-3 rounded-2xl text-lg' : 'flex-[2] md:flex-none px-10 md:px-14 py-4 md:py-4 rounded-2xl md:rounded-3xl text-lg md:text-xl'
+                  isInline ? 'px-6 py-2 rounded-xl text-sm' : 'flex-[2] md:flex-none px-6 py-2 rounded-xl text-sm'
                 ]"
               >
-                <span class="text-xl">{{ isSelectionValid ? '✅' : '🔒' }}</span>
+                <span class="text-base">{{ isSelectionValid ? '✅' : '🔒' }}</span>
                 <span>ยืนยันตัวเลือก</span>
               </button>
             </div>
