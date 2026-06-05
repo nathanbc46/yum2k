@@ -239,9 +239,16 @@
                         >
                           พิมพ์
                         </button>
-                        <button 
+                        <button
                           v-if="order.status === 'pending'"
-                          @click="payOrder(order)" 
+                          @click="editOrder(order)"
+                          class="btn-touch px-3 py-1 bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition-all text-xs font-bold border border-amber-500/30 active:scale-95"
+                        >
+                          ✏️ แก้ไข
+                        </button>
+                        <button
+                          v-if="order.status === 'pending'"
+                          @click="payOrder(order)"
                           class="btn-touch px-3 py-1 bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-all text-xs font-bold shadow-lg shadow-primary-900/20"
                         >
                           💰 ชำระเงิน
@@ -431,6 +438,7 @@ import { db } from '~/db'
 import type { Order, PaymentMethod } from '~/types'
 import { usePosStore } from '~/stores/pos'
 import { useInventory } from '~/composables/useInventory'
+import { useCart } from '~/composables/useCart'
 import { useSync } from '~/composables/useSync'
 import { useToast } from '~/composables/useToast'
 import { usePrinter } from '~/composables/usePrinter'
@@ -461,6 +469,7 @@ const statusCounts = ref({
 
 const posStore = usePosStore()
 const { restoreStock } = useInventory()
+const { loadOrderToCart } = useCart()
 const { print } = usePrinter()
 
 // State สำหรับ Modal ชำระเงิน
@@ -779,6 +788,29 @@ const confirmCancelOrder = async (order: Order) => {
   } catch (e: any) {
     console.error('❌ ไม่สามารถยกเลิกออเดอร์ได้:', e)
     toast.error(`ไม่สามารถยกเลิกได้: ${e.message}`)
+  }
+}
+
+const editOrder = async (order: Order) => {
+  const confirmed = await confirm({
+    title: 'แก้ไขคำสั่งซื้อ',
+    message: `โหลดรายการสินค้าจาก "${order.orderNumber}" กลับเข้าตะกร้า?\n(Order เดิมจะถูกยกเลิก และคืนสต็อกสินค้าโดยอัตโนมัติ)`,
+    confirmText: 'ยืนยัน แก้ไข',
+    type: 'warning'
+  })
+  if (!confirmed) return
+
+  try {
+    await restoreStock(order.items)
+    await db.orders.update(order.id!, {
+      status: 'cancelled',
+      syncStatus: 'pending',
+      syncRetryCount: 0,
+    })
+    await loadOrderToCart(order)
+    await navigateTo('/')
+  } catch (e: any) {
+    toast.error(`ไม่สามารถแก้ไขได้: ${e.message}`)
   }
 }
 

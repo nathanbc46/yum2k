@@ -617,6 +617,40 @@ export function useCart() {
     if (changed) schedulePersist()
   }
 
+  async function loadOrderToCart(order: Order): Promise<void> {
+    const productIds = order.items.map(i => i.productId)
+    const products = await db.products.where('id').anyOf(productIds).toArray()
+    const catIds = [...new Set(products.map(p => p.categoryId))]
+    const cats = await db.categories.where('id').anyOf(catIds).toArray()
+    const catMap = new Map(cats.map(c => [c.id!, c]))
+
+    const restoredItems: CartItem[] = []
+    for (const item of order.items) {
+      const product = products.find(p => p.id === item.productId)
+      if (!product) continue
+      const category = catMap.get(product.categoryId)
+      const productWithCat: ProductWithCategory = { ...product, category: category! }
+      restoredItems.push({
+        product: productWithCat,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discount: item.discount,
+        addons: item.addons ?? [],
+        addonsTotal: item.addonsTotal,
+        totalPrice: item.totalPrice,
+        isFreeItem: item.isFreeItem ?? false,
+        promotionId: item.promotionId,
+        promotionName: item.promotionName,
+      })
+    }
+
+    cartItems.value = restoredItems
+    note.value = order.note ?? ''
+    deliveryRef.value = order.deliveryRef ?? ''
+    discount.value = order.discountAmount ?? 0
+    schedulePersist()
+  }
+
   return {
     // State
     cartItems,
@@ -646,6 +680,7 @@ export function useCart() {
     clearCart,
     checkout,
     loadCart,
+    loadOrderToCart,
     cleanupOrphanedFreeItems,
   }
 }
