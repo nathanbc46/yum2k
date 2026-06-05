@@ -463,6 +463,7 @@
       :is-open="isProductModalOpen"
       :categories="categories"
       :edit-item="selectedProduct"
+      :default-category-id="selectedProduct ? null : filterCategoryId"
       @close="closeProductModal"
       @saved="handleProductSaved"
     />

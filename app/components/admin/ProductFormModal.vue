@@ -498,6 +498,7 @@ const props = defineProps<{
   isOpen: boolean
   categories: Category[]
   editItem?: Product | null
+  defaultCategoryId?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -544,7 +545,7 @@ const mappingTypeOptions = [
 ]
 
 const defaultForm = (): ProductFormData => ({
-  categoryId: props.categories[0]?.id ?? 0,
+  categoryId: props.defaultCategoryId ?? props.categories[0]?.id ?? 0,
   sku: '',
   name: '',
   description: '',
@@ -552,7 +553,7 @@ const defaultForm = (): ProductFormData => ({
   costPrice: undefined,
   stockQuantity: 0,
   alertThreshold: 10,
-  trackInventory: true,
+  trackInventory: false,
   mappingType: undefined,
   inventoryMappings: [],
   addonGroups: [],
