@@ -191,10 +191,13 @@ CREATE INDEX idx_stock_audit_created_at ON stock_audit_logs (created_at);
 CREATE TABLE expenses (
   id                  BIGSERIAL PRIMARY KEY,
   uuid                UUID UNIQUE NOT NULL,
-  category            TEXT NOT NULL,                -- ingredient, utility, wage, etc.
+  category            TEXT NOT NULL,                -- ingredient, utility, wage, etc. (legacy)
+  category_uuid       UUID,                         -- FK -> expense_categories.uuid (ระบบใหม่)
   amount              DECIMAL(12, 2) NOT NULL,
   description         TEXT,
   expense_date        DATE NOT NULL,
+  vendor              TEXT,                         -- ชื่อร้านค้า/ผู้จำหน่าย
+  unit                TEXT,                         -- หน่วย เช่น กรัม, กิโลกรัม, กล่อง, ชิ้น
   recorded_by         TEXT,
   staff_id            BIGINT,
   staff_uuid          UUID,

@@ -1205,6 +1205,7 @@ const form = reactive<ReceiptSettings>({
   lineDailySummary: true,
   lineDailySummaryHour: 22,
   enableKds: false,
+  promotionCodesEnabled: false,
   showSubcategoryProducts: false,
   printKitchenCopy: true,
   receiptMarginLeft: 0,

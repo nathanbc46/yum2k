@@ -621,7 +621,7 @@ async function handleValidateCode() {
     if (result.valid) {
       promoCodeValidResult.value = result
       // auto-select เมื่อมีสินค้าเดียว
-      if (result.products?.length === 1) selectedPromoProductUuid.value = result.products[0].uuid
+      if (result.products?.length === 1) selectedPromoProductUuid.value = result.products[0]?.uuid ?? ''
     } else {
       promoCodeError.value = result.errorMessage || 'โค้ดไม่ถูกต้อง'
     }

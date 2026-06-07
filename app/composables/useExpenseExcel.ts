@@ -2,11 +2,11 @@ import * as XLSX from 'xlsx'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '~/db'
 import { useAuthStore } from '~/stores/auth'
-import type { Expense, ExpenseCategory } from '~/types'
+import type { Expense } from '~/types'
 
 export interface ExpenseImportPreviewItem {
   status: 'new' | 'update' | 'invalid'
-  expense: Partial<Expense> & { id?: number }
+  expense: Partial<Expense> & { id?: number; categoryName?: string }
   error?: string
 }
 
@@ -20,72 +20,109 @@ const CATEGORY_NAMES_LEGACY: Record<string, string> = {
 }
 
 export function useExpenseExcel() {
+  // คอลัมน์ทั้งหมดของ Excel (ลำดับสำคัญ — ต้องตรงกับ import)
   const COLUMNS = [
-    { label: 'UUID', key: 'uuid' },
-    { label: 'วันที่ (YYYY-MM-DD)', key: 'expenseDate' },
-    { label: 'หมวดหมู่', key: 'category' },
-    { label: 'คำอธิบาย', key: 'description' },
-    { label: 'จำนวนเงิน', key: 'amount' }
-  ]
+    { label: 'UUID',              key: 'uuid',        width: 38 },
+    { label: 'วันที่ (YYYY-MM-DD)', key: 'expenseDate', width: 18 },
+    { label: 'หมวดหมู่',           key: 'category',    width: 20 },
+    { label: 'คำอธิบาย',           key: 'description', width: 40 },
+    { label: 'Vendor (ร้านค้า)',   key: 'vendor',      width: 22 },
+    { label: 'หน่วย',              key: 'unit',        width: 14 },
+    { label: 'จำนวนเงิน',          key: 'amount',      width: 14 },
+  ] as const
 
+  // ดึงชื่อหมวดหมู่จาก expense (รองรับทั้งระบบใหม่ categoryId และระบบเก่า category)
+  function resolveCategoryName(
+    e: Expense,
+    catIdToName: Map<number, string>
+  ): string {
+    if (e.categoryId) return catIdToName.get(e.categoryId) ?? 'อื่นๆ'
+    if (e.category) return CATEGORY_NAMES_LEGACY[e.category] ?? 'อื่นๆ'
+    return 'อื่นๆ'
+  }
+
+  // ---------------------------------------------------------------------------
+  // Export
+  // ---------------------------------------------------------------------------
   async function exportExpenses() {
     const expenses = await db.expenses.filter(e => !e.isDeleted).toArray()
-    
-    // เรียงวันที่ใหม่สุดขึ้นก่อน
     expenses.sort((a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime())
 
     const categories = await db.expenseCategories.toArray()
-    const catIdToName = new Map(categories.map(c => [c.id, c.name]))
+    const catIdToName = new Map(categories.map(c => [c.id!, c.name]))
 
-    const data = expenses.map(e => {
-      const row: any = {}
-      COLUMNS.forEach(col => {
-        if (col.key === 'category') {
-          let name = 'อื่นๆ'
-          if (e.categoryId) {
-            name = catIdToName.get(e.categoryId) || 'อื่นๆ'
-          } else if (e.category) {
-            name = CATEGORY_NAMES_LEGACY[e.category] || 'อื่นๆ'
-          }
-          row[col.label] = name
-        } else {
-          row[col.label] = (e as any)[col.key] ?? ''
-        }
-      })
-      return row
-    })
+    const data = expenses.map(e => ({
+      [COLUMNS[0].label]: e.uuid ?? '',
+      [COLUMNS[1].label]: e.expenseDate ?? '',
+      [COLUMNS[2].label]: resolveCategoryName(e, catIdToName),
+      [COLUMNS[3].label]: e.description ?? '',
+      [COLUMNS[4].label]: e.vendor ?? '',
+      [COLUMNS[5].label]: e.unit ?? '',
+      [COLUMNS[6].label]: e.amount ?? 0,
+    }))
 
     const worksheet = XLSX.utils.json_to_sheet(data)
+    worksheet['!cols'] = COLUMNS.map(col => ({ wch: col.width }))
+
+    // ตั้งรูปแบบตัวเลขสำหรับคอลัมน์จำนวนเงิน
+    const range = XLSX.utils.decode_range(worksheet['!ref'] ?? 'A1')
+    const amountColIdx = 6 // index ของคอลัมน์ 'จำนวนเงิน' (0-based)
+    for (let r = range.s.r + 1; r <= range.e.r; r++) {
+      const cellAddr = XLSX.utils.encode_cell({ r, c: amountColIdx })
+      if (worksheet[cellAddr]) worksheet[cellAddr].t = 'n'
+    }
+
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Expenses')
-    worksheet['!cols'] = COLUMNS.map(col => ({ wch: col.key === 'description' ? 40 : 20 }))
     XLSX.writeFile(workbook, `Yum2K_Expenses_${new Date().toISOString().substring(0, 10)}.xlsx`)
   }
 
+  // ---------------------------------------------------------------------------
+  // Template
+  // ---------------------------------------------------------------------------
   function downloadTemplate() {
     const today = new Date().toISOString().substring(0, 10)
     const data = [
       {
-        [COLUMNS[0]!.label]: '',
-        [COLUMNS[1]!.label]: today,
-        [COLUMNS[2]!.label]: 'วัตถุดิบ',
-        [COLUMNS[3]!.label]: 'ซื้อหมูสับ 5 กก.',
-        [COLUMNS[4]!.label]: 500
+        [COLUMNS[0].label]: '',
+        [COLUMNS[1].label]: today,
+        [COLUMNS[2].label]: 'วัตถุดิบ',
+        [COLUMNS[3].label]: 'ซื้อหมูสับ 5 กก.',
+        [COLUMNS[4].label]: 'ตลาดสด',
+        [COLUMNS[5].label]: 'กิโลกรัม',
+        [COLUMNS[6].label]: 500,
       },
       {
-        [COLUMNS[0]!.label]: '',
-        [COLUMNS[1]!.label]: today,
-        [COLUMNS[2]!.label]: 'ค่าน้ำ/ไฟ/แก๊ส',
-        [COLUMNS[3]!.label]: 'ค่าไฟเดือนนี้',
-        [COLUMNS[4]!.label]: 1500
-      }
+        [COLUMNS[0].label]: '',
+        [COLUMNS[1].label]: today,
+        [COLUMNS[2].label]: 'ค่าน้ำ/ไฟ/แก๊ส',
+        [COLUMNS[3].label]: 'ค่าไฟเดือนนี้',
+        [COLUMNS[4].label]: 'การไฟฟ้า',
+        [COLUMNS[5].label]: '',
+        [COLUMNS[6].label]: 1500,
+      },
+      {
+        [COLUMNS[0].label]: '',
+        [COLUMNS[1].label]: today,
+        [COLUMNS[2].label]: 'วัตถุดิบ',
+        [COLUMNS[3].label]: 'น้ำมันพืช',
+        [COLUMNS[4].label]: 'แม็คโคร',
+        [COLUMNS[5].label]: 'ขวด',
+        [COLUMNS[6].label]: 280,
+      },
     ]
+
     const worksheet = XLSX.utils.json_to_sheet(data)
+    worksheet['!cols'] = COLUMNS.map(col => ({ wch: col.width }))
+
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Template')
     XLSX.writeFile(workbook, 'Yum2K_Expense_Template.xlsx')
   }
 
+  // ---------------------------------------------------------------------------
+  // Import — Prepare (parse + validate ก่อนแสดง preview)
+  // ---------------------------------------------------------------------------
   async function prepareImportData(file: File): Promise<ExpenseImportPreviewItem[]> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -95,80 +132,85 @@ export function useExpenseExcel() {
           const workbook = XLSX.read(data, { type: 'array' })
           const sheetName = workbook.SheetNames[0]
           if (!sheetName) throw new Error('ไม่พบข้อมูลแผ่นงาน')
-          
+
           const worksheet = workbook.Sheets[sheetName]
           const jsonData = XLSX.utils.sheet_to_json(worksheet!)
           const previewItems: ExpenseImportPreviewItem[] = []
           const authStore = useAuthStore()
           const currentUser = authStore.currentUser
-          
+          const categories = await db.expenseCategories.filter(c => !c.isDeleted).toArray()
+
           for (const row of jsonData as any[]) {
-            const uuid = row[COLUMNS[0]!.label]?.toString().trim()
-            let expenseDate = row[COLUMNS[1]!.label]?.toString().trim()
-            
-            // Validate and parse date (Excel might send serial number)
-            if (typeof row[COLUMNS[1]!.label] === 'number') {
-              const date = new Date(Math.round((row[COLUMNS[1]!.label] - 25569) * 86400 * 1000))
-              expenseDate = date.toISOString().substring(0, 10)
-            } else if (!expenseDate) {
-              expenseDate = new Date().toISOString().substring(0, 10)
-            } else {
-              // Basic validation for YYYY-MM-DD
+            // --- UUID ---
+            const uuid = row[COLUMNS[0].label]?.toString().trim() || undefined
+
+            // --- วันที่ ---
+            let expenseDate: string
+            const rawDate = row[COLUMNS[1].label]
+            if (typeof rawDate === 'number') {
+              // Excel serial date
+              const d = new Date(Math.round((rawDate - 25569) * 86400 * 1000))
+              expenseDate = d.toISOString().substring(0, 10)
+            } else if (rawDate) {
+              const str = rawDate.toString().trim()
               const dateRegex = /^\d{4}-\d{2}-\d{2}$/
-              if (!dateRegex.test(expenseDate)) {
-                // Try to parse it and convert to YYYY-MM-DD
-                const d = new Date(expenseDate)
-                if (!isNaN(d.getTime())) {
-                  expenseDate = d.toISOString().substring(0, 10)
-                } else {
-                  expenseDate = new Date().toISOString().substring(0, 10)
-                }
+              if (dateRegex.test(str)) {
+                expenseDate = str
+              } else {
+                const d = new Date(str)
+                expenseDate = isNaN(d.getTime())
+                  ? new Date().toISOString().substring(0, 10)
+                  : d.toISOString().substring(0, 10)
               }
+            } else {
+              expenseDate = new Date().toISOString().substring(0, 10)
             }
 
-            const categoryName = row[COLUMNS[2]!.label]?.toString().trim() || 'อื่นๆ'
-            
-            // ค้นหาหมวดหมู่ที่มีอยู่
-            const categories = await db.expenseCategories.toArray()
-            let targetCat = categories.find(c => c.name === categoryName)
-            
-            // ถ้าไม่พบ ให้เตรียมข้อมูลเพื่อไปสร้างใหม่ตอน execute
-            const categoryData = targetCat ? {
-              categoryId: targetCat.id,
-              categoryUuid: targetCat.uuid
-            } : {
-              categoryName // ฝากชื่อไว้เพื่อไปสร้างใหม่
-            }
-            const description = row[COLUMNS[3]!.label]?.toString().trim()
-            
+            // --- หมวดหมู่ ---
+            const categoryName = row[COLUMNS[2].label]?.toString().trim() || 'อื่นๆ'
+            const targetCat = categories.find(c => c.name === categoryName)
+            const categoryData = targetCat
+              ? { categoryId: targetCat.id, categoryUuid: targetCat.uuid }
+              : { categoryName } // สร้างใหม่ตอน execute
+
+            // --- คำอธิบาย (required) ---
+            const description = row[COLUMNS[3].label]?.toString().trim()
             if (!description) {
               previewItems.push({ status: 'invalid', expense: {}, error: 'ไม่มีคำอธิบาย' })
               continue
             }
 
-            const amount = parseFloat(row[COLUMNS[4]!.label]) || 0
+            // --- Vendor ---
+            const vendor = row[COLUMNS[4].label]?.toString().trim() || undefined
+
+            // --- หน่วย ---
+            const unit = row[COLUMNS[5].label]?.toString().trim() || undefined
+
+            // --- จำนวนเงิน (required > 0) ---
+            const amount = parseFloat(row[COLUMNS[6].label]) || 0
             if (amount <= 0) {
               previewItems.push({ status: 'invalid', expense: { description }, error: 'จำนวนเงินต้องมากกว่า 0' })
               continue
             }
 
-            const recordedBy = currentUser?.displayName || 'Unknown'
-
             const expenseData: any = {
-              uuid: uuid || undefined,
+              uuid,
               expenseDate,
-              ...(categoryData as any),
+              ...categoryData,
               description,
+              vendor,
+              unit,
               amount,
-              recordedBy,
+              recordedBy: currentUser?.displayName || 'Unknown',
               staffId: currentUser?.id || 0,
               staffUuid: currentUser?.uuid || ''
             }
 
+            // ตรวจสอบว่าเป็น update หรือ new
             let existingId: number | undefined
             if (uuid) {
-              const e = await db.expenses.where('uuid').equals(uuid).first()
-              if (e) existingId = e.id
+              const existing = await db.expenses.where('uuid').equals(uuid).first()
+              if (existing) existingId = existing.id
             }
 
             previewItems.push({
@@ -176,17 +218,23 @@ export function useExpenseExcel() {
               expense: { ...expenseData, id: existingId }
             })
           }
+
           resolve(previewItems)
-        } catch (err) { reject(err) }
+        } catch (err) {
+          reject(err)
+        }
       }
       reader.onerror = () => reject(new Error('ไม่สามารถอ่านไฟล์ได้'))
       reader.readAsArrayBuffer(file)
     })
   }
 
+  // ---------------------------------------------------------------------------
+  // Import — Execute (บันทึกจริงลง DB)
+  // ---------------------------------------------------------------------------
   async function executeImport(items: ExpenseImportPreviewItem[]): Promise<{ success: number; failed: number }> {
     const results = { success: 0, failed: 0 }
-    
+
     for (const item of items) {
       if (item.status === 'invalid') {
         results.failed++
@@ -194,23 +242,15 @@ export function useExpenseExcel() {
       }
 
       try {
-        const expenseData = JSON.parse(JSON.stringify(item.expense))
-        const finalData = {
-          ...expenseData,
-          updatedAt: new Date(),
-          isDeleted: false,
-          syncStatus: 'pending' // เพื่อให้ background sync นำขึ้น Supabase
-        }
+        const expenseData: any = { ...item.expense }
+        const expenseUuid = expenseData.uuid || uuidv4()
 
-        const expenseUuid = item.expense.uuid || uuidv4()
+        // จัดการหมวดหมู่ก่อนบันทึก
+        let categoryId = expenseData.categoryId
+        let categoryUuid = expenseData.categoryUuid
 
-        // จัดการเรื่องหมวดหมู่ก่อนบันทึก
-        let categoryId = item.expense.categoryId
-        let categoryUuid = item.expense.categoryUuid
-
-        if (!categoryId && (item.expense as any).categoryName) {
-          const name = (item.expense as any).categoryName
-          // เช็คอีกครั้งว่ามีใครสร้างไปยัง (เผื่อในไฟล์เดียวกันมีชื่อซ้ำ)
+        if (!categoryId && expenseData.categoryName) {
+          const name = expenseData.categoryName
           let cat = await db.expenseCategories.where('name').equals(name).first()
           if (!cat) {
             const newCatUuid = uuidv4()
@@ -232,32 +272,39 @@ export function useExpenseExcel() {
           }
         }
 
+        const finalData = {
+          expenseDate: expenseData.expenseDate,
+          categoryId,
+          categoryUuid,
+          description: expenseData.description,
+          vendor: expenseData.vendor ?? undefined,
+          unit: expenseData.unit ?? undefined,
+          amount: expenseData.amount,
+          recordedBy: expenseData.recordedBy,
+          staffId: expenseData.staffId,
+          staffUuid: expenseData.staffUuid,
+          isDeleted: false,
+          syncStatus: 'pending' as const,
+          updatedAt: new Date()
+        }
+
         if (item.status === 'update' && item.expense.id) {
-          await db.expenses.put({ 
-            ...finalData, 
-            id: item.expense.id,
-            categoryId,
-            categoryUuid
-          })
+          await db.expenses.update(item.expense.id, finalData)
         } else {
-          delete (finalData as any).id
-          delete (finalData as any).categoryName
-          
           await db.expenses.add({
             ...finalData,
             uuid: expenseUuid,
-            categoryId,
-            categoryUuid,
-            createdAt: finalData.createdAt ? new Date(finalData.createdAt) : new Date()
+            createdAt: new Date()
           } as Expense)
         }
+
         results.success++
       } catch (err: any) {
-        console.error(`❌ Import Failed for Expense [${item.expense.description}]:`, err)
+        console.error(`❌ Import Failed [${item.expense.description}]:`, err)
         results.failed++
       }
     }
-    
+
     return results
   }
 

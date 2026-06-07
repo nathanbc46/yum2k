@@ -106,7 +106,7 @@ async function handlePull() {
   isLoadingPull.value = true
   try {
     const resMaster = await masterSync.pullAll(true)
-    const orderCount = await fetchRemoteOrders(500, false)
+    const orderCount = await fetchRemoteOrders(200, false)
     const expenseCount = await fetchRemoteExpenses(200)
     // trigger watches บนทุกหน้าหลัง orders+expenses เข้า Dexie ครบแล้ว
     masterSync.lastPullTimestamp.value = Date.now()

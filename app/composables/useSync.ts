@@ -357,6 +357,8 @@ export function useSync() {
         amount: baseInfo.amount,
         description: baseInfo.description,
         expense_date: baseInfo.expenseDate,
+        vendor: baseInfo.vendor ?? null,
+        unit: baseInfo.unit ?? null,
         recorded_by: baseInfo.recordedBy || null,
         staff_id: baseInfo.staffId || null,
         staff_uuid: baseInfo.staffUuid || null,         // empty string → null (uuid type)
@@ -398,143 +400,149 @@ export function useSync() {
     }
   }
 
-  async function fetchRemoteOrders(limit = 100, includeMasterData = true): Promise<number> {
+  async function fetchRemoteOrders(pageSize = 200, includeMasterData = true): Promise<number> {
     if (!supabase) return 0
 
     if (includeMasterData) {
       await masterSync.pullAll().catch(err => console.error('⚠️ Master Pull Error:', err))
     }
 
-    // ดึง 2 ทิศทางพร้อมกัน: newest (recent updates) + oldest (historical gap)
-    const halfLimit = Math.ceil(limit / 2)
-    const [newestResult, oldestResult] = await Promise.all([
-      withTimeout(supabase.from('orders').select('*, order_items(*)')
-        .order('created_at', { ascending: false }).limit(halfLimit)),
-      withTimeout(supabase.from('orders').select('*, order_items(*)')
-        .order('created_at', { ascending: true }).limit(halfLimit))
-    ])
-    if (newestResult.error) throw newestResult.error
-    if (oldestResult.error) throw oldestResult.error
+    // ดึงแบบ cursor pagination (descending by created_at) จนครบทุก page
+    let cursor: string | null = null
+    let totalCount = 0
+    let hasMore = true
 
-    const seenMerge = new Set<string>()
-    const remoteOrders = [...(newestResult.data || []), ...(oldestResult.data || [])]
-      .filter(o => { if (seenMerge.has(o.uuid)) return false; seenMerge.add(o.uuid); return true })
+    while (hasMore) {
+      let query = supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .order('created_at', { ascending: false })
+        .limit(pageSize)
 
-    if (!remoteOrders.length) return 0
+      if (cursor) {
+        query = query.lt('created_at', cursor)
+      }
 
-    // --- Bulk Fetch: สร้าง Maps ก่อนเข้าลูปหลัก ---
-    // ดึงออร์เดอร์ที่มีอยู่แล้วมาตรวจสอบ Bulk เพื่อหาเฉพาะรายการใหม่
-    const remoteUuids = remoteOrders.map(o => o.uuid)
-    const existingOrders = await db.orders.where('uuid').anyOf(remoteUuids).toArray()
-    const existingUuids = new Set(existingOrders.map(o => o.uuid))
+      const { data: pageData, error } = await withTimeout(query)
+      if (error) throw error
+      if (!pageData || pageData.length === 0) break
 
-    // --- เตรียมข้อมูลสินค้าและหมวดหมู่ ---
-    const productUuidsNeeded = new Set<string>()
-    const categoryUuidsNeeded = new Set<string>()
-    for (const remote of remoteOrders) {
-      for (const item of remote.order_items) {
-        if (item.product_uuid) productUuidsNeeded.add(item.product_uuid)
-        if (item.category_uuid) categoryUuidsNeeded.add(item.category_uuid)
+      // --- Bulk Fetch: สร้าง Maps ก่อนเข้าลูปหลัก ---
+      const remoteUuids = pageData.map(o => o.uuid)
+      const existingOrders = await db.orders.where('uuid').anyOf(remoteUuids).toArray()
+
+      // --- เตรียมข้อมูลสินค้าและหมวดหมู่ ---
+      const productUuidsNeeded = new Set<string>()
+      const categoryUuidsNeeded = new Set<string>()
+      for (const remote of pageData) {
+        for (const item of remote.order_items) {
+          if (item.product_uuid) productUuidsNeeded.add(item.product_uuid)
+          if (item.category_uuid) categoryUuidsNeeded.add(item.category_uuid)
+        }
+      }
+
+      const [matchedProducts, matchedCategories] = await Promise.all([
+        db.products.where('uuid').anyOf([...productUuidsNeeded]).toArray(),
+        db.categories.where('uuid').anyOf([...categoryUuidsNeeded]).toArray(),
+      ])
+      const prodUuidToLocalId = new Map(matchedProducts.map(p => [p.uuid, { id: p.id!, categoryId: p.categoryId }]))
+      const catUuidToLocalId = new Map(matchedCategories.map(c => [c.uuid, c.id!]))
+
+      // --- ประมวลผลออร์เดอร์ ---
+      await db.transaction('rw', db.orders, async () => {
+        for (const remote of pageData) {
+          const existing = existingOrders.find(o => o.uuid === remote.uuid)
+
+          // dedup order_items จาก Supabase (ป้องกันกรณีที่ข้อมูล Cloud มี rows ซ้ำจาก bug เก่า)
+          const seenItemIds = new Set<number>()
+          const uniqueRemoteItems = remote.order_items.filter((item: any) => {
+            if (seenItemIds.has(item.id)) return false
+            seenItemIds.add(item.id)
+            return true
+          })
+
+          const processedItems: OrderItem[] = uniqueRemoteItems.map((item: any) => {
+            const prodInfo = prodUuidToLocalId.get(item.product_uuid)
+            const categoryId = prodInfo?.categoryId ?? catUuidToLocalId.get(item.category_uuid) ?? 0
+
+            return {
+              productId: prodInfo?.id || 0,
+              productUuid: item.product_uuid || '',
+              categoryId,
+              categoryUuid: item.category_uuid || '',
+              productName: item.product_name,
+              productSku: item.product_sku,
+              quantity: item.quantity,
+              unitPrice: Number(item.unit_price),
+              costPrice: Number(item.cost_price),
+              discount: Number(item.discount || 0),
+              totalPrice: Number(item.total_price),
+              addonsTotal: Number(item.addons_total || 0),
+              addons: item.addons || [],
+              inventoryDeductions: item.inventory_deductions || []
+            }
+          })
+
+          const orderData = {
+            uuid: remote.uuid,
+            orderNumber: remote.order_number,
+            staffId: 1,
+            staffUuid: remote.staff_uuid || remote.staff_id || '',
+            staffName: remote.staff_name,
+            subtotal: Number(remote.subtotal),
+            discountAmount: Number(remote.discount_amount),
+            taxRate: Number(remote.tax_rate),
+            taxAmount: Number(remote.tax_amount || 0),
+            totalAmount: Number(remote.total_amount),
+            totalCost: Number(remote.total_cost),
+            profitAmount: Number(remote.profit_amount),
+            paymentMethod: remote.payment_method,
+            amountReceived: Number(remote.amount_received),
+            changeAmount: Number(remote.change_amount),
+            status: remote.status,
+            kitchenStatus: remote.kitchen_status || 'pending',
+            note: remote.note,
+            deliveryRef: remote.delivery_ref,
+            cashDenominations: remote.cash_denominations,
+            isDeleted: remote.is_deleted,
+            syncStatus: 'synced' as SyncStatus,
+            syncRetryCount: 0,
+            syncedAt: new Date(remote.updated_at),
+            createdAt: new Date(remote.created_at),
+            updatedAt: new Date(remote.updated_at),
+            items: processedItems
+          }
+
+          if (existing) {
+            const remoteDate = new Date(remote.updated_at)
+            const localDate = new Date(existing.updatedAt)
+
+            if (remoteDate > localDate) {
+              // Cloud ใหม่กว่า → update ทั้งหมด
+              await db.orders.update(existing.id!, orderData)
+              totalCount++
+            } else if (existing.syncStatus !== 'synced') {
+              // Cloud มีออร์เดอร์นี้แล้ว แต่ local ยังเป็น pending/failed → mark synced
+              await db.orders.update(existing.id!, { syncStatus: 'synced' as SyncStatus, syncedAt: new Date() })
+              totalCount++
+            }
+          } else {
+            // ถ้ายังไม่มี ให้เพิ่มใหม่
+            await db.orders.add(orderData)
+            totalCount++
+          }
+        }
+      })
+
+      if (pageData.length < pageSize) {
+        hasMore = false
+      } else {
+        cursor = pageData[pageData.length - 1].created_at
       }
     }
 
-    const [matchedProducts, matchedCategories] = await Promise.all([
-      db.products.where('uuid').anyOf([...productUuidsNeeded]).toArray(),
-      db.categories.where('uuid').anyOf([...categoryUuidsNeeded]).toArray(),
-    ])
-    const prodUuidToLocalId = new Map(matchedProducts.map(p => [p.uuid, { id: p.id!, categoryId: p.categoryId }]))
-    const catUuidToLocalId = new Map(matchedCategories.map(c => [c.uuid, c.id!]))
-
-    // --- ประมวลผลออร์เดอร์ ---
-    let count = 0
-    
-    await db.transaction('rw', db.orders, async () => {
-      for (const remote of remoteOrders) {
-        const existing = existingOrders.find(o => o.uuid === remote.uuid)
-        
-        // dedup order_items จาก Supabase (ป้องกันกรณีที่ข้อมูล Cloud มี rows ซ้ำจาก bug เก่า)
-        const seenItemIds = new Set<number>()
-        const uniqueRemoteItems = remote.order_items.filter((item: any) => {
-          if (seenItemIds.has(item.id)) return false
-          seenItemIds.add(item.id)
-          return true
-        })
-
-        const processedItems: OrderItem[] = uniqueRemoteItems.map((item: any) => {
-          const prodInfo = prodUuidToLocalId.get(item.product_uuid)
-          const categoryId = prodInfo?.categoryId ?? catUuidToLocalId.get(item.category_uuid) ?? 0
-
-          return {
-            productId: prodInfo?.id || 0,
-            productUuid: item.product_uuid || '',
-            categoryId,
-            categoryUuid: item.category_uuid || '',
-            productName: item.product_name,
-            productSku: item.product_sku,
-            quantity: item.quantity,
-            unitPrice: Number(item.unit_price),
-            costPrice: Number(item.cost_price),
-            discount: Number(item.discount || 0),
-            totalPrice: Number(item.total_price),
-            addonsTotal: Number(item.addons_total || 0),
-            addons: item.addons || [],
-            inventoryDeductions: item.inventory_deductions || []
-          }
-        })
-
-        const orderData = {
-          uuid: remote.uuid,
-          orderNumber: remote.order_number,
-          staffId: 1,
-          staffUuid: remote.staff_uuid || remote.staff_id || '',
-          staffName: remote.staff_name,
-          subtotal: Number(remote.subtotal),
-          discountAmount: Number(remote.discount_amount),
-          taxRate: Number(remote.tax_rate),
-          taxAmount: Number(remote.tax_amount || 0),
-          totalAmount: Number(remote.total_amount),
-          totalCost: Number(remote.total_cost),
-          profitAmount: Number(remote.profit_amount),
-          paymentMethod: remote.payment_method,
-          amountReceived: Number(remote.amount_received),
-          changeAmount: Number(remote.change_amount),
-          status: remote.status,
-          kitchenStatus: remote.kitchen_status || 'pending',
-          note: remote.note,
-          deliveryRef: remote.delivery_ref,
-          cashDenominations: remote.cash_denominations,
-          isDeleted: remote.is_deleted,
-          syncStatus: 'synced' as SyncStatus,
-          syncRetryCount: 0,
-          syncedAt: new Date(remote.updated_at),
-          createdAt: new Date(remote.created_at),
-          updatedAt: new Date(remote.updated_at),
-          items: processedItems
-        }
-
-        if (existing) {
-          const remoteDate = new Date(remote.updated_at)
-          const localDate = new Date(existing.updatedAt)
-
-          if (remoteDate > localDate) {
-            // Cloud ใหม่กว่า → update ทั้งหมด
-            await db.orders.update(existing.id!, orderData)
-            count++
-          } else if (existing.syncStatus !== 'synced') {
-            // Cloud มีออร์เดอร์นี้แล้ว แต่ local ยังเป็น pending/failed → mark synced
-            await db.orders.update(existing.id!, { syncStatus: 'synced' as SyncStatus, syncedAt: new Date() })
-            count++
-          }
-        } else {
-          // ถ้ายังไม่มี ให้เพิ่มใหม่
-          await db.orders.add(orderData)
-          count++
-        }
-      }
-    })
-
     await refreshPendingCount()
-    return count
+    return totalCount
   }
 
   /**
@@ -584,6 +592,8 @@ export function useSync() {
                 amount: Number(remote.amount),
                 description: remote.description,
                 expenseDate: remote.expense_date,
+                vendor: remote.vendor ?? undefined,
+                unit: remote.unit ?? undefined,
                 recordedBy: remote.recorded_by,
                 staffId: remote.staff_id,
                 staffUuid: remote.staff_uuid,
@@ -605,6 +615,8 @@ export function useSync() {
             amount: Number(remote.amount),
             description: remote.description,
             expenseDate: remote.expense_date,
+            vendor: remote.vendor ?? undefined,
+            unit: remote.unit ?? undefined,
             recordedBy: remote.recorded_by,
             staffId: remote.staff_id,
             staffUuid: remote.staff_uuid,
