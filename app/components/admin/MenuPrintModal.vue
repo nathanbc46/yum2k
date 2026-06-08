@@ -261,6 +261,29 @@
                   <button v-for="theme in themes" :key="theme.id" @click="selectedTheme = theme.id" class="w-5 h-5 rounded-full border-2 transition-all" :class="selectedTheme === theme.id ? 'border-white scale-110' : 'border-transparent opacity-70'" :style="{ background: theme.accent }" :title="theme.label" />
                 </div>
               </div>
+
+              <!-- ภาพพื้นหลัง -->
+              <div class="flex items-center gap-1.5 bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5">
+                <label class="text-xs text-surface-400 whitespace-nowrap">พื้นหลัง</label>
+                <input ref="bgImageInput" type="file" accept="image/*" class="hidden" @change="handleBgImageUpload" />
+                <button
+                  @click="bgImageInput?.click()"
+                  class="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold transition-all bg-surface-700 text-surface-300 hover:text-white"
+                >
+                  <span>🖼️</span>
+                  <span>{{ bgImageDataUrl ? 'เปลี่ยนรูป' : 'อัพโหลด' }}</span>
+                </button>
+                <div v-if="bgImageDataUrl" class="flex items-center gap-1">
+                  <div class="w-6 h-5 rounded overflow-hidden border border-surface-600 shrink-0">
+                    <img :src="bgImageDataUrl" class="w-full h-full object-cover" alt="bg" />
+                  </div>
+                  <button
+                    @click="clearBgImage"
+                    class="px-1.5 py-0.5 rounded text-xs font-bold transition-all bg-red-900/30 text-red-400 hover:bg-red-600 hover:text-white border border-red-800/40"
+                    title="ลบภาพพื้นหลัง"
+                  >✕</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -339,7 +362,9 @@
                 :style="{
                   width: paperConfig.widthPx + 'px',
                   minHeight: paperConfig.heightPx + 'px',
-                  background: currentTheme.bgColor,
+                  background: bgImageDataUrl
+                    ? `url('${bgImageDataUrl}') center/cover no-repeat, ${currentTheme.bgColor}`
+                    : currentTheme.bgColor,
                   padding: currentDensity.a4Padding,
                   '--menu-font-scale': fontSizeScale / 100,
                   '--wm-scale': paperConfig.widthPx / 794,
@@ -1194,6 +1219,41 @@ const totalPrintProducts = computed(() =>
   filteredGroups.value.reduce((sum, g) => sum + g.products.length, 0)
 )
 
+// --- ภาพพื้นหลัง ---
+const BG_IMAGE_KEY = 'menu-print-bg-image'
+const bgImageInput   = ref<HTMLInputElement | null>(null)
+const bgImageDataUrl = ref<string | null>(null)
+
+function loadBgImage() {
+  try {
+    bgImageDataUrl.value = localStorage.getItem(BG_IMAGE_KEY) || null
+  } catch {
+    bgImageDataUrl.value = null
+  }
+}
+
+function clearBgImage() {
+  bgImageDataUrl.value = null
+  try { localStorage.removeItem(BG_IMAGE_KEY) } catch { /* ignore */ }
+}
+
+function handleBgImageUpload(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const dataUrl = e.target?.result as string
+    bgImageDataUrl.value = dataUrl
+    try { localStorage.setItem(BG_IMAGE_KEY, dataUrl) } catch {
+      // localStorage เต็ม (ภาพใหญ่เกิน) — ใช้เฉพาะใน session นี้
+    }
+    if (bgImageInput.value) bgImageInput.value.value = ''
+  }
+  reader.readAsDataURL(file)
+}
+
+loadBgImage()
+
 // --- Print / Save Image ---
 const printArea = ref<HTMLElement | null>(null)
 const isSavingImage = ref(false)
@@ -1216,7 +1276,7 @@ async function handleSaveImage() {
     const canvas = await html2canvas(printArea.value, {
       scale: 2,
       useCORS: true,
-      backgroundColor: currentTheme.value.bgColor,
+      backgroundColor: bgImageDataUrl.value ? null : currentTheme.value.bgColor,
       logging: false,
     })
     const link = document.createElement('a')
@@ -1278,8 +1338,11 @@ function handlePrint() {
         <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,400;0,500;0,700;0,900;1,700;1,900&display=swap" rel="stylesheet">
         <style>
           * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
-          html, body { width:${widthMm}; background:${currentTheme.value.bgColor}; font-family:'Sarabun','Noto Sans Thai',sans-serif; }
+          html, body { width:${widthMm}; font-family:'Sarabun','Noto Sans Thai',sans-serif; }
           body {
+            background: ${bgImageDataUrl.value
+              ? `url("${bgImageDataUrl.value}") center/cover no-repeat, ${currentTheme.value.bgColor}`
+              : currentTheme.value.bgColor};
             --menu-font-scale: ${fontSizeScale.value / 100};
             --wm-scale: ${paperConfig.value.widthPx / 794};
             --wm-opacity: ${wmOpacity.value / 100};
