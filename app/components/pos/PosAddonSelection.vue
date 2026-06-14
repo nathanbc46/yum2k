@@ -229,8 +229,8 @@ const selectedItem = computed(() => {
 
 const localNote = ref('')
 
-watch(() => selectedItem.value?.itemNote, (val) => {
-  localNote.value = val ?? ''
+watch(() => posStore.selectedCartItemIndex, () => {
+  localNote.value = selectedItem.value?.itemNote ?? ''
 }, { immediate: true })
 
 async function handleNoteBlur() {
