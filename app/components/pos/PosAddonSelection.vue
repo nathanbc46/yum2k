@@ -162,9 +162,9 @@
                   type="button"
                   tabindex="-1"
                   @click.stop="clearNote"
-                  class="shrink-0 px-2 py-1.5 text-surface-500 hover:text-surface-300 transition-colors"
+                  class="shrink-0 w-9 h-9 flex items-center justify-center text-surface-400 hover:text-surface-200 active:scale-90 transition-all"
                 >
-                  <X :size="13" />
+                  <X :size="16" />
                 </button>
               </div>
               <button
