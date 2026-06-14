@@ -170,6 +170,12 @@ watch(selectedPayment, (newVal) => {
                         </span>
                       </div>
 
+                      <!-- หมายเหตุต่อรายการ -->
+                      <div v-if="item.itemNote" class="flex items-center gap-1 mt-1 text-[10px] text-amber-400/80 italic">
+                        <span>📝</span>
+                        <span>{{ item.itemNote }}</span>
+                      </div>
+
                       <div class="text-xs text-surface-500 mt-1">
                         <span v-if="item.isFreeItem" class="text-green-400">ฟรี x {{ item.quantity }}</span>
                         <span v-else>฿{{ item.unitPrice + item.addonsTotal }} x {{ item.quantity }}</span>

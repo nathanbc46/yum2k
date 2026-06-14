@@ -166,6 +166,10 @@
                 <SlidersHorizontal :size="9" />
               </span>
             </div>
+            <!-- Item note -->
+            <div v-if="item.itemNote" class="text-[10px] text-surface-400 italic truncate mt-0.5">
+              📝 {{ item.itemNote }}
+            </div>
             <!-- Addons row -->
             <div v-if="item.addons && item.addons.length > 0" class="flex flex-wrap gap-1 mt-0.5 pointer-events-auto">
               <span

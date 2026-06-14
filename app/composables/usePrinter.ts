@@ -160,9 +160,18 @@ export function usePrinter() {
       if (item.addons && item.addons.length > 0) {
         item.addons.forEach(addon => push(leftPad + `  + ${addon.name}\n`))
       }
+      if (item.itemNote) {
+        push(leftPad + `  * ${item.itemNote}\n`)
+      }
     })
 
     push(leftPad + line + '\n')
+
+    // --- หมายเหตุ order ---
+    if (order.note) {
+      push(leftPad + `หมายเหตุ: ${order.note}\n`)
+      push(leftPad + line + '\n')
+    }
 
     // --- Summary ---
     push(leftPad + vwPadEnd('ยอดรวม:', 10) + vwPadStart(order.subtotal.toLocaleString('en-US'), effectiveWidth - 10) + '\n')
@@ -735,9 +744,16 @@ export function usePrinter() {
       if (item.addons && item.addons.length > 0) {
         item.addons.forEach(addon => { res += leftPad + `  + ${addon.name}\n` })
       }
+      if (item.itemNote) {
+        res += leftPad + `  * ${item.itemNote}\n`
+      }
     })
 
     res += line
+    if (order.note) {
+      res += leftPad + `หมายเหตุ: ${order.note}\n`
+      res += line
+    }
     res += leftPad + vwPadEnd('ยอดรวม:', 10) + vwPadStart(order.subtotal.toLocaleString('en-US'), effectiveWidth - 10) + '\n'
     if (order.discountAmount > 0) {
       res += leftPad + vwPadEnd('ส่วนลด:', 10) + vwPadStart(order.discountAmount.toLocaleString('en-US'), effectiveWidth - 10) + '\n'
@@ -819,9 +835,14 @@ export function usePrinter() {
     order.items.forEach((item: OrderItem) => {
       lines.push({ type: 'columns', name: item.productName, qty: `x${item.quantity}`, price: item.totalPrice.toLocaleString() })
       if (item.addons?.length) item.addons.forEach(a => lines.push({ type: 'text', text: `  + ${a.name}` }))
+      if (item.itemNote) lines.push({ type: 'text', text: `  * ${item.itemNote}` })
     })
 
     lines.push({ type: 'separator' })
+    if (order.note) {
+      lines.push({ type: 'text', text: `หมายเหตุ: ${order.note}` })
+      lines.push({ type: 'separator' })
+    }
     lines.push({ type: 'columns', name: 'ยอดรวม', qty: '', price: order.subtotal.toLocaleString() })
     if (order.discountAmount > 0)
       lines.push({ type: 'columns', name: 'ส่วนลด', qty: '', price: `-${order.discountAmount.toLocaleString()}` })

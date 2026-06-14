@@ -302,6 +302,7 @@ export function useSync() {
           total_price: item.totalPrice,
           addons: item.addons,
           addons_total: item.addonsTotal,
+          item_note: item.itemNote ?? null,
           inventory_deductions: item.inventoryDeductions,
           is_free_item: item.isFreeItem ?? false,
           promotion_id: item.promotionId ?? null,
@@ -479,6 +480,7 @@ export function useSync() {
               totalPrice: Number(item.total_price),
               addonsTotal: Number(item.addons_total || 0),
               addons: item.addons || [],
+              itemNote: item.item_note || undefined,
               inventoryDeductions: item.inventory_deductions || []
             }
           })

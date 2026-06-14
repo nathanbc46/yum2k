@@ -28,6 +28,7 @@ export interface CartItem {
   discount: number
   addons: AddonOption[]     // ตัวเลือกเสริมที่เลือก
   addonsTotal: number       // ราคารวม addons ต่อชิ้น
+  itemNote?: string         // หมายเหตุเฉพาะรายการ เช่น "ไม่ใส่ผักชี"
   totalPrice: number        // (unitPrice + addonsTotal) * qty - discount
   isFreeItem?: boolean      // true = ของแถมจากโปรโมชัน (ราคา 0)
   promotionId?: number      // FK → Promotion.id ที่ทำให้รายการนี้เป็นของแถม
@@ -211,6 +212,15 @@ export function useCart() {
     schedulePersist()
   }
 
+  async function updateItemNote(productId: number, addonKey: string, newNote: string) {
+    const item = cartItems.value.find(
+      i => i.product.id === productId && getAddonKey(i) === addonKey
+    )
+    if (!item) return
+    item.itemNote = newNote.trim() || undefined
+    schedulePersist()
+  }
+
   /**
    * ลบสินค้าออกจากตะกร้า
    * @param productId - ID ของสินค้าที่จะลบ
@@ -343,6 +353,7 @@ export function useCart() {
             discount: item.discount,
             addons: item.addons,
             addonsTotal: item.addonsTotal,
+            itemNote: item.itemNote,
             totalPrice: item.totalPrice,
             inventoryDeductions: JSON.parse(JSON.stringify(deductions)),
             isFreeItem: item.isFreeItem ?? false,
@@ -467,6 +478,7 @@ export function useCart() {
         discount: item.discount,
         addons: item.addons,
         addonsTotal: item.addonsTotal,
+        itemNote: item.itemNote,
         totalPrice: item.totalPrice,
         isFreeItem: item.isFreeItem,
         promotionId: item.promotionId,
@@ -492,6 +504,7 @@ export function useCart() {
         discount: number
         addons: AddonOption[]
         addonsTotal: number
+        itemNote?: string
         totalPrice: number
         isFreeItem?: boolean
         promotionId?: number
@@ -532,6 +545,7 @@ export function useCart() {
         discount: saved_item.discount,
         addons: saved_item.addons ?? [],
         addonsTotal: saved_item.addonsTotal ?? 0,
+        itemNote: saved_item.itemNote,
         totalPrice: saved_item.totalPrice,
         isFreeItem: saved_item.isFreeItem,
         promotionId: saved_item.promotionId,
@@ -637,6 +651,7 @@ export function useCart() {
         discount: item.discount,
         addons: item.addons ?? [],
         addonsTotal: item.addonsTotal,
+        itemNote: item.itemNote,
         totalPrice: item.totalPrice,
         isFreeItem: item.isFreeItem ?? false,
         promotionId: item.promotionId,
@@ -676,6 +691,7 @@ export function useCart() {
     updateQuantity,
     removeItem,
     updateItemAddons,
+    updateItemNote,
     getAddonKey,
     clearCart,
     checkout,

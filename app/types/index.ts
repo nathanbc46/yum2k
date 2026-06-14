@@ -223,6 +223,7 @@ export interface OrderItem {
   // --- Addons ---
   addons?: AddonOption[]      // ตัวเลือกเสริมที่ลูกค้าเลือก (Snapshot)
   addonsTotal: number         // ราคารวมของท็อปปิ้ง/ตัวเลือกในรายการนี้
+  itemNote?: string           // หมายเหตุเฉพาะรายการ เช่น "ไม่ใส่ผักชี"
 
   totalPrice: number          // ราคารวมของรายการนี้ = ((unitPrice + addonsTotal) * quantity) - discount
 

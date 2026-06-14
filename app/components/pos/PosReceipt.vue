@@ -95,6 +95,10 @@ const paperWidthClass = computed(() =>
             {{ addon.name }}{{ addon.price > 0 ? ` (+${addon.price}฿)` : '' }}{{ i < item.addons!.length - 1 ? ', ' : '' }}
           </span>
         </div>
+        <!-- หมายเหตุต่อรายการ (ถ้ามี) -->
+        <div v-if="item.itemNote" class="text-[9px] text-gray-500 pl-2 mt-0.5 italic">
+          * {{ item.itemNote }}
+        </div>
       </div>
     </div>
 

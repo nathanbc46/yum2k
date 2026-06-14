@@ -112,7 +112,7 @@
                     v-for="opt in group.options"
                     :key="opt.id"
                     @click="toggleAddon(group.id, opt)"
-                    class="flex items-center justify-between px-2.5 py-3 rounded-xl border font-bold transition-all relative overflow-hidden group/opt"
+                    class="flex items-center justify-between px-2.5 py-2 rounded-xl border font-bold transition-all relative overflow-hidden group/opt"
                     :class="[
                       isSelected(group.id, opt.id)
                         ? 'bg-primary-500 border-primary-400 text-white shadow-md active:scale-95'
@@ -135,63 +135,60 @@
           </div>
           
           <!-- Footer -->
-          <div 
-            :class="[
-              'bg-surface-900 border-t border-surface-800 flex items-center justify-between gap-4 shadow-[0_-10px_30px_rgba(0,0,0,0.3)] shrink-0',
-              isInline ? 'px-4 py-2' : 'px-4 py-2 flex-col md:flex-row'
-            ]"
-          >
-            <div class="w-full md:w-auto">
-              <!-- Warning for Required Selections -->
-              <div v-if="!isSelectionValid" class="flex items-center gap-2 text-red-400 animate-pulse mb-1 md:mb-0">
-                <span class="text-lg">⚠️</span>
-                <span class="text-[11px] font-black uppercase tracking-tighter">กรุณาเลือกรายการที่บังคับให้ครบถ้วน</span>
-              </div>
-              <div v-else-if="(selectedItem?.addonsTotal ?? 0) > 0" class="flex items-center justify-between md:flex-col md:items-start leading-tight">
-                <span class="text-[9px] md:text-[10px] text-surface-500 font-black uppercase tracking-widest">ยอดรวมท็อปปิ้งเพิ่มเติม</span>
-                <div class="flex items-baseline gap-1">
-                  <span class="text-xl md:text-2xl font-black text-primary-400 tracking-tighter [.light-mode_&]:text-primary-600">+฿{{ selectedItem?.addonsTotal }}</span>
-                  <span class="text-[10px] md:text-xs text-surface-500 font-bold uppercase opacity-60">/ รายการ</span>
-                </div>
-              </div>
-              <div v-else class="hidden md:flex items-center gap-2 text-surface-500">
-                <span class="text-xl opacity-30">✨</span>
-                <div class="text-[11px] font-medium italic">เลือกปรับแต่งยำของคุณได้ตามใจชอบ</div>
-              </div>
+          <div class="bg-surface-900 border-t border-surface-800 shadow-[0_-10px_30px_rgba(0,0,0,0.3)] shrink-0 px-3 py-2 flex flex-col gap-1.5">
+            <!-- แถวแจ้งเตือน / ยอด addons -->
+            <div v-if="!isSelectionValid" class="flex items-center gap-2 text-red-400 animate-pulse">
+              <span>⚠️</span>
+              <span class="text-[11px] font-black uppercase tracking-tighter">กรุณาเลือกรายการที่บังคับให้ครบถ้วน</span>
+            </div>
+            <div v-else-if="(selectedItem?.addonsTotal ?? 0) > 0" class="flex items-center gap-2">
+              <span class="text-[10px] text-surface-500 font-black uppercase tracking-widest">ท็อปปิ้งเพิ่มเติม:</span>
+              <span class="text-base font-black text-primary-400 tracking-tighter [.light-mode_&]:text-primary-600">+฿{{ selectedItem?.addonsTotal }}</span>
+              <span class="text-[10px] text-surface-500 font-bold uppercase opacity-60">/ รายการ</span>
             </div>
 
-            <div 
-              :class="[
-                'flex gap-2.5',
-                isInline ? 'w-auto' : 'w-full md:w-auto'
-              ]"
-            >
-              <button 
+            <!-- แถวหมายเหตุ + ปุ่ม -->
+            <div class="flex items-center gap-2">
+              <div class="relative flex-1 min-w-0">
+                <input
+                  v-model="localNote"
+                  @input="handleNoteBlur"
+                  type="text"
+                  placeholder="หมายเหตุ เช่น ไม่ใส่ผักชี"
+                  class="w-full bg-surface-950 border border-surface-700 rounded-lg pl-3 pr-7 py-1.5 text-xs text-surface-200 placeholder-surface-600 focus:border-primary-500 outline-none transition-colors"
+                />
+                <button
+                  v-if="localNote"
+                  @mousedown.prevent="localNote = ''; updateItemNote(selectedItem!.product.id!, getAddonKey(selectedItem!), '')"
+                  class="absolute right-1.5 top-1/2 -translate-y-1/2 text-surface-500 hover:text-surface-300 transition-colors"
+                >
+                  <X :size="13" />
+                </button>
+              </div>
+              <button
                 @click="handleClear"
                 :disabled="hasRequiredGroups"
                 :class="[
-                  'transition-all active:scale-95 font-bold',
-                  hasRequiredGroups 
-                    ? 'bg-surface-800 text-surface-500 cursor-not-allowed border border-surface-700' 
-                    : 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20',
-                  isInline ? 'px-4 py-2 rounded-xl text-sm' : 'flex-1 md:flex-none px-4 py-2 rounded-xl text-sm'
+                  'shrink-0 px-3 py-1.5 rounded-lg text-sm font-bold transition-all active:scale-95',
+                  hasRequiredGroups
+                    ? 'bg-surface-800 text-surface-500 cursor-not-allowed border border-surface-700'
+                    : 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20'
                 ]"
               >
                 🗑️ เคลียร์
               </button>
-              <button 
+              <button
                 @click="isSelectionValid ? posStore.setSelectedCartItemIndex(null) : null"
                 :disabled="!isSelectionValid"
                 :class="[
-                  'font-black shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2.5',
-                  isSelectionValid 
-                    ? 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-900/40 hover:shadow-primary-900/60 ring-4 ring-primary-500/10 hover:ring-primary-500/20'
-                    : 'bg-surface-800 text-surface-600 cursor-not-allowed opacity-50 grayscale',
-                  isInline ? 'px-6 py-2 rounded-xl text-sm' : 'flex-[2] md:flex-none px-6 py-2 rounded-xl text-sm'
+                  'shrink-0 px-4 py-1.5 rounded-lg text-sm font-black shadow-lg transition-all active:scale-95 flex items-center gap-1.5',
+                  isSelectionValid
+                    ? 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-900/40 ring-4 ring-primary-500/10'
+                    : 'bg-surface-800 text-surface-600 cursor-not-allowed opacity-50 grayscale'
                 ]"
               >
-                <span class="text-base">{{ isSelectionValid ? '✅' : '🔒' }}</span>
-                <span>ยืนยันตัวเลือก</span>
+                <span>{{ isSelectionValid ? '✅' : '🔒' }}</span>
+                <span>ยืนยัน</span>
               </button>
             </div>
           </div>
@@ -203,6 +200,7 @@
 
 <script setup lang="ts">
 import { computed, watch, onMounted, onUnmounted, ref } from 'vue'
+import { X } from 'lucide-vue-next'
 import { usePosStore } from '~/stores/pos'
 import { useCart } from '~/composables/useCart'
 import type { AddonOption } from '~/types'
@@ -212,7 +210,7 @@ const props = defineProps<{
 }>()
 
 const posStore = usePosStore()
-const { cartItems, updateItemAddons, getAddonKey } = useCart()
+const { cartItems, updateItemAddons, updateItemNote, getAddonKey } = useCart()
 
 // ส่วนอ้างอิงถึง Div ของกล่องปรับแต่ง
 const modalContent = ref<HTMLElement | null>(null)
@@ -228,6 +226,21 @@ const selectedItem = computed(() => {
   if (posStore.selectedCartItemIndex === null) return null
   return cartItems.value[posStore.selectedCartItemIndex] ?? null
 })
+
+const localNote = ref('')
+
+watch(() => selectedItem.value?.itemNote, (val) => {
+  localNote.value = val ?? ''
+}, { immediate: true })
+
+async function handleNoteBlur() {
+  if (!selectedItem.value) return
+  await updateItemNote(
+    selectedItem.value.product.id!,
+    getAddonKey(selectedItem.value),
+    localNote.value
+  )
+}
 
 // รวม add-on groups จาก category (ทั่วไป) + product (เฉพาะสินค้า)
 const mergedAddonGroups = computed(() => {
