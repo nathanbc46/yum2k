@@ -152,7 +152,7 @@
               <div class="relative flex-1 min-w-0">
                 <input
                   v-model="localNote"
-                  @input="handleNoteBlur"
+                  @input="handleNoteInput"
                   type="text"
                   placeholder="หมายเหตุ เช่น ไม่ใส่ผักชี"
                   class="w-full bg-surface-950 border border-surface-700 rounded-lg pl-3 pr-7 py-1.5 text-xs text-surface-200 placeholder-surface-600 focus:border-primary-500 outline-none transition-colors"
@@ -233,19 +233,22 @@ watch(() => posStore.selectedCartItemIndex, () => {
   localNote.value = selectedItem.value?.itemNote ?? ''
 }, { immediate: true })
 
-async function handleNoteBlur() {
-  if (!selectedItem.value) return
+async function handleNoteInput() {
+  const idx = posStore.selectedCartItemIndex
+  if (idx === null || !selectedItem.value) return
   await updateItemNote(
     selectedItem.value.product.id!,
     getAddonKey(selectedItem.value),
-    localNote.value
+    localNote.value,
+    idx
   )
 }
 
 function clearNote() {
-  if (!selectedItem.value) return
+  const idx = posStore.selectedCartItemIndex
+  if (idx === null || !selectedItem.value) return
   localNote.value = ''
-  updateItemNote(selectedItem.value.product.id!, getAddonKey(selectedItem.value), '')
+  updateItemNote(selectedItem.value.product.id!, getAddonKey(selectedItem.value), '', idx)
 }
 
 // รวม add-on groups จาก category (ทั่วไป) + product (เฉพาะสินค้า)

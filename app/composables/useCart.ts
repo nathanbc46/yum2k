@@ -212,10 +212,10 @@ export function useCart() {
     schedulePersist()
   }
 
-  async function updateItemNote(productId: number, addonKey: string, newNote: string) {
-    const item = cartItems.value.find(
-      i => i.product.id === productId && getAddonKey(i) === addonKey
-    )
+  async function updateItemNote(productId: number, addonKey: string, newNote: string, itemIndex?: number) {
+    const item = itemIndex !== undefined
+      ? cartItems.value[itemIndex]
+      : cartItems.value.find(i => i.product.id === productId && getAddonKey(i) === addonKey)
     if (!item) return
     item.itemNote = newNote.trim() || undefined
     schedulePersist()
