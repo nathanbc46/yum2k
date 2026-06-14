@@ -331,11 +331,16 @@ const hasRequiredGroups = computed(() => {
 })
 
 async function handleClear() {
-  if (posStore.selectedCartItemIndex === null || !selectedItem.value || hasRequiredGroups.value) return
-  
+  const idx = posStore.selectedCartItemIndex
+  if (idx === null || !selectedItem.value || hasRequiredGroups.value) return
+
   const product = selectedItem.value.product
   const oldKey = getAddonKey(selectedItem.value)
-  
+
+  // ล้าง note ก่อน (ก่อนที่ updateItemAddons อาจ merge/splice item)
+  localNote.value = ''
+  updateItemNote(product.id!, oldKey, '', idx)
+
   await updateItemAddons(product.id!, oldKey, [], 0)
 }
 
