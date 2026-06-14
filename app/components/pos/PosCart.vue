@@ -402,8 +402,7 @@ import {
   Pencil,
   ChefHat,
   Bell,
-  SlidersHorizontal,
-  X
+  SlidersHorizontal
 } from 'lucide-vue-next'
 import { liveQuery } from 'dexie'
 import { db } from '~/db'
