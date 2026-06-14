@@ -218,12 +218,21 @@
 
       <!-- Delivery Ref -->
       <div class="mb-4 pt-3 border-t border-surface-800/50">
-        <input
-          v-model="note"
-          type="text"
-          placeholder="รายละเอียดเพิ่มเติมของการสั่งซื้อครั้งนี้"
-          class="w-full bg-surface-950 border border-surface-800 rounded-lg px-3 py-3 text-sm focus:border-primary-500 outline-none transition-colors"
-        />
+        <div class="relative">
+          <input
+            v-model="note"
+            type="text"
+            placeholder="รายละเอียดเพิ่มเติมของการสั่งซื้อครั้งนี้"
+            class="w-full bg-surface-950 border border-surface-800 rounded-lg px-3 py-3 pr-8 text-sm focus:border-primary-500 outline-none transition-colors"
+          />
+          <button
+            v-if="note"
+            @click="note = ''"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-surface-500 hover:text-surface-300 transition-colors"
+          >
+            <X :size="15" />
+          </button>
+        </div>
       </div>
 
       <!-- ปุ่มโค้ดโปรโมชัน (แสดงเฉพาะเมื่อเปิดใช้งานในหน้า admin) -->
@@ -393,7 +402,8 @@ import {
   Pencil,
   ChefHat,
   Bell,
-  SlidersHorizontal
+  SlidersHorizontal,
+  X
 } from 'lucide-vue-next'
 import { liveQuery } from 'dexie'
 import { db } from '~/db'
