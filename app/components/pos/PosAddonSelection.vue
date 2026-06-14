@@ -159,7 +159,9 @@
                 />
                 <button
                   v-if="localNote"
-                  @mousedown.prevent="clearNote"
+                  type="button"
+                  tabindex="-1"
+                  @click.stop="clearNote"
                   class="absolute right-1.5 top-1/2 -translate-y-1/2 text-surface-500 hover:text-surface-300 transition-colors"
                 >
                   <X :size="13" />
@@ -246,9 +248,11 @@ async function handleNoteInput() {
 
 function clearNote() {
   const idx = posStore.selectedCartItemIndex
+  console.log('[clearNote] idx=', idx, 'localNote=', localNote.value)
   if (idx === null || !selectedItem.value) return
   localNote.value = ''
   updateItemNote(selectedItem.value.product.id!, getAddonKey(selectedItem.value), '', idx)
+  console.log('[clearNote] after clear, localNote=', localNote.value, 'itemNote=', selectedItem.value?.itemNote)
 }
 
 // รวม add-on groups จาก category (ทั่วไป) + product (เฉพาะสินค้า)
