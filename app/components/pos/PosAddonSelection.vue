@@ -149,20 +149,20 @@
 
             <!-- แถวหมายเหตุ + ปุ่ม -->
             <div class="flex items-center gap-2">
-              <div class="relative flex-1 min-w-0">
+              <div class="flex items-center flex-1 min-w-0 bg-surface-950 border border-surface-700 rounded-lg focus-within:border-primary-500 transition-colors">
                 <input
                   v-model="localNote"
                   @input="handleNoteInput"
                   type="text"
                   placeholder="หมายเหตุ เช่น ไม่ใส่ผักชี"
-                  class="w-full bg-surface-950 border border-surface-700 rounded-lg pl-3 pr-7 py-1.5 text-xs text-surface-200 placeholder-surface-600 focus:border-primary-500 outline-none transition-colors"
+                  class="flex-1 min-w-0 bg-transparent pl-3 py-1.5 text-xs text-surface-200 placeholder-surface-600 outline-none"
                 />
                 <button
                   v-if="localNote"
                   type="button"
                   tabindex="-1"
                   @click.stop="clearNote"
-                  class="absolute right-1.5 top-1/2 -translate-y-1/2 text-surface-500 hover:text-surface-300 transition-colors"
+                  class="shrink-0 px-2 py-1.5 text-surface-500 hover:text-surface-300 transition-colors"
                 >
                   <X :size="13" />
                 </button>
@@ -248,11 +248,9 @@ async function handleNoteInput() {
 
 function clearNote() {
   const idx = posStore.selectedCartItemIndex
-  console.log('[clearNote] idx=', idx, 'localNote=', localNote.value)
   if (idx === null || !selectedItem.value) return
   localNote.value = ''
   updateItemNote(selectedItem.value.product.id!, getAddonKey(selectedItem.value), '', idx)
-  console.log('[clearNote] after clear, localNote=', localNote.value, 'itemNote=', selectedItem.value?.itemNote)
 }
 
 // รวม add-on groups จาก category (ทั่วไป) + product (เฉพาะสินค้า)
