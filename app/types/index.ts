@@ -353,6 +353,7 @@ export interface Expense extends BaseEntity {
   expenseDate: string        // วันที่จ่าย (YYYY-MM-DD)
   vendor?: string            // ชื่อร้านค้า/ผู้จำหน่าย
   unit?: string              // หน่วย เช่น กรัม, กิโลกรัม, กล่อง, ชิ้น
+  quantity?: number          // จำนวน เช่น 5, 2.5
   recordedBy: string         // ชื่อหรือ UUID ของคนบันทึก
   staffId: number            // FK -> User.id
   staffUuid: string          // สำหรับ Sync กับ Supabase

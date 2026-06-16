@@ -10,6 +10,12 @@ export interface ExpenseImportPreviewItem {
   error?: string
 }
 
+export interface ImportItemResult {
+  item: ExpenseImportPreviewItem
+  success: boolean
+  error?: string
+}
+
 const CATEGORY_NAMES_LEGACY: Record<string, string> = {
   ingredient: 'วัตถุดิบ',
   utility: 'ค่าน้ำ/ไฟ/แก๊ส',
@@ -28,6 +34,7 @@ export function useExpenseExcel() {
     { label: 'คำอธิบาย',           key: 'description', width: 40 },
     { label: 'Vendor (ร้านค้า)',   key: 'vendor',      width: 22 },
     { label: 'หน่วย',              key: 'unit',        width: 14 },
+    { label: 'จำนวน',              key: 'quantity',    width: 12 },
     { label: 'จำนวนเงิน',          key: 'amount',      width: 14 },
   ] as const
 
@@ -58,7 +65,8 @@ export function useExpenseExcel() {
       [COLUMNS[3].label]: e.description ?? '',
       [COLUMNS[4].label]: e.vendor ?? '',
       [COLUMNS[5].label]: e.unit ?? '',
-      [COLUMNS[6].label]: e.amount ?? 0,
+      [COLUMNS[6].label]: e.quantity ?? '',
+      [COLUMNS[7].label]: e.amount ?? 0,
     }))
 
     const worksheet = XLSX.utils.json_to_sheet(data)
@@ -66,7 +74,7 @@ export function useExpenseExcel() {
 
     // ตั้งรูปแบบตัวเลขสำหรับคอลัมน์จำนวนเงิน
     const range = XLSX.utils.decode_range(worksheet['!ref'] ?? 'A1')
-    const amountColIdx = 6 // index ของคอลัมน์ 'จำนวนเงิน' (0-based)
+    const amountColIdx = 7 // index ของคอลัมน์ 'จำนวนเงิน' (0-based)
     for (let r = range.s.r + 1; r <= range.e.r; r++) {
       const cellAddr = XLSX.utils.encode_cell({ r, c: amountColIdx })
       if (worksheet[cellAddr]) worksheet[cellAddr].t = 'n'
@@ -90,7 +98,8 @@ export function useExpenseExcel() {
         [COLUMNS[3].label]: 'ซื้อหมูสับ 5 กก.',
         [COLUMNS[4].label]: 'ตลาดสด',
         [COLUMNS[5].label]: 'กิโลกรัม',
-        [COLUMNS[6].label]: 500,
+        [COLUMNS[6].label]: 5,
+        [COLUMNS[7].label]: 500,
       },
       {
         [COLUMNS[0].label]: '',
@@ -99,7 +108,8 @@ export function useExpenseExcel() {
         [COLUMNS[3].label]: 'ค่าไฟเดือนนี้',
         [COLUMNS[4].label]: 'การไฟฟ้า',
         [COLUMNS[5].label]: '',
-        [COLUMNS[6].label]: 1500,
+        [COLUMNS[6].label]: '',
+        [COLUMNS[7].label]: 1500,
       },
       {
         [COLUMNS[0].label]: '',
@@ -108,7 +118,8 @@ export function useExpenseExcel() {
         [COLUMNS[3].label]: 'น้ำมันพืช',
         [COLUMNS[4].label]: 'แม็คโคร',
         [COLUMNS[5].label]: 'ขวด',
-        [COLUMNS[6].label]: 280,
+        [COLUMNS[6].label]: 1,
+        [COLUMNS[7].label]: 280,
       },
     ]
 
@@ -186,8 +197,12 @@ export function useExpenseExcel() {
             // --- หน่วย ---
             const unit = row[COLUMNS[5].label]?.toString().trim() || undefined
 
+            // --- จำนวน ---
+            const rawQty = row[COLUMNS[6].label]
+            const quantity = rawQty !== undefined && rawQty !== '' ? parseFloat(rawQty) || undefined : undefined
+
             // --- จำนวนเงิน (required > 0) ---
-            const amount = parseFloat(row[COLUMNS[6].label]) || 0
+            const amount = parseFloat(row[COLUMNS[7].label]) || 0
             if (amount <= 0) {
               previewItems.push({ status: 'invalid', expense: { description }, error: 'จำนวนเงินต้องมากกว่า 0' })
               continue
@@ -200,6 +215,7 @@ export function useExpenseExcel() {
               description,
               vendor,
               unit,
+              quantity,
               amount,
               recordedBy: currentUser?.displayName || 'Unknown',
               staffId: currentUser?.id || 0,
@@ -232,12 +248,14 @@ export function useExpenseExcel() {
   // ---------------------------------------------------------------------------
   // Import — Execute (บันทึกจริงลง DB)
   // ---------------------------------------------------------------------------
-  async function executeImport(items: ExpenseImportPreviewItem[]): Promise<{ success: number; failed: number }> {
-    const results = { success: 0, failed: 0 }
+  async function executeImport(items: ExpenseImportPreviewItem[]): Promise<{ success: number; failed: number; results: ImportItemResult[] }> {
+    const summary = { success: 0, failed: 0 }
+    const results: ImportItemResult[] = []
 
     for (const item of items) {
       if (item.status === 'invalid') {
-        results.failed++
+        summary.failed++
+        results.push({ item, success: false, error: item.error || 'ข้อมูลไม่ถูกต้อง' })
         continue
       }
 
@@ -279,6 +297,7 @@ export function useExpenseExcel() {
           description: expenseData.description,
           vendor: expenseData.vendor ?? undefined,
           unit: expenseData.unit ?? undefined,
+          quantity: expenseData.quantity ?? undefined,
           amount: expenseData.amount,
           recordedBy: expenseData.recordedBy,
           staffId: expenseData.staffId,
@@ -298,14 +317,16 @@ export function useExpenseExcel() {
           } as Expense)
         }
 
-        results.success++
+        summary.success++
+        results.push({ item, success: true })
       } catch (err: any) {
         console.error(`❌ Import Failed [${item.expense.description}]:`, err)
-        results.failed++
+        summary.failed++
+        results.push({ item, success: false, error: err?.message || 'เกิดข้อผิดพลาดในการบันทึก' })
       }
     }
 
-    return results
+    return { ...summary, results }
   }
 
   return {

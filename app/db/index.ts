@@ -26,7 +26,7 @@ import type {
 // ---------------------------------------------------------------------------
 // กำหนด Version ของ Database (เพิ่มทุกครั้งที่เปลี่ยน Schema)
 // ---------------------------------------------------------------------------
-const DB_VERSION = 14
+const DB_VERSION = 15
 const DB_NAME = 'Yum2K_POS_DB'
 
 // ---------------------------------------------------------------------------
@@ -260,6 +260,9 @@ class Yum2KDatabase extends Dexie {
     })
 
     // Version 14: เพิ่มฟิลด์ vendor และ unit ใน expenses (schema ไม่เปลี่ยน ไม่ต้อง index)
+    this.version(14).stores({})
+
+    // Version 15: เพิ่มฟิลด์ quantity ใน expenses (schema ไม่เปลี่ยน ไม่ต้อง index)
     this.version(DB_VERSION).stores({})
   }
 }

@@ -25,6 +25,7 @@ interface BatchRow {
   description: string
   vendor: string
   unit: string
+  quantity: string
   amount: string
 }
 
@@ -39,7 +40,7 @@ const vendorOptions = ref<string[]>([])
 const unitOptions = ref<string[]>([...DEFAULT_UNITS])
 
 function emptyRow(): BatchRow {
-  return { categoryName: null, description: '', vendor: '', unit: '', amount: '' }
+  return { categoryName: null, description: '', vendor: '', unit: '', quantity: '', amount: '' }
 }
 
 function initRows() {
@@ -252,6 +253,7 @@ async function handleSave() {
         description: row.description,
         vendor: row.vendor || undefined,
         unit: row.unit || undefined,
+        quantity: row.quantity ? Number(row.quantity) : undefined,
         amount: Number(row.amount),
         recordedBy: user?.displayName || 'Unknown',
         staffId: user?.id || 0,
@@ -369,6 +371,7 @@ onMounted(() => {
                 <th class="px-3 py-3 text-left text-xs font-semibold text-surface-400 border border-surface-700">คำอธิบาย</th>
                 <th class="w-44 px-3 py-3 text-left text-xs font-semibold text-surface-400 border border-surface-700">Vendor (ร้านค้า)</th>
                 <th class="w-36 px-3 py-3 text-left text-xs font-semibold text-surface-400 border border-surface-700">หน่วย</th>
+                <th class="w-28 px-3 py-3 text-right text-xs font-semibold text-surface-400 border border-surface-700">จำนวน</th>
                 <th class="w-36 px-3 py-3 text-right text-xs font-semibold text-surface-400 border border-surface-700">จำนวนเงิน (฿)</th>
                 <th class="w-12 px-3 py-3 border border-surface-700"></th>
               </tr>
@@ -433,6 +436,18 @@ onMounted(() => {
                     @update:model-value="(v) => row.unit = v ?? ''"
                     @create="(name) => handleUnitCreate(name, i)"
                     @delete="handleUnitDelete"
+                  />
+                </td>
+
+                <!-- Quantity -->
+                <td class="px-2 py-1.5 border border-surface-700">
+                  <input
+                    v-model="row.quantity"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="w-full px-2 py-1.5 text-sm text-right border border-transparent rounded bg-transparent text-surface-100 placeholder-surface-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 focus:bg-surface-800 outline-none transition-all hover:border-surface-600"
+                    placeholder="เช่น 5"
                   />
                 </td>
 

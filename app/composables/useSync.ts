@@ -360,6 +360,7 @@ export function useSync() {
         expense_date: baseInfo.expenseDate,
         vendor: baseInfo.vendor ?? null,
         unit: baseInfo.unit ?? null,
+        quantity: baseInfo.quantity ?? null,
         recorded_by: baseInfo.recordedBy || null,
         staff_id: baseInfo.staffId || null,
         staff_uuid: baseInfo.staffUuid || null,         // empty string → null (uuid type)
@@ -596,6 +597,7 @@ export function useSync() {
                 expenseDate: remote.expense_date,
                 vendor: remote.vendor ?? undefined,
                 unit: remote.unit ?? undefined,
+                quantity: remote.quantity != null ? Number(remote.quantity) : undefined,
                 recordedBy: remote.recorded_by,
                 staffId: remote.staff_id,
                 staffUuid: remote.staff_uuid,
@@ -619,6 +621,7 @@ export function useSync() {
             expenseDate: remote.expense_date,
             vendor: remote.vendor ?? undefined,
             unit: remote.unit ?? undefined,
+            quantity: remote.quantity != null ? Number(remote.quantity) : undefined,
             recordedBy: remote.recorded_by,
             staffId: remote.staff_id,
             staffUuid: remote.staff_uuid,

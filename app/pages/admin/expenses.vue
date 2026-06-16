@@ -226,6 +226,7 @@
                 <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800">คำอธิบาย</th>
                 <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800">Vendor</th>
                 <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800">หน่วย</th>
+                <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800">จำนวน</th>
                 <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800">ผู้บันทึก</th>
                 <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800 text-right">จำนวนเงิน</th>
                 <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800 text-center">จัดการ</th>
@@ -266,6 +267,9 @@
                 {{ expense.unit || '-' }}
               </td>
               <td class="px-6 py-4 text-sm text-surface-500">
+                {{ expense.quantity ?? '-' }}
+              </td>
+              <td class="px-6 py-4 text-sm text-surface-500">
                 {{ expense.recordedBy }}
               </td>
               <td class="px-6 py-4 text-sm text-right font-black text-surface-50">
@@ -293,7 +297,7 @@
           </tbody>
           <tfoot v-if="paginatedExpenses.length > 0" class="bg-surface-800 border-t border-surface-800">
             <tr>
-              <td colspan="6" class="px-6 py-4 text-sm font-black text-surface-400 text-right uppercase">รวมรายจ่ายในหน้านี้:</td>
+              <td colspan="7" class="px-6 py-4 text-sm font-black text-surface-400 text-right uppercase">รวมรายจ่ายในหน้านี้:</td>
               <td class="px-6 py-4 text-xl font-black text-primary-400 text-right">
                 ฿{{ pageTotalAmount.toLocaleString() }}
               </td>
@@ -431,8 +435,8 @@
                   ></textarea>
                 </div>
 
-                <!-- Vendor + Unit -->
-                <div class="grid grid-cols-2 gap-4">
+                <!-- Vendor + จำนวน + Unit -->
+                <div class="grid grid-cols-3 gap-4">
                   <div class="space-y-2">
                     <label class="text-[10px] font-black uppercase tracking-widest text-surface-500 px-1">Vendor (ร้านค้า)</label>
                     <CreatableSelect
@@ -441,6 +445,17 @@
                       placeholder="ร้านค้า/ผู้จำหน่าย..."
                       @update:model-value="(v) => form.vendor = v ?? ''"
                       @create="(name) => handleVendorCreate(name, form)"
+                    />
+                  </div>
+                  <div class="space-y-2">
+                    <label class="text-[10px] font-black uppercase tracking-widest text-surface-500 px-1">จำนวน</label>
+                    <input
+                      type="number"
+                      v-model.number="form.quantity"
+                      min="0"
+                      step="0.01"
+                      placeholder="เช่น 5"
+                      class="w-full h-14 bg-surface-800 border border-surface-700 rounded-2xl px-4 text-surface-50 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all outline-none"
                     />
                   </div>
                   <div class="space-y-2">
@@ -557,6 +572,8 @@
     <AdminExpenseImportPreviewModal
       :is-open="isImportPreviewOpen"
       :items="importPreviewItems"
+      :results="importResults"
+      :is-importing="isImporting"
       @close="closeImportPreview"
       @confirm="handleConfirmImport"
     />
@@ -635,6 +652,7 @@
                       <th class="px-4 py-3 border-b border-surface-700">คำอธิบาย</th>
                       <th class="px-4 py-3 border-b border-surface-700">Vendor</th>
                       <th class="px-4 py-3 border-b border-surface-700">หน่วย</th>
+                      <th class="px-4 py-3 border-b border-surface-700 text-right w-28">จำนวน</th>
                       <th class="px-4 py-3 border-b border-surface-700 text-right w-36">จำนวนเงิน</th>
                       <th class="px-4 py-3 border-b border-surface-700 text-center w-16">ลบ</th>
                     </tr>
@@ -691,6 +709,20 @@
                           placeholder="หน่วย..."
                           @update:model-value="(v) => { row.unit = v ?? ''; row._dirty = true }"
                           @create="(name) => handleUnitCreate(name, row)"
+                        />
+                      </td>
+
+                      <!-- Quantity -->
+                      <td class="px-4 py-2">
+                        <input
+                          type="number"
+                          v-model.number="row.quantity"
+                          :disabled="row._deleted"
+                          min="0"
+                          step="0.01"
+                          placeholder="เช่น 5"
+                          class="w-full h-9 bg-surface-800 border border-surface-700 rounded-lg px-3 text-surface-50 text-xs text-right focus:ring-1 focus:ring-primary-500 outline-none disabled:opacity-50"
+                          @input="row._dirty = true"
                         />
                       </td>
 
@@ -824,13 +856,15 @@
                     </div>
                     <span class="text-sm font-black text-surface-50 ml-4 shrink-0">฿{{ exp.amount.toLocaleString() }}</span>
                   </div>
-                  <div v-if="exp.vendor || exp.unit" class="flex items-center gap-3 pl-1">
+                  <div v-if="exp.vendor || exp.unit || exp.quantity" class="flex items-center gap-3 pl-1">
                     <span v-if="exp.vendor" class="text-[11px] text-surface-500 flex items-center gap-1">
                       <span class="text-surface-600">🏪</span>{{ exp.vendor }}
                     </span>
-                    <span v-if="exp.vendor && exp.unit" class="text-surface-700 text-[10px]">·</span>
-                    <span v-if="exp.unit" class="text-[11px] text-surface-500 flex items-center gap-1">
-                      <span class="text-surface-600">📦</span>{{ exp.unit }}
+                    <span v-if="exp.vendor && (exp.unit || exp.quantity)" class="text-surface-700 text-[10px]">·</span>
+                    <span v-if="exp.quantity || exp.unit" class="text-[11px] text-surface-500 flex items-center gap-1">
+                      <span class="text-surface-600">📦</span>
+                      <span v-if="exp.quantity">{{ exp.quantity }}</span>
+                      <span v-if="exp.unit">{{ exp.unit }}</span>
                     </span>
                   </div>
                 </div>
@@ -857,7 +891,7 @@ import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
 import { useConfirm } from '~/composables/useConfirm'
-import { useExpenseExcel, type ExpenseImportPreviewItem } from '~/composables/useExpenseExcel'
+import { useExpenseExcel, type ExpenseImportPreviewItem, type ImportItemResult } from '~/composables/useExpenseExcel'
 import { useExpenseCategories } from '~/composables/useExpenseCategories'
 import { db } from '~/db'
 import { v4 as uuidv4 } from 'uuid'
@@ -943,7 +977,9 @@ const endDate = computed(() =>
 
 const excelInput = ref<HTMLInputElement | null>(null)
 const isImportPreviewOpen = ref(false)
+const isImporting = ref(false)
 const importPreviewItems = ref<ExpenseImportPreviewItem[]>([])
+const importResults = ref<ImportItemResult[] | null>(null)
 
 const form = ref({
   expenseDate: new Date().toISOString().slice(0, 10),
@@ -955,6 +991,7 @@ const form = ref({
   description: '',
   vendor: '',
   unit: '',
+  quantity: undefined as number | undefined,
 })
 
 // --- Category Options ---
@@ -1072,6 +1109,7 @@ interface DayEditRow {
   description: string
   vendor: string
   unit: string
+  quantity: number | undefined
   amount: number
   _dirty: boolean
   _deleted: boolean
@@ -1093,6 +1131,7 @@ function addDayEditRow() {
     description: '',
     vendor: '',
     unit: '',
+    quantity: undefined,
     amount: 0,
     _dirty: false,
     _deleted: false,
@@ -1112,6 +1151,7 @@ function openDayEditModal(date: string) {
     description: e.description,
     vendor: e.vendor || '',
     unit: e.unit || '',
+    quantity: e.quantity,
     amount: e.amount,
     _dirty: false,
     _deleted: false,
@@ -1138,6 +1178,7 @@ async function saveDayEdit() {
           description: r.description,
           vendor: r.vendor || undefined,
           unit: r.unit || undefined,
+          quantity: r.quantity || undefined,
           amount: r.amount,
           syncStatus: 'pending' as const,
           updatedAt: new Date(),
@@ -1153,6 +1194,7 @@ async function saveDayEdit() {
           description: r.description,
           vendor: r.vendor || undefined,
           unit: r.unit || undefined,
+          quantity: r.quantity || undefined,
           amount: r.amount,
           recordedBy: user?.displayName || 'Unknown',
           staffId: user?.id || 0,
@@ -1379,6 +1421,7 @@ async function handleSubmit() {
       description: form.value.description,
       vendor: form.value.vendor || undefined,
       unit: form.value.unit || undefined,
+      quantity: form.value.quantity || undefined,
       amount: form.value.amount,
     }
 
@@ -1420,6 +1463,7 @@ function resetForm() {
     description: '',
     vendor: '',
     unit: '',
+    quantity: undefined,
   }
 }
 
@@ -1435,6 +1479,7 @@ function openEditModal(expense: Expense) {
     description: expense.description,
     vendor: expense.vendor || '',
     unit: expense.unit || '',
+    quantity: expense.quantity,
   }
   showAddModal.value = true
 }
@@ -1514,25 +1559,27 @@ async function handleImportExcel(event: Event) {
 function closeImportPreview() {
   isImportPreviewOpen.value = false
   importPreviewItems.value = []
+  importResults.value = null
 }
 
 async function handleConfirmImport() {
+  isImporting.value = true
   try {
-    toast.info('กำลังบันทึกข้อมูลรายจ่าย...')
     const result = await executeImport(importPreviewItems.value)
-    
-    if (result.success > 0) {
-      toast.success(`นำเข้าสำเร็จ ${result.success} รายการ`)
-    }
-    
-    if (result.failed > 0) {
-      toast.error(`ล้มเหลว ${result.failed} รายการ`)
-    }
-    
-    closeImportPreview()
+    importResults.value = result.results
     await loadExpenses()
+
+    if (result.failed === 0) {
+      toast.success(`นำเข้าสำเร็จทั้งหมด ${result.success} รายการ`)
+    } else if (result.success > 0) {
+      toast.error(`สำเร็จ ${result.success} รายการ, ล้มเหลว ${result.failed} รายการ`)
+    } else {
+      toast.error(`ล้มเหลวทั้งหมด ${result.failed} รายการ`)
+    }
   } catch (err: any) {
     toast.error('เกิดข้อผิดพลาดในการนำเข้า: ' + err.message)
+  } finally {
+    isImporting.value = false
   }
 }
 
