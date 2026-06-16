@@ -26,6 +26,10 @@ const pendingSnapshotCount = ref(0)
 const lastSyncAt = ref<Date | null>(null)
 const syncIntervalId = ref<any>(null)
 
+// --- Realtime Sync (Singleton channel) ---
+let realtimeChannel: any = null
+const isRealtimeActive = ref(false)
+
 // Countdown: ใช้ target timestamp แทน decrement ทุก 1 วินาที
 const HEARTBEAT_SECONDS = 5 * 60
 const HEARTBEAT_MS = HEARTBEAT_SECONDS * 1000
@@ -701,6 +705,47 @@ export function useSync() {
         clearInterval(syncIntervalId.value)
         syncIntervalId.value = null
       }
+    },
+    isRealtimeActive,
+    startRealtimeSync: () => {
+      if (!import.meta.client || !supabase || isRealtimeActive.value) return
+
+      let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+      realtimeChannel = supabase
+        .channel('expenses-realtime-sync')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'expenses' },
+          () => {
+            // debounce กรณีมีหลาย event มาพร้อมกัน
+            if (debounceTimer) clearTimeout(debounceTimer)
+            debounceTimer = setTimeout(async () => {
+              if (!isOnline.value) return
+              try {
+                const count = await fetchRemoteExpenses(200)
+                if (count > 0) {
+                  masterSync.lastPullTimestamp.value = Date.now()
+                  toast.info(`📡 อัปเดตรายจ่าย ${count} รายการจากอุปกรณ์อื่น`)
+                }
+              } catch (err) {
+                console.error('Realtime expense pull error:', err)
+              }
+            }, 600)
+          }
+        )
+        .subscribe((status: string) => {
+          if (status === 'SUBSCRIBED') {
+            isRealtimeActive.value = true
+            console.log('📡 Realtime expenses sync active')
+          }
+        })
+    },
+    stopRealtimeSync: () => {
+      if (!supabase || !realtimeChannel) return
+      supabase.removeChannel(realtimeChannel)
+      realtimeChannel = null
+      isRealtimeActive.value = false
     }
   }
 }

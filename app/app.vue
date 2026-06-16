@@ -90,7 +90,8 @@ import ConfirmModal from '~/components/ui/ConfirmModal.vue'
 const {
   isOnline, isSyncing, pendingCount, pendingStockAuditCount,
   setupNetworkListener, syncPendingOrders, refreshPendingCount,
-  startHeartbeatSync, stopHeartbeatSync, nextSyncCountdown
+  startHeartbeatSync, stopHeartbeatSync, nextSyncCountdown,
+  startRealtimeSync, stopRealtimeSync
 } = useSync()
 const { start: startDailySummary, stop: stopDailySummary } = useLineDailySummary()
 const posStore = usePosStore()
@@ -132,6 +133,7 @@ onMounted(() => {
   cleanupNetwork = setupNetworkListener()
   refreshPendingCount()
   startHeartbeatSync()
+  startRealtimeSync()
   startDailySummary()
   // Session timeout
   if (authStore.isAuthenticated) resetTimer()
@@ -141,6 +143,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (cleanupNetwork) cleanupNetwork()
   stopHeartbeatSync()
+  stopRealtimeSync()
   stopDailySummary()
   stopSessionTimer()
   SESSION_EVENTS.forEach(e => window.removeEventListener(e, resetTimer))
