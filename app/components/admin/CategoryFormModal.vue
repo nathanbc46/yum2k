@@ -8,7 +8,7 @@
         @mouseup.self="backdropMouseupHandler"
       >
         <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+        <div class="absolute inset-0 bg-black/80" />
 
         <!-- Modal Box -->
         <div class="relative bg-surface-900 border border-surface-700 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]" @mousedown.stop>

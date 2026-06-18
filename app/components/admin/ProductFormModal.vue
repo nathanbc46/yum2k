@@ -8,7 +8,7 @@
         @mouseup.self="backdropMouseupHandler"
       >
         <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+        <div class="absolute inset-0 bg-black/80" />
 
         <!-- Modal Box: ใหญ่กว่า Category เพราะมี Mapping Section -->
         <div class="relative bg-surface-900 border border-surface-700 rounded-2xl w-full max-w-2xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden" @mousedown.stop>
@@ -85,7 +85,7 @@
               </div>
 
               <!-- Loading State ตอนกำลังอัปโหลด -->
-              <div v-if="isUploading" class="absolute inset-0 bg-surface-950/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-10">
+              <div v-if="isUploading" class="absolute inset-0 bg-surface-950/90 flex flex-col items-center justify-center gap-3 z-10">
                 <div class="w-8 h-8 border-4 border-primary-500/30 border-t-primary-500 rounded-full animate-spin"></div>
                 <p class="text-xs font-bold text-primary-400">กำลังประมวลผลและอัปโหลด...</p>
               </div>

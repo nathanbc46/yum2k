@@ -6,7 +6,7 @@
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
         @click.self="$emit('close')"
       >
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+        <div class="absolute inset-0 bg-black/80" />
 
         <div class="relative bg-surface-900 border border-surface-700 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
           <!-- Header -->

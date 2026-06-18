@@ -307,13 +307,17 @@ onMounted(() => {
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div
-        v-if="isOpen"
-        class="z-50 bg-surface-950 flex flex-col transition-all duration-300"
-        :class="isExpanded
-          ? 'fixed inset-0'
-          : 'fixed inset-x-[12%] inset-y-[8%] rounded-[2rem] border border-surface-800 shadow-2xl'"
-      >
+      <div v-if="isOpen" class="fixed inset-0 z-50">
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-surface-950/90" />
+
+        <!-- Modal Box -->
+        <div
+          class="absolute bg-surface-950 flex flex-col transition-all duration-300"
+          :class="isExpanded
+            ? 'inset-0'
+            : 'inset-x-[12%] inset-y-[8%] rounded-[2rem] border border-surface-800 shadow-2xl'"
+        >
 
         <!-- Header -->
         <div
@@ -370,8 +374,8 @@ onMounted(() => {
                 <th class="w-48 px-3 py-3 text-left text-xs font-semibold text-surface-400 border border-surface-700">หมวดหมู่</th>
                 <th class="px-3 py-3 text-left text-xs font-semibold text-surface-400 border border-surface-700">คำอธิบาย</th>
                 <th class="w-44 px-3 py-3 text-left text-xs font-semibold text-surface-400 border border-surface-700">Vendor (ร้านค้า)</th>
-                <th class="w-36 px-3 py-3 text-left text-xs font-semibold text-surface-400 border border-surface-700">หน่วย</th>
                 <th class="w-28 px-3 py-3 text-right text-xs font-semibold text-surface-400 border border-surface-700">จำนวน</th>
+                <th class="w-36 px-3 py-3 text-left text-xs font-semibold text-surface-400 border border-surface-700">หน่วย</th>
                 <th class="w-36 px-3 py-3 text-right text-xs font-semibold text-surface-400 border border-surface-700">จำนวนเงิน (฿)</th>
                 <th class="w-12 px-3 py-3 border border-surface-700"></th>
               </tr>
@@ -426,6 +430,18 @@ onMounted(() => {
                   />
                 </td>
 
+                <!-- Quantity -->
+                <td class="px-2 py-1.5 border border-surface-700">
+                  <input
+                    v-model="row.quantity"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="w-full px-2 py-1.5 text-sm text-right border border-transparent rounded bg-transparent text-surface-100 placeholder-surface-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 focus:bg-surface-800 outline-none transition-all hover:border-surface-600"
+                    placeholder="เช่น 5"
+                  />
+                </td>
+
                 <!-- Unit -->
                 <td class="px-2 py-1.5 border border-surface-700">
                   <CreatableSelect
@@ -436,18 +452,6 @@ onMounted(() => {
                     @update:model-value="(v) => row.unit = v ?? ''"
                     @create="(name) => handleUnitCreate(name, i)"
                     @delete="handleUnitDelete"
-                  />
-                </td>
-
-                <!-- Quantity -->
-                <td class="px-2 py-1.5 border border-surface-700">
-                  <input
-                    v-model="row.quantity"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    class="w-full px-2 py-1.5 text-sm text-right border border-transparent rounded bg-transparent text-surface-100 placeholder-surface-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 focus:bg-surface-800 outline-none transition-all hover:border-surface-600"
-                    placeholder="เช่น 5"
                   />
                 </td>
 
@@ -503,11 +507,12 @@ onMounted(() => {
         </div>
 
       </div>
+      </div>
     </Transition>
 
     <!-- Replace Modal -->
     <Transition name="modal-fade">
-      <div v-if="deleteModal.isOpen" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div v-if="deleteModal.isOpen" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/75">
         <div class="bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
           <!-- Header -->
           <div class="px-6 pt-6 pb-4">

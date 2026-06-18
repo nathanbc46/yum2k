@@ -8,7 +8,7 @@
       leave-from-class="opacity-100"
       leave-to-class="opacity-0"
     >
-      <div v-if="isOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" @mousedown.self="backdropMousedown = true" @mouseup.self="backdropMousedown && $emit('close'); backdropMousedown = false" @mouseleave="backdropMousedown = false">
+      <div v-if="isOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75" @mousedown.self="backdropMousedown = true" @mouseup.self="backdropMousedown && $emit('close'); backdropMousedown = false" @mouseleave="backdropMousedown = false">
         <Transition
           enter-active-class="transition duration-200 ease-out"
           enter-from-class="opacity-0 scale-95 translate-y-4"

@@ -1,7 +1,7 @@
 <template>
   <div v-if="isOpen" class="fixed inset-0 z-[100] flex items-center justify-center">
     <!-- Backdrop (คลิกเพื่อปิดไม่ได้เพื่อป้องกันลั่น) -->
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+    <div class="absolute inset-0 bg-black/75"></div>
 
     <!-- Modal Box -->
     <div 

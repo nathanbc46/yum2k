@@ -8,6 +8,11 @@
 
 @import "tailwindcss";
 
+/* --- Force dark color-scheme เพื่อให้ native form controls (select dropdown) ใช้ธีมมืด --- */
+:root {
+  color-scheme: dark;
+}
+
 /* --- Color Variables สำหรับระบบ ธีม --- */
 :root {
   /* Default (Dark Mode): Low numbers = Light, High numbers = Dark */

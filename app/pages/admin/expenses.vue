@@ -86,7 +86,7 @@
           <Calendar :size="14" class="text-surface-500 shrink-0" />
           <select
             v-model="selectedDateRange"
-            class="bg-transparent border-none text-surface-50 focus:ring-0 text-sm"
+            class="bg-surface-950 border-none text-surface-50 focus:ring-0 text-sm"
           >
             <option value="today">วันนี้</option>
             <option value="this_week">สัปดาห์นี้</option>
@@ -104,7 +104,7 @@
             <input
               type="date"
               v-model="customStart"
-              class="bg-transparent border-none text-surface-50 focus:ring-0 text-sm"
+              class="bg-surface-950 border-none text-surface-50 focus:ring-0 text-sm"
             />
           </div>
           <div class="flex items-center gap-2 px-3 h-11 bg-surface-950 rounded-xl border border-surface-800">
@@ -112,7 +112,7 @@
             <input
               type="date"
               v-model="customEnd"
-              class="bg-transparent border-none text-surface-50 focus:ring-0 text-sm"
+              class="bg-surface-950 border-none text-surface-50 focus:ring-0 text-sm"
             />
           </div>
         </template>
@@ -136,7 +136,7 @@
           <Filter :size="16" class="text-surface-600" />
           <select
             v-model="filterCategory"
-            class="bg-transparent border-none text-surface-50 focus:ring-0 w-full text-sm"
+            class="bg-surface-950 border-none text-surface-50 focus:ring-0 w-full text-sm"
           >
             <option value="">ทุกหมวดหมู่</option>
             <option v-for="cat in expenseCategories" :key="cat.id" :value="cat.id">
@@ -150,7 +150,7 @@
           <Filter :size="16" class="text-surface-600" />
           <select
             v-model="filterVendor"
-            class="bg-transparent border-none text-surface-50 focus:ring-0 w-full text-sm"
+            class="bg-surface-950 border-none text-surface-50 focus:ring-0 w-full text-sm"
           >
             <option value="">ทุก Vendor</option>
             <option v-for="v in vendorList" :key="v" :value="v">{{ v }}</option>
@@ -172,18 +172,45 @@
         <p class="text-3xl font-black text-primary-400">฿{{ filterTotalAmount.toLocaleString() }}</p>
       </div>
 
-      <!-- Tabs -->
-      <div class="flex gap-1 bg-surface-900 p-1 rounded-2xl border border-surface-800 self-start">
-        <button
-          @click="activeTab = 'daily'"
-          class="px-5 py-2 rounded-xl text-sm font-bold transition-all"
-          :class="activeTab === 'daily' ? 'bg-primary-600 text-white shadow' : 'text-surface-400 hover:text-surface-200'"
-        >สรุปรายวัน</button>
-        <button
-          @click="activeTab = 'list'"
-          class="px-5 py-2 rounded-xl text-sm font-bold transition-all"
-          :class="activeTab === 'list' ? 'bg-primary-600 text-white shadow' : 'text-surface-400 hover:text-surface-200'"
-        >รายการทั้งหมด</button>
+      <!-- Tabs + Mass Edit Button -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex gap-1 bg-surface-900 p-1 rounded-2xl border border-surface-800">
+          <button
+            @click="activeTab = 'daily'"
+            class="px-5 py-2 rounded-xl text-sm font-bold transition-all"
+            :class="activeTab === 'daily' ? 'bg-primary-600 text-white shadow' : 'text-surface-400 hover:text-surface-200'"
+          >สรุปรายวัน</button>
+          <button
+            @click="activeTab = 'list'"
+            class="px-5 py-2 rounded-xl text-sm font-bold transition-all"
+            :class="activeTab === 'list' ? 'bg-primary-600 text-white shadow' : 'text-surface-400 hover:text-surface-200'"
+          >รายการทั้งหมด</button>
+          <button
+            @click="activeTab = 'chart'"
+            class="px-5 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5"
+            :class="activeTab === 'chart' ? 'bg-primary-600 text-white shadow' : 'text-surface-400 hover:text-surface-200'"
+          >
+            <PieChart :size="14" />
+            กราฟจัดกลุ่มตามรายจ่าย
+          </button>
+        </div>
+        <Transition
+          enter-active-class="transition duration-150 ease-out"
+          enter-from-class="opacity-0 scale-95"
+          enter-to-class="opacity-100 scale-100"
+          leave-active-class="transition duration-100 ease-in"
+          leave-from-class="opacity-100 scale-100"
+          leave-to-class="opacity-0 scale-95"
+        >
+          <button
+            v-if="activeTab === 'list' && selectedExpenseIds.size > 0"
+            @click="showMassEditModal = true"
+            class="h-10 px-5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-amber-900/30"
+          >
+            <CheckSquare :size="16" />
+            <span>แก้ไขหมู่ ({{ selectedExpenseIds.size }} รายการ)</span>
+          </button>
+        </Transition>
       </div>
 
       <!-- Daily Summary -->
@@ -221,12 +248,21 @@
           <table class="w-full text-left border-collapse relative">
             <thead class="sticky top-0 z-10 bg-surface-800 shadow-sm">
               <tr>
+                <th class="pl-5 pr-2 py-4 border-b border-surface-800 w-10">
+                  <input
+                    type="checkbox"
+                    :checked="isAllSelected"
+                    @change="toggleSelectAll"
+                    class="w-4 h-4 accent-primary-500 rounded cursor-pointer"
+                    :title="isAllSelected ? 'ยกเลิกทั้งหมด' : 'เลือกทั้งหมด'"
+                  />
+                </th>
                 <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800">วันที่</th>
                 <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800">หมวดหมู่</th>
                 <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800">คำอธิบาย</th>
                 <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800">Vendor</th>
-                <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800">หน่วย</th>
                 <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800">จำนวน</th>
+                <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800">หน่วย</th>
                 <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800">ผู้บันทึก</th>
                 <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800 text-right">จำนวนเงิน</th>
                 <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-surface-500 border-b border-surface-800 text-center">จัดการ</th>
@@ -234,7 +270,7 @@
           </thead>
           <tbody class="divide-y divide-surface-800">
             <tr v-if="filteredExpenses.length === 0">
-              <td colspan="8" class="px-6 py-20 text-center text-surface-600">
+              <td colspan="9" class="px-6 py-20 text-center text-surface-600">
                 <div class="flex flex-col items-center gap-4">
                   <Banknote :size="48" class="opacity-20" />
                   <p class="font-bold">ไม่พบข้อมูลรายจ่ายในช่วงนี้</p>
@@ -245,7 +281,16 @@
               v-for="expense in paginatedExpenses"
               :key="expense.id"
               class="hover:bg-surface-800/30 transition-colors group"
+              :class="selectedExpenseIds.has(expense.id!) ? 'bg-primary-500/5' : ''"
             >
+              <td class="pl-5 pr-2 py-4 w-10">
+                <input
+                  type="checkbox"
+                  :checked="selectedExpenseIds.has(expense.id!)"
+                  @change="toggleSelect(expense.id!)"
+                  class="w-4 h-4 accent-primary-500 rounded cursor-pointer"
+                />
+              </td>
               <td class="px-6 py-4 text-sm text-surface-400 font-medium">
                 {{ formatThaiDate(expense.expenseDate) }}
               </td>
@@ -264,10 +309,10 @@
                 {{ expense.vendor || '-' }}
               </td>
               <td class="px-6 py-4 text-sm text-surface-500">
-                {{ expense.unit || '-' }}
+                {{ expense.quantity ?? '-' }}
               </td>
               <td class="px-6 py-4 text-sm text-surface-500">
-                {{ expense.quantity ?? '-' }}
+                {{ expense.unit || '-' }}
               </td>
               <td class="px-6 py-4 text-sm text-surface-500">
                 {{ expense.recordedBy }}
@@ -297,7 +342,7 @@
           </tbody>
           <tfoot v-if="paginatedExpenses.length > 0" class="bg-surface-800 border-t border-surface-800">
             <tr>
-              <td colspan="7" class="px-6 py-4 text-sm font-black text-surface-400 text-right uppercase">รวมรายจ่ายในหน้านี้:</td>
+              <td colspan="8" class="px-6 py-4 text-sm font-black text-surface-400 text-right uppercase">รวมรายจ่ายในหน้านี้:</td>
               <td class="px-6 py-4 text-xl font-black text-primary-400 text-right">
                 ฿{{ pageTotalAmount.toLocaleString() }}
               </td>
@@ -341,160 +386,100 @@
           </button>
         </div>
       </div>
+
+      <!-- Tab: กราฟจัดกลุ่มตามรายจ่าย -->
+      <div v-show="activeTab === 'chart'" class="space-y-6">
+        <!-- ไม่มีข้อมูล -->
+        <div v-if="donutChartData.series.length === 0" class="bg-surface-900 border border-surface-800 rounded-2xl flex flex-col items-center justify-center py-20 gap-4">
+          <PieChart :size="48" class="text-surface-700 opacity-40" />
+          <p class="font-bold text-surface-600">ไม่มีข้อมูลรายจ่ายในช่วงที่เลือก</p>
+        </div>
+
+        <template v-else>
+          <!-- Donut Chart + Legend (ขยายเต็มจอเฉพาะส่วนนี้) -->
+          <div
+            class="grid gap-6 transition-all duration-300"
+            :class="isDonutFullscreen
+              ? 'fixed inset-0 z-[100] bg-surface-950 p-6 grid-cols-[1fr_300px]'
+              : 'grid-cols-[1fr_auto]'"
+          >
+            <!-- กราฟ -->
+            <div class="bg-surface-900 border border-surface-800 rounded-2xl p-5 flex flex-col min-h-0 overflow-hidden relative">
+              <!-- Header ของ chart card (แสดงเฉพาะตอน fullscreen) -->
+              <div v-if="isDonutFullscreen" class="flex items-center justify-between mb-4 shrink-0">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 bg-primary-500/10 rounded-xl flex items-center justify-center text-primary-400">
+                    <PieChart :size="18" />
+                  </div>
+                  <div>
+                    <p class="text-sm font-black text-surface-100">มูลค่ารายจ่ายตามหมวดหมู่</p>
+                    <p class="text-xs text-surface-500">{{ dateRangeLabel }} &middot; {{ donutChartData.labels.length }} หมวดหมู่</p>
+                  </div>
+                </div>
+              </div>
+              <!-- ปุ่ม fullscreen ลอยอยู่มุมขวาบนของ card -->
+              <button
+                @click="isDonutFullscreen = !isDonutFullscreen"
+                class="absolute top-4 right-4 z-10 w-9 h-9 bg-surface-800/80 backdrop-blur-sm text-surface-400 hover:text-surface-50 hover:bg-surface-700 rounded-xl flex items-center justify-center transition-all active:scale-95"
+                :title="isDonutFullscreen ? 'ย่อหน้าต่าง' : 'ขยายเต็มจอ'"
+              >
+                <Minimize2 v-if="isDonutFullscreen" :size="16" />
+                <Maximize2 v-else :size="16" />
+              </button>
+              <!-- กราฟ -->
+              <div class="flex-1 min-h-0" :class="isDonutFullscreen ? '' : 'h-[380px]'">
+                <ClientOnly>
+                  <apexchart
+                    type="donut"
+                    :height="isDonutFullscreen ? '100%' : 380"
+                    :options="donutChartOptions"
+                    :series="donutChartData.series"
+                  />
+                </ClientOnly>
+              </div>
+            </div>
+
+            <!-- Legend / รายการหมวดหมู่ -->
+            <div
+              class="bg-surface-900 border border-surface-800 rounded-2xl p-6 flex flex-col gap-3 overflow-y-auto"
+              :class="isDonutFullscreen ? 'w-auto' : 'w-72 max-h-[480px]'"
+            >
+              <p class="text-[11px] font-black uppercase tracking-widest text-surface-500 shrink-0">รายละเอียดหมวดหมู่</p>
+              <div
+                v-for="(item, i) in donutChartData.labels.map((l, idx) => ({ label: l, value: donutChartData.series[idx] ?? 0, color: donutChartData.colors[idx] ?? '' }))"
+                :key="item.label"
+                class="flex items-center gap-3 py-2 border-b border-surface-800/60 last:border-0"
+              >
+                <div class="w-3 h-3 rounded-full shrink-0" :style="{ backgroundColor: item.color }" />
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-bold text-surface-200 truncate">{{ item.label }}</p>
+                  <p class="text-[11px] text-surface-500">{{ filterTotalAmount > 0 ? ((item.value / filterTotalAmount) * 100).toFixed(1) : '0.0' }}%</p>
+                </div>
+                <span class="text-sm font-black text-surface-50 shrink-0">฿{{ item.value.toLocaleString() }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- สรุปยอดรวม (ซ่อนตอน fullscreen) -->
+          <div v-if="!isDonutFullscreen" class="bg-gradient-to-r from-primary-600/10 to-primary-500/5 border border-primary-500/20 rounded-2xl px-6 py-4 flex items-center justify-between">
+            <div>
+              <p class="text-[11px] font-black uppercase tracking-widest text-surface-500">หมวดหมู่ทั้งหมด</p>
+              <p class="text-xs text-surface-600 mt-0.5">{{ donutChartData.labels.length }} หมวดหมู่ · {{ filteredExpenses.length }} รายการ</p>
+            </div>
+            <p class="text-3xl font-black text-primary-400">฿{{ filterTotalAmount.toLocaleString() }}</p>
+          </div>
+        </template>
+      </div>
+
     </div>
 
-    <!-- Modal: Add Expense -->
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition duration-300 ease-out"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition duration-200 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <div v-if="showAddModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm">
-          <Transition
-            enter-active-class="transition duration-300 ease-out"
-            enter-from-class="opacity-0 scale-95 translate-y-4"
-            enter-to-class="opacity-100 scale-100 translate-y-0"
-            leave-active-class="transition duration-200 ease-in"
-            leave-from-class="opacity-100 scale-100 translate-y-0"
-            leave-to-class="opacity-0 scale-95 translate-y-4"
-          >
-            <div v-if="showAddModal" class="bg-surface-900 border border-surface-800 rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden">
-              <!-- Modal Header -->
-              <div class="px-8 pt-8 pb-4 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 bg-primary-500/10 rounded-xl flex items-center justify-center text-primary-400">
-                    <Save v-if="editingId" :size="20" />
-                    <Plus v-else :size="20" />
-                  </div>
-                  <h3 class="text-xl font-black text-surface-50">
-                    {{ editingId ? 'แก้ไขข้อมูลรายจ่าย' : 'บันทึกรายจ่ายใหม่' }}
-                  </h3>
-                </div>
-                <button 
-                  @click="showAddModal = false"
-                  class="w-10 h-10 bg-surface-800 text-surface-400 hover:text-surface-50 rounded-xl flex items-center justify-center transition-colors"
-                >
-                  <X :size="20" />
-                </button>
-              </div>
-
-              <!-- Form Content -->
-              <form @submit.prevent="handleSubmit" class="p-8 space-y-6">
-                <!-- Date -->
-                <div class="space-y-2">
-                  <label class="text-[10px] font-black uppercase tracking-widest text-surface-500 px-1">วันที่จ่าย</label>
-                  <input 
-                    type="date" 
-                    v-model="form.expenseDate"
-                    required
-                    class="w-full h-14 bg-surface-800 border border-surface-700 rounded-2xl px-4 text-surface-50 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all outline-none"
-                  />
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                  <!-- Category -->
-                  <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-surface-500 px-1">หมวดหมู่</label>
-                    <CreatableSelect
-                      :model-value="form.categoryName || null"
-                      :options="categoryOptions"
-                      placeholder="หมวดหมู่..."
-                      @update:model-value="(v) => form.categoryName = v ?? ''"
-                      @create="async (name) => { await addCategory(name, randomColor()); await loadCategories(); form.categoryName = name }"
-                    />
-                  </div>
-
-                  <!-- Amount -->
-                  <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-surface-500 px-1">จำนวนเงิน (บาท)</label>
-                    <input 
-                      type="number" 
-                      v-model.number="form.amount"
-                      required
-                      min="1"
-                      step="0.01"
-                      placeholder="0.00"
-                      class="w-full h-14 bg-surface-800 border border-surface-700 rounded-2xl px-4 text-surface-50 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all outline-none font-black text-lg"
-                    />
-                  </div>
-                </div>
-
-                <!-- Description -->
-                <div class="space-y-2">
-                  <label class="text-[10px] font-black uppercase tracking-widest text-surface-500 px-1">คำอธิบาย</label>
-                  <textarea
-                    v-model="form.description"
-                    required
-                    rows="3"
-                    placeholder="เช่น ซื้อมะนาว 5 กิโล, จ่ายค่าไฟเดือนเมษา"
-                    class="w-full bg-surface-800 border border-surface-700 rounded-2xl p-4 text-surface-50 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all outline-none resize-none"
-                  ></textarea>
-                </div>
-
-                <!-- Vendor + จำนวน + Unit -->
-                <div class="grid grid-cols-3 gap-4">
-                  <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-surface-500 px-1">Vendor (ร้านค้า)</label>
-                    <CreatableSelect
-                      :model-value="form.vendor || null"
-                      :options="vendorSelectOptions"
-                      placeholder="ร้านค้า/ผู้จำหน่าย..."
-                      @update:model-value="(v) => form.vendor = v ?? ''"
-                      @create="(name) => handleVendorCreate(name, form)"
-                    />
-                  </div>
-                  <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-surface-500 px-1">จำนวน</label>
-                    <input
-                      type="number"
-                      v-model.number="form.quantity"
-                      min="0"
-                      step="0.01"
-                      placeholder="เช่น 5"
-                      class="w-full h-14 bg-surface-800 border border-surface-700 rounded-2xl px-4 text-surface-50 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all outline-none"
-                    />
-                  </div>
-                  <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-surface-500 px-1">หน่วย</label>
-                    <CreatableSelect
-                      :model-value="form.unit || null"
-                      :options="unitSelectOptions"
-                      placeholder="หน่วย..."
-                      @update:model-value="(v) => form.unit = v ?? ''"
-                      @create="(name) => handleUnitCreate(name, form)"
-                    />
-                  </div>
-                </div>
-
-                <!-- Footer Buttons -->
-                <div class="pt-4 flex gap-3">
-                  <button 
-                    type="button"
-                    @click="showAddModal = false"
-                    class="flex-1 h-14 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-2xl transition-all active:scale-95"
-                  >
-                    ยกเลิก
-                  </button>
-                  <button 
-                    type="submit"
-                    :disabled="isSubmitting"
-                    class="flex-[2] h-14 bg-primary-600 hover:bg-primary-500 text-white font-black rounded-2xl transition-all active:scale-95 shadow-lg shadow-primary-900/40 disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    <Save v-if="!isSubmitting" :size="20" />
-                    <span v-if="isSubmitting" class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    <span>{{ editingId ? 'ยืนยันการแก้ไข' : 'บันทึกข้อมูล' }}</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          </Transition>
-        </div>
-      </Transition>
-    </Teleport>
+    <!-- Modal: Add/Edit Expense -->
+    <AdminExpenseFormModal
+      :is-open="showAddModal"
+      :editing-expense="editingExpense"
+      @close="showAddModal = false"
+      @saved="loadExpenses"
+    />
     
     <!-- Modal: Monthly Report Chart -->
     <Teleport to="body">
@@ -506,7 +491,11 @@
         leave-from-class="opacity-100"
         leave-to-class="opacity-0"
       >
-        <div v-if="showReportModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm">
+        <div
+          v-if="showReportModal"
+          class="fixed z-[100] flex items-center justify-center bg-surface-950/90 transition-all duration-300"
+          :class="isReportFullscreen ? 'inset-0 p-0' : 'inset-0 p-4'"
+        >
           <Transition
             enter-active-class="transition duration-300 ease-out"
             enter-from-class="opacity-0 scale-95 translate-y-4"
@@ -515,9 +504,15 @@
             leave-from-class="opacity-100 scale-100 translate-y-0"
             leave-to-class="opacity-0 scale-95 translate-y-4"
           >
-            <div v-if="showReportModal" class="bg-surface-900 border border-surface-800 rounded-[2.5rem] shadow-2xl w-full max-w-4xl overflow-hidden">
+            <div
+              v-if="showReportModal"
+              class="bg-surface-900 border border-surface-800 shadow-2xl w-full overflow-hidden flex flex-col transition-all duration-300"
+              :class="isReportFullscreen
+                ? 'max-w-none rounded-none h-screen'
+                : 'max-w-5xl rounded-[2.5rem] min-h-[600px] max-h-[90vh]'"
+            >
               <!-- Modal Header -->
-              <div class="px-8 pt-8 pb-4 flex items-center justify-between">
+              <div class="px-8 pt-8 pb-4 flex items-center justify-between shrink-0">
                 <div class="flex items-center gap-3">
                   <div class="w-10 h-10 bg-primary-500/10 rounded-xl flex items-center justify-center text-primary-400">
                     <BarChart3 :size="20" />
@@ -527,17 +522,30 @@
                     <p class="text-xs text-surface-500">เปรียบเทียบมูลค่ารวมแยกตามเดือน</p>
                   </div>
                 </div>
-                <button 
-                  @click="showReportModal = false"
-                  class="w-10 h-10 bg-surface-800 text-surface-400 hover:text-surface-50 rounded-xl flex items-center justify-center transition-colors"
-                >
-                  <X :size="20" />
-                </button>
+                <div class="flex items-center gap-2">
+                  <!-- ปุ่มขยาย/ย่อเต็มจอ -->
+                  <button
+                    @click="isReportFullscreen = !isReportFullscreen"
+                    class="w-10 h-10 bg-surface-800 text-surface-400 hover:text-surface-50 hover:bg-surface-700 rounded-xl flex items-center justify-center transition-all active:scale-95"
+                    :title="isReportFullscreen ? 'ย่อหน้าต่าง' : 'ขยายเต็มจอ'"
+                  >
+                    <Minimize2 v-if="isReportFullscreen" :size="18" />
+                    <Maximize2 v-else :size="18" />
+                  </button>
+                  <!-- ปุ่มปิด -->
+                  <button 
+                    @click="showReportModal = false; isReportFullscreen = false"
+                    class="w-10 h-10 bg-surface-800 text-surface-400 hover:text-surface-50 hover:bg-red-500/20 hover:text-red-400 rounded-xl flex items-center justify-center transition-all active:scale-95"
+                    title="ปิดหน้าต่าง"
+                  >
+                    <X :size="20" />
+                  </button>
+                </div>
               </div>
 
               <!-- Chart Content -->
-              <div class="p-8">
-                <div class="bg-surface-950/50 border border-surface-800 rounded-3xl p-6 h-[400px]">
+              <div class="p-8 flex-1 flex flex-col min-h-0">
+                <div class="bg-surface-950/50 border border-surface-800 rounded-3xl p-6 flex-1 min-h-[400px]">
                   <ClientOnly>
                     <apexchart 
                       v-if="monthlyChartData.categories.length > 0"
@@ -554,10 +562,10 @@
                 </div>
               </div>
               
-              <div class="px-8 pb-8 flex justify-end">
+              <div class="px-8 pb-8 flex justify-end shrink-0">
                 <button 
-                  @click="showReportModal = false"
-                  class="px-8 h-12 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all"
+                  @click="showReportModal = false; isReportFullscreen = false"
+                  class="px-8 h-12 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all active:scale-95"
                 >
                   ปิดหน้าต่าง
                 </button>
@@ -592,215 +600,22 @@
       @updated="loadCategories"
     />
 
+    <!-- Modal: Mass Edit รายจ่าย -->
+    <ExpenseMassEditModal
+      :is-open="showMassEditModal"
+      :expense-ids="[...selectedExpenseIds]"
+      @close="showMassEditModal = false"
+      @saved="onMassEditSaved"
+    />
+
     <!-- Modal: แก้ไขรายจ่ายรายวัน -->
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <div
-          v-if="showDayEditModal"
-          class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm"
-        >
-          <Transition
-            enter-active-class="transition duration-200 ease-out"
-            enter-from-class="opacity-0 scale-95 translate-y-2"
-            enter-to-class="opacity-100 scale-100 translate-y-0"
-          >
-            <div
-              v-if="showDayEditModal"
-              class="bg-surface-900 border border-surface-800 shadow-2xl flex flex-col overflow-hidden transition-all duration-300"
-              :class="dayEditExpanded
-                ? 'fixed inset-3 rounded-[1.5rem]'
-                : 'relative w-full max-w-4xl max-h-[90vh] rounded-[2rem]'"
-            >
-              <!-- Header -->
-              <div class="px-7 pt-6 pb-4 flex items-center justify-between shrink-0 border-b border-surface-800">
-                <div>
-                  <h3 class="text-xl font-black text-surface-50">แก้ไขรายจ่าย: {{ editingDay ? formatThaiDate(editingDay) : '' }}</h3>
-                  <p class="text-xs text-surface-500 mt-0.5">{{ dayEditRows.filter(r => !r._deleted).length }} รายการ</p>
-                </div>
-                <div class="flex items-center gap-2">
-                  <!-- Expand/Collapse -->
-                  <button
-                    @click="dayEditExpanded = !dayEditExpanded"
-                    class="w-10 h-10 bg-surface-800 text-surface-400 hover:text-surface-50 rounded-xl flex items-center justify-center transition-colors"
-                    :title="dayEditExpanded ? 'ย่อหน้าต่าง' : 'ขยายหน้าต่าง'"
-                  >
-                    <Minimize2 v-if="dayEditExpanded" :size="18" />
-                    <Maximize2 v-else :size="18" />
-                  </button>
-                  <button
-                    @click="showDayEditModal = false"
-                    class="w-10 h-10 bg-surface-800 text-surface-400 hover:text-surface-50 rounded-xl flex items-center justify-center transition-colors"
-                  >
-                    <X :size="20" />
-                  </button>
-                </div>
-              </div>
-
-              <!-- Table -->
-              <div class="flex-1 overflow-auto">
-                <table class="w-full text-left text-sm border-separate border-spacing-0">
-                  <thead class="sticky top-0 z-10 bg-surface-800">
-                    <tr class="text-[10px] font-black uppercase tracking-widest text-surface-500">
-                      <th class="px-4 py-3 border-b border-surface-700">หมวดหมู่</th>
-                      <th class="px-4 py-3 border-b border-surface-700">คำอธิบาย</th>
-                      <th class="px-4 py-3 border-b border-surface-700">Vendor</th>
-                      <th class="px-4 py-3 border-b border-surface-700">หน่วย</th>
-                      <th class="px-4 py-3 border-b border-surface-700 text-right w-28">จำนวน</th>
-                      <th class="px-4 py-3 border-b border-surface-700 text-right w-36">จำนวนเงิน</th>
-                      <th class="px-4 py-3 border-b border-surface-700 text-center w-16">ลบ</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-surface-800">
-                    <tr
-                      v-for="(row, idx) in dayEditRows"
-                      :key="row.id ?? `new-${idx}`"
-                      class="transition-colors"
-                      :class="row._deleted ? 'opacity-40 bg-red-500/5' : row._isNew ? 'bg-emerald-500/5' : row._dirty ? 'bg-primary-500/5' : 'hover:bg-surface-800/30'"
-                    >
-                      <!-- Category -->
-                      <td class="px-4 py-2 min-w-[150px]">
-                        <CreatableSelect
-                          :model-value="row.categoryName || null"
-                          :options="categoryOptions"
-                          :disabled="row._deleted"
-                          placeholder="หมวดหมู่..."
-                          @update:model-value="(v) => { row.categoryName = v ?? ''; row._dirty = true }"
-                          @create="async (name) => { await addCategory(name, randomColor()); await loadCategories(); row.categoryName = name; row._dirty = true }"
-                        />
-                      </td>
-
-                      <!-- Description -->
-                      <td class="px-4 py-2 min-w-[180px]">
-                        <input
-                          type="text"
-                          v-model="row.description"
-                          :disabled="row._deleted"
-                          class="w-full h-9 bg-surface-800 border border-surface-700 rounded-lg px-3 text-surface-50 text-xs focus:ring-1 focus:ring-primary-500 outline-none disabled:opacity-50"
-                          :class="row._deleted ? 'line-through' : ''"
-                          @input="row._dirty = true"
-                        />
-                      </td>
-
-                      <!-- Vendor -->
-                      <td class="px-4 py-2 min-w-[150px]">
-                        <CreatableSelect
-                          :model-value="row.vendor || null"
-                          :options="vendorSelectOptions"
-                          :disabled="row._deleted"
-                          placeholder="ร้านค้า..."
-                          @update:model-value="(v) => { row.vendor = v ?? ''; row._dirty = true }"
-                          @create="(name) => handleVendorCreate(name, row)"
-                        />
-                      </td>
-
-                      <!-- Unit -->
-                      <td class="px-4 py-2 min-w-[120px]">
-                        <CreatableSelect
-                          :model-value="row.unit || null"
-                          :options="unitSelectOptions"
-                          :disabled="row._deleted"
-                          placeholder="หน่วย..."
-                          @update:model-value="(v) => { row.unit = v ?? ''; row._dirty = true }"
-                          @create="(name) => handleUnitCreate(name, row)"
-                        />
-                      </td>
-
-                      <!-- Quantity -->
-                      <td class="px-4 py-2">
-                        <input
-                          type="number"
-                          v-model.number="row.quantity"
-                          :disabled="row._deleted"
-                          min="0"
-                          step="0.01"
-                          placeholder="เช่น 5"
-                          class="w-full h-9 bg-surface-800 border border-surface-700 rounded-lg px-3 text-surface-50 text-xs text-right focus:ring-1 focus:ring-primary-500 outline-none disabled:opacity-50"
-                          @input="row._dirty = true"
-                        />
-                      </td>
-
-                      <!-- Amount -->
-                      <td class="px-4 py-2">
-                        <input
-                          type="number"
-                          v-model.number="row.amount"
-                          :disabled="row._deleted"
-                          min="0"
-                          step="0.01"
-                          class="w-full h-9 bg-surface-800 border border-surface-700 rounded-lg px-3 text-surface-50 text-xs font-bold text-right focus:ring-1 focus:ring-primary-500 outline-none disabled:opacity-50"
-                          @input="row._dirty = true"
-                        />
-                      </td>
-
-                      <!-- Delete Toggle -->
-                      <td class="px-4 py-2 text-center">
-                        <button
-                          v-if="!row._deleted"
-                          @click="row._deleted = true; row._dirty = false"
-                          class="w-8 h-8 flex items-center justify-center rounded-lg text-surface-600 hover:text-red-400 hover:bg-red-500/10 transition-colors mx-auto"
-                          title="ลบรายการ"
-                        >
-                          <Trash2 :size="15" />
-                        </button>
-                        <button
-                          v-else
-                          @click="row._deleted = false"
-                          class="text-[10px] font-bold text-surface-500 hover:text-surface-300 transition-colors"
-                        >
-                          ยกเลิก
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <!-- Footer -->
-              <div class="px-7 py-4 border-t border-surface-800 bg-surface-900/50 flex items-center justify-between shrink-0 gap-4">
-                <!-- ยอดรวม + ปุ่มเพิ่มแถว -->
-                <div class="flex items-center gap-5">
-                  <div class="flex flex-col gap-0.5">
-                    <span class="text-[10px] font-black uppercase tracking-widest text-surface-500">ยอดรวม (หลังลบ)</span>
-                    <span class="text-xl font-black text-primary-400">฿{{ dayEditTotal.toLocaleString() }}</span>
-                  </div>
-                  <button
-                    @click="addDayEditRow"
-                    class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all active:scale-95"
-                  >
-                    <Plus :size="16" /> เพิ่มรายการ
-                  </button>
-                </div>
-                <!-- ปุ่มยกเลิก/บันทึก -->
-                <div class="flex items-center gap-3">
-                  <button
-                    @click="showDayEditModal = false"
-                    class="px-6 py-3 rounded-2xl text-sm font-bold text-surface-400 hover:text-surface-100 hover:bg-surface-800 transition-all"
-                  >
-                    ปิด
-                  </button>
-                  <button
-                    @click="saveDayEdit"
-                    :disabled="dayEditSaving || dayEditChangedCount === 0"
-                    class="px-8 py-3 rounded-2xl bg-primary-600 hover:bg-primary-500 disabled:opacity-30 disabled:cursor-not-allowed text-white text-sm font-bold shadow-xl shadow-primary-900/20 transition-all active:scale-95 flex items-center gap-2"
-                  >
-                    <span v-if="dayEditSaving" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    <Save v-else :size="16" />
-                    <span>บันทึก{{ dayEditChangedCount > 0 ? ` (${dayEditChangedCount} รายการ)` : '' }}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Transition>
-        </div>
-      </Transition>
-    </Teleport>
+    <DayEditModal
+      :is-open="showDayEditModal"
+      :date="editingDay"
+      :expenses="editingDayExpenses"
+      @close="showDayEditModal = false"
+      @saved="loadExpenses"
+    />
 
     <!-- Modal: รายจ่ายของวันที่เลือก -->
     <Teleport to="body">
@@ -814,7 +629,7 @@
       >
         <div
           v-if="selectedDay"
-          class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm"
+          class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/90"
           @click.self="selectedDay = null"
         >
           <Transition
@@ -871,8 +686,17 @@
               </div>
               <!-- Footer ยอดรวม -->
               <div class="px-7 py-4 border-t border-surface-800 flex items-center justify-between bg-surface-800/30">
-                <span class="text-xs font-black uppercase tracking-widest text-surface-500">รวมทั้งวัน</span>
-                <span class="text-2xl font-black text-primary-400">฿{{ selectedDayTotal.toLocaleString() }}</span>
+                <button
+                  @click="openDayEditModal(selectedDay!); selectedDay = null"
+                  class="h-9 px-4 bg-surface-700 hover:bg-surface-600 text-surface-200 text-sm font-bold rounded-xl transition-all active:scale-95 flex items-center gap-2"
+                >
+                  <Pencil :size="14" />
+                  <span>แก้ไขรายการ</span>
+                </button>
+                <div class="flex flex-col items-end">
+                  <span class="text-[10px] font-black uppercase tracking-widest text-surface-500">รวมทั้งวัน</span>
+                  <span class="text-2xl font-black text-primary-400">฿{{ selectedDayTotal.toLocaleString() }}</span>
+                </div>
               </div>
             </div>
           </Transition>
@@ -884,18 +708,17 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Banknote, Plus, Calendar, Filter, Trash2, X, Save, ChevronLeft, ChevronRight, BarChart3, Search, Pencil, Maximize2, Minimize2 } from 'lucide-vue-next'
-import CreatableSelect from '~/components/admin/CreatableSelect.vue'
-import { useProfitability } from '~/composables/useProfitability'
+import { Banknote, Plus, Calendar, Filter, Trash2, X, ChevronLeft, ChevronRight, BarChart3, Search, Pencil, CheckSquare, Maximize2, Minimize2, PieChart } from 'lucide-vue-next'
+import DayEditModal from '~/components/admin/DayEditModal.vue'
+import AdminExpenseFormModal from '~/components/admin/AdminExpenseFormModal.vue'
+import ExpenseMassEditModal from '~/components/admin/ExpenseMassEditModal.vue'
 import { useMasterDataSync } from '~/composables/useMasterDataSync'
-import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
 import { useConfirm } from '~/composables/useConfirm'
 import { useExpenseExcel, type ExpenseImportPreviewItem, type ImportItemResult } from '~/composables/useExpenseExcel'
 import { useExpenseCategories } from '~/composables/useExpenseCategories'
 import { db } from '~/db'
-import { v4 as uuidv4 } from 'uuid'
-import type { Expense, ExpenseCategoryRecord } from '~/types'
+import type { Expense } from '~/types'
 import ExpenseCategoryFormModal from '~/components/admin/ExpenseCategoryFormModal.vue'
 import ExpenseBatchModal from '~/components/admin/ExpenseBatchModal.vue'
 
@@ -903,23 +726,24 @@ definePageMeta({
   layout: 'admin'
 })
 
-const { addExpense, updateExpense } = useProfitability()
-const authStore = useAuthStore()
 const toast = useToast()
 const { confirm } = useConfirm()
 const { lastPullTimestamp } = useMasterDataSync()
 const { isOnline } = useSync()
 const { exportExpenses, prepareImportData, executeImport, downloadTemplate } = useExpenseExcel()
-const { categories: expenseCategories, fetchAll: fetchExpenseCategories, addCategory } = useExpenseCategories()
+const { categories: expenseCategories, fetchAll: fetchExpenseCategories } = useExpenseCategories()
 
 // --- State ---
 const showExcelMenu = ref(false)
 const showAddModal = ref(false)
+const editingExpense = ref<Expense | null>(null)
 const showBatchModal = ref(false)
 const showReportModal = ref(false)
+const isReportFullscreen = ref(false)
+const isDonutFullscreen = ref(false)
 const showCategoryModal = ref(false)
-const editingId = ref<number | null>(null)
-const isSubmitting = ref(false)
+const selectedExpenseIds = ref<Set<number>>(new Set())
+const showMassEditModal = ref(false)
 const expenses = ref<Expense[]>([])
 const filterCategory = ref('')
 const searchQuery = ref('')
@@ -981,55 +805,6 @@ const isImporting = ref(false)
 const importPreviewItems = ref<ExpenseImportPreviewItem[]>([])
 const importResults = ref<ImportItemResult[] | null>(null)
 
-const form = ref({
-  expenseDate: new Date().toISOString().slice(0, 10),
-  categoryName: '',
-  categoryId: undefined as number | undefined,
-  categoryUuid: '',
-  category: undefined as any, // fallback
-  amount: 0,
-  description: '',
-  vendor: '',
-  unit: '',
-  quantity: undefined as number | undefined,
-})
-
-// --- Category Options ---
-const categoryOptions = computed(() =>
-  expenseCategories.value.map(c => ({ value: c.name, label: c.name, color: c.color }))
-)
-
-function randomColor() {
-  const palette = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#8b5cf6', '#06b6d4', '#f97316']
-  return palette[Math.floor(Math.random() * palette.length)]
-}
-
-// --- Vendor / Unit Options (shared across modals) ---
-const DEFAULT_UNITS = ['กรัม', 'กิโลกรัม', 'มิลลิลิตร', 'ลิตร', 'กล่อง', 'ชิ้น', 'แพ็ค', 'โหล', 'ถุง', 'ขวด']
-const vendorOptions = ref<string[]>([])
-const unitOptions = ref<string[]>([...DEFAULT_UNITS])
-
-const vendorSelectOptions = computed(() => vendorOptions.value.map(v => ({ value: v, label: v })))
-const unitSelectOptions = computed(() => unitOptions.value.map(u => ({ value: u, label: u })))
-
-async function loadVendorUnitOptions() {
-  const all = await db.expenses.filter(e => !e.isDeleted && !!e.vendor).toArray()
-  vendorOptions.value = [...new Set(all.map(e => e.vendor!).filter(Boolean))]
-  const allUnits = await db.expenses.filter(e => !e.isDeleted && !!e.unit).toArray()
-  unitOptions.value = [...new Set([...DEFAULT_UNITS, ...allUnits.map(e => e.unit!).filter(Boolean)])]
-}
-
-function handleVendorCreate(name: string, target: { vendor: string; _dirty?: boolean }) {
-  if (!vendorOptions.value.includes(name)) vendorOptions.value.push(name)
-  target.vendor = name
-  if ('_dirty' in target) (target as any)._dirty = true
-}
-
-function handleUnitCreate(name: string, target: { unit: string; _dirty?: boolean }) {
-  if (!unitOptions.value.includes(name)) unitOptions.value.push(name)
-  target.unit = name
-  if ('_dirty' in target) (target as any)._dirty = true
-}
 
 // Map รหัสเดิม (Legacy) -> ชื่อไทย (สำหรับข้อมูลเก่า)
 const legacyLabels: Record<string, string> = {
@@ -1049,12 +824,6 @@ async function loadExpenses() {
 
 async function loadCategories() {
   await fetchExpenseCategories()
-  const firstCat = expenseCategories.value[0]
-  if (!form.value.categoryId && firstCat) {
-    form.value.categoryId = firstCat.id
-    form.value.categoryUuid = firstCat.uuid
-    form.value.categoryName = firstCat.name
-  }
 }
 
 const filteredExpenses = computed(() => {
@@ -1074,7 +843,7 @@ const filteredExpenses = computed(() => {
     const matchVendor = !filterVendor.value || exp.vendor === filterVendor.value
 
     return matchStart && matchEnd && matchCat && matchSearch && matchVendor
-  })
+  }).sort((a, b) => b.expenseDate.localeCompare(a.expenseDate))
 })
 
 const totalPages = computed(() => Math.ceil(filteredExpenses.value.length / itemsPerPage))
@@ -1097,131 +866,20 @@ const vendorList = computed(() =>
   [...new Set(expenses.value.map(e => e.vendor).filter((v): v is string => !!v))].sort()
 )
 
-const activeTab = ref<'daily' | 'list'>('daily')
+const activeTab = ref<'daily' | 'list' | 'chart'>('daily')
 const selectedDay = ref<string | null>(null)
 
 // --- Day Edit Modal ---
-interface DayEditRow {
-  id?: number           // undefined สำหรับแถวใหม่
-  categoryName: string
-  categoryId: number | undefined
-  categoryUuid: string
-  description: string
-  vendor: string
-  unit: string
-  quantity: number | undefined
-  amount: number
-  _dirty: boolean
-  _deleted: boolean
-  _isNew: boolean       // true = ยังไม่มีใน DB
-}
-
 const showDayEditModal = ref(false)
-const dayEditExpanded = ref(false)
 const editingDay = ref<string | null>(null)
-const dayEditRows = ref<DayEditRow[]>([])
-const dayEditSaving = ref(false)
-
-function addDayEditRow() {
-  const defaultCat = expenseCategories.value[0]
-  dayEditRows.value.push({
-    categoryName: defaultCat?.name || '',
-    categoryId: defaultCat?.id,
-    categoryUuid: defaultCat?.uuid || '',
-    description: '',
-    vendor: '',
-    unit: '',
-    quantity: undefined,
-    amount: 0,
-    _dirty: false,
-    _deleted: false,
-    _isNew: true,
-  })
-}
 
 function openDayEditModal(date: string) {
   editingDay.value = date
-  dayEditExpanded.value = false
-  const dayExpenses = filteredExpenses.value.filter(e => e.expenseDate === date)
-  dayEditRows.value = dayExpenses.map(e => ({
-    id: e.id!,
-    categoryName: getCategoryName(e),
-    categoryId: e.categoryId,
-    categoryUuid: e.categoryUuid || '',
-    description: e.description,
-    vendor: e.vendor || '',
-    unit: e.unit || '',
-    quantity: e.quantity,
-    amount: e.amount,
-    _dirty: false,
-    _deleted: false,
-    _isNew: false,
-  }))
   showDayEditModal.value = true
 }
 
-async function saveDayEdit() {
-  dayEditSaving.value = true
-  try {
-    const user = authStore.currentUser
-    const toDelete = dayEditRows.value.filter(r => r._deleted && !r._isNew)
-    const toUpdate = dayEditRows.value.filter(r => r._dirty && !r._deleted && !r._isNew)
-    const toCreate = dayEditRows.value.filter(r => r._isNew && !r._deleted && r.description.trim() && r.amount > 0)
-
-    await Promise.all([
-      ...toDelete.map(r => db.expenses.update(r.id!, { isDeleted: true, syncStatus: 'pending', updatedAt: new Date() })),
-      ...toUpdate.map(r => {
-        const cat = expenseCategories.value.find(c => c.name === r.categoryName)
-        return db.expenses.update(r.id!, {
-          categoryId: cat?.id ?? r.categoryId,
-          categoryUuid: cat?.uuid ?? r.categoryUuid ?? undefined,
-          description: r.description,
-          vendor: r.vendor || undefined,
-          unit: r.unit || undefined,
-          quantity: r.quantity || undefined,
-          amount: r.amount,
-          syncStatus: 'pending' as const,
-          updatedAt: new Date(),
-        })
-      }),
-      ...toCreate.map(r => {
-        const cat = expenseCategories.value.find(c => c.name === r.categoryName)
-        return db.expenses.add({
-          uuid: uuidv4(),
-          expenseDate: editingDay.value!,
-          categoryId: cat?.id,
-          categoryUuid: cat?.uuid,
-          description: r.description,
-          vendor: r.vendor || undefined,
-          unit: r.unit || undefined,
-          quantity: r.quantity || undefined,
-          amount: r.amount,
-          recordedBy: user?.displayName || 'Unknown',
-          staffId: user?.id || 0,
-          staffUuid: user?.uuid || '',
-          isDeleted: false,
-          syncStatus: 'pending' as const,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        } as Expense)
-      }),
-    ])
-
-    toast.success('บันทึกสำเร็จ')
-    showDayEditModal.value = false
-    await loadExpenses()
-  } catch (e) {
-    toast.error('บันทึกไม่สำเร็จ')
-  } finally {
-    dayEditSaving.value = false
-  }
-}
-
-const dayEditTotal = computed(() =>
-  dayEditRows.value.filter(r => !r._deleted).reduce((sum, r) => sum + (r.amount || 0), 0)
-)
-const dayEditChangedCount = computed(() =>
-  dayEditRows.value.filter(r => r._dirty || r._deleted || (r._isNew && !r._deleted && r.description.trim() && r.amount > 0)).length
+const editingDayExpenses = computed(() =>
+  editingDay.value ? filteredExpenses.value.filter(e => e.expenseDate === editingDay.value) : []
 )
 
 const selectedDayExpenses = computed(() =>
@@ -1344,9 +1002,127 @@ const monthlyChartOptions = computed(() => ({
   }
 }))
 
-// รีเซ็ตหน้าเมื่อตัวกรองเปลี่ยน
-watch([selectedDateRange, customStart, customEnd, filterCategory, searchQuery, filterVendor], () => {
+// --- Donut Chart: จัดกลุ่มตามหมวดหมู่ ---
+// สีสำหรับหมวดหมู่ (palette สวยงาม)
+const DONUT_COLORS = [
+  '#06b6d4', '#3b82f6', '#f97316', '#a855f7', '#10b981',
+  '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#ec4899',
+  '#84cc16', '#6366f1', '#0ea5e9', '#d946ef', '#22c55e'
+]
+
+const donutChartData = computed(() => {
+  // จัดกลุ่มตามหมวดหมู่จาก filteredExpenses (ตามช่วงวันที่ที่เลือก)
+  const catMap = new Map<string, { total: number; color: string }>()
+
+  for (const exp of filteredExpenses.value) {
+    const name = getCategoryName(exp)
+    // หาสีจาก category ถ้ามี
+    let color = ''
+    if (exp.categoryId) {
+      const cat = expenseCategories.value.find(c => c.id === exp.categoryId)
+      if (cat?.color) color = cat.color
+    } else {
+      const legacyColors: Record<string, string> = {
+        ingredient: '#ef4444', utility: '#3b82f6',
+        wage: '#f59e0b', rent: '#8b5cf6',
+        supplies: '#06b6d4', other: '#64748b'
+      }
+      color = legacyColors[exp.category!] || '#64748b'
+    }
+    if (!catMap.has(name)) {
+      catMap.set(name, { total: 0, color })
+    }
+    catMap.get(name)!.total += exp.amount
+  }
+
+  // เรียงจากมากไปน้อย
+  const sorted = Array.from(catMap.entries())
+    .sort((a, b) => b[1].total - a[1].total)
+
+  // ถ้าหมวดหมู่ไม่มีสี ใช้ palette
+  let colorIdx = 0
+  const labels = sorted.map(([name]) => name)
+  const series = sorted.map(([, v]) => v.total)
+  const colors = sorted.map(([, v]) => v.color || DONUT_COLORS[colorIdx++ % DONUT_COLORS.length])
+
+  return { labels, series, colors }
+})
+
+const donutChartOptions = computed(() => ({
+  chart: {
+    background: 'transparent',
+    foreColor: '#a8a29e', // สีหลักของ label/text ทั้งหมด
+    fontFamily: 'Inter, sans-serif',
+    toolbar: { show: false }
+  },
+  colors: donutChartData.value.colors,
+  labels: donutChartData.value.labels,
+  stroke: { show: false }, // ไม่ใช้ stroke เหมือน closing-report
+  plotOptions: {
+    pie: {
+      expandOnClick: false,
+      donut: {
+        size: '65%',
+        labels: {
+          show: true,
+          name: {
+            show: true,
+            fontSize: '12px',
+            fontWeight: '700',
+            color: '#a8a29e', // ใช้ foreColor เดียวกัน ไม่ hardcode
+            offsetY: -10
+          },
+          value: {
+            show: true,
+            fontSize: '20px',
+            fontWeight: '900',
+            // ไม่กำหนด color เพื่อให้ ApexCharts ใช้ foreColor อัตโนมัติ
+            // ทำให้ทำงานได้ทั้ง light และ dark mode
+            color: undefined,
+            offsetY: 6,
+            formatter: (v: string) => `฿${Number(v).toLocaleString()}`
+          },
+          total: {
+            show: true,
+            showAlways: true,
+            label: 'รวมทั้งหมด',
+            color: '#a8a29e',
+            fontSize: '11px',
+            fontWeight: '700',
+            // ใช้ w.globals แบบเดียวกับ closing-report
+            formatter: (w: any) => `฿${w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0).toLocaleString()}`
+          }
+        }
+      }
+    }
+  },
+  dataLabels: {
+    enabled: true,
+    // แสดงชื่อหมวดหมู่ + เปอร์เซ็นต์ ใน 2 บรรทัด (pattern เดียวกับ closing-report)
+    formatter: (val: number, opts: any) => {
+      const name = opts.w.globals.labels[opts.seriesIndex] as string
+      const shortName = name.length > 8 ? name.slice(0, 7) + '…' : name
+      return `${shortName}\n${val.toFixed(0)}%`
+    },
+    style: {
+      fontSize: '9px',
+      fontWeight: 'bold',
+      colors: ['#fff']
+    },
+    dropShadow: { enabled: true, blur: 1, opacity: 0.5 },
+    offsetY: 0
+  },
+  legend: { show: false },
+  tooltip: {
+    theme: 'dark',
+    y: { formatter: (v: number) => `฿${v.toLocaleString()}` }
+  }
+}))
+
+// รีเซ็ตหน้าและ selection เมื่อตัวกรองหรือ tab เปลี่ยน
+watch([selectedDateRange, customStart, customEnd, filterCategory, searchQuery, filterVendor, activeTab], () => {
   currentPage.value = 1
+  selectedExpenseIds.value = new Set()
 })
 
 function getCategoryName(expense: Expense) {
@@ -1390,106 +1166,35 @@ function formatThaiDate(dateStr: string) {
 }
 
 
-async function handleSubmit() {
-  if (form.value.amount <= 0) {
-    toast.error('กรุณาระบุจำนวนเงินให้ถูกต้อง')
-    return
-  }
+const isAllSelected = computed(() =>
+  filteredExpenses.value.length > 0 &&
+  filteredExpenses.value.every(e => selectedExpenseIds.value.has(e.id!))
+)
 
-  isSubmitting.value = true
-  try {
-    const user = authStore.currentUser
-
-    // resolve categoryId จาก categoryName (รองรับสร้างใหม่)
-    let resolvedCategoryId = form.value.categoryId
-    let resolvedCategoryUuid = form.value.categoryUuid
-    if (form.value.categoryName) {
-      let cat = expenseCategories.value.find(c => c.name === form.value.categoryName)
-      if (!cat) {
-        await addCategory(form.value.categoryName, randomColor())
-        await fetchExpenseCategories()
-        cat = expenseCategories.value.find(c => c.name === form.value.categoryName)
-      }
-      resolvedCategoryId = cat?.id
-      resolvedCategoryUuid = cat?.uuid || ''
-    }
-
-    const payload = {
-      expenseDate: form.value.expenseDate,
-      categoryId: resolvedCategoryId,
-      categoryUuid: resolvedCategoryUuid,
-      description: form.value.description,
-      vendor: form.value.vendor || undefined,
-      unit: form.value.unit || undefined,
-      quantity: form.value.quantity || undefined,
-      amount: form.value.amount,
-    }
-
-    if (editingId.value) {
-      await updateExpense(editingId.value, { ...payload, updatedAt: new Date(), syncStatus: 'pending' })
-      toast.success('อัปเดตข้อมูลรายจ่ายเรียบร้อยแล้ว')
-    } else {
-      await addExpense({
-        ...payload,
-        recordedBy: user?.displayName || 'Unknown',
-        staffId: user?.id || 0,
-        staffUuid: user?.uuid || '',
-        syncStatus: 'pending'
-      })
-      toast.success('บันทึกรายจ่ายเรียบร้อยแล้ว')
-    }
-
-    showAddModal.value = false
-    resetForm()
-    await loadExpenses()
-  } catch (e) {
-    console.error(e)
-    toast.error('ดำเนินการไม่สำเร็จ')
-  } finally {
-    isSubmitting.value = false
+function toggleSelectAll() {
+  if (isAllSelected.value) {
+    selectedExpenseIds.value = new Set()
+  } else {
+    selectedExpenseIds.value = new Set(filteredExpenses.value.map(e => e.id!))
   }
 }
 
-function resetForm() {
-  editingId.value = null
-  const defaultCat = expenseCategories.value[0]
-  form.value = {
-    expenseDate: new Date().toISOString().slice(0, 10),
-    categoryName: defaultCat?.name || '',
-    categoryId: defaultCat?.id,
-    categoryUuid: defaultCat?.uuid || '',
-    category: undefined as any,
-    amount: 0,
-    description: '',
-    vendor: '',
-    unit: '',
-    quantity: undefined,
-  }
+function toggleSelect(id: number) {
+  const next = new Set(selectedExpenseIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedExpenseIds.value = next
+}
+
+async function onMassEditSaved() {
+  selectedExpenseIds.value = new Set()
+  await loadExpenses()
 }
 
 function openEditModal(expense: Expense) {
-  editingId.value = expense.id!
-  form.value = {
-    expenseDate: expense.expenseDate,
-    categoryName: getCategoryName(expense),
-    categoryId: expense.categoryId,
-    categoryUuid: expense.categoryUuid || '',
-    category: expense.category,
-    amount: expense.amount,
-    description: expense.description,
-    vendor: expense.vendor || '',
-    unit: expense.unit || '',
-    quantity: expense.quantity,
-  }
+  editingExpense.value = expense
   showAddModal.value = true
 }
-
-// ล้างฟอร์มเมื่อปิด Modal
-watch(showAddModal, (val) => {
-  if (!val) {
-    setTimeout(resetForm, 300) // รอ Transition จบก่อนล้าง
-  }
-})
 
 async function handleDelete(expense: Expense) {
   const confirmed = await confirm({
@@ -1586,6 +1291,5 @@ async function handleConfirmImport() {
 onMounted(async () => {
   await loadCategories()
   await loadExpenses()
-  await loadVendorUnitOptions()
 })
 </script>
