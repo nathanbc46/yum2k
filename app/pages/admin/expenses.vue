@@ -1,7 +1,7 @@
 <template>
   <div class="flex-1 flex flex-col h-full bg-surface-950 overflow-hidden">
     <!-- Header -->
-    <div class="p-6 bg-surface-900 border-b border-surface-800 flex items-center justify-between shrink-0">
+    <div class="p-6 bg-surface-900 border-b border-surface-800 flex flex-wrap items-center justify-between gap-y-3 shrink-0">
       <div class="flex items-center gap-4">
         <div class="w-12 h-12 bg-primary-500/10 rounded-2xl flex items-center justify-center text-primary-400">
           <Banknote :size="24" />
@@ -11,13 +11,13 @@
           <p class="text-sm text-surface-500">บันทึกต้นทุนและค่าใช้จ่ายอื่นๆ ของร้าน</p>
         </div>
       </div>
-      
-      <div class="flex items-center gap-3">
-        <button 
+
+      <div class="flex flex-wrap items-center gap-2 justify-end">
+        <button
           @click="showReportModal = true"
-          class="h-12 px-5 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all active:scale-95 flex items-center gap-2 border border-surface-700"
+          class="h-11 px-4 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all active:scale-95 flex items-center gap-2 border border-surface-700 text-sm"
         >
-          <BarChart3 :size="20" />
+          <BarChart3 :size="18" />
           <span>รายงานรายเดือน</span>
         </button>
 
@@ -25,7 +25,7 @@
         <div class="relative">
           <button
             @click="showExcelMenu = !showExcelMenu"
-            class="h-12 px-5 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all border border-surface-700 flex items-center gap-2"
+            class="h-11 px-4 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all border border-surface-700 flex items-center gap-2 text-sm"
           >
             <span>📊 Excel</span>
             <span class="text-[10px] opacity-50">▼</span>
@@ -61,23 +61,23 @@
 
         <button
           @click="showBatchModal = true"
-          class="h-12 px-6 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-primary-900/20"
+          class="h-11 px-4 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-primary-900/20 text-sm"
         >
-          <Plus :size="20" />
+          <Plus :size="18" />
           <span>เพิ่มรายจ่าย</span>
         </button>
 
         <button
           @click="showCategoryModal = true"
-          class="h-12 px-6 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all border border-surface-700 flex items-center gap-2"
+          class="h-11 px-4 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all border border-surface-700 flex items-center gap-2 text-sm"
         >
-          <Calendar :size="20" />
+          <Calendar :size="18" />
           <span>จัดการหมวดหมู่</span>
         </button>
 
         <button
           @click="showRecurringModal = true"
-          class="h-12 px-6 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 flex items-center gap-2"
+          class="h-11 px-4 bg-amber-500/5 hover:bg-amber-500/10 text-surface-200 font-bold rounded-xl transition-all border border-amber-500/30 flex items-center gap-2 text-sm"
           title="กำหนดรายจ่ายที่สร้างอัตโนมัติทุกวัน"
         >
           <span>🔄</span>

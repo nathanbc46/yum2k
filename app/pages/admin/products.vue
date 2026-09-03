@@ -3,12 +3,12 @@
 
     <!-- Page Header -->
     <header class="px-6 py-5 border-b border-surface-800 shrink-0 bg-surface-900/50">
-      <div class="flex items-center justify-between">
+      <div class="flex flex-wrap items-center justify-between gap-y-3">
         <div>
           <h1 class="text-xl font-bold">📦 จัดการสินค้า</h1>
           <p class="text-xs text-surface-500 mt-0.5">{{ products.length }} รายการ</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2 justify-end">
           <button
             @click="toggleTrashMode"
             class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border shrink-0"
