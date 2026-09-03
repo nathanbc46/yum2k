@@ -358,11 +358,43 @@ export interface Expense extends BaseEntity {
   staffId: number            // FK -> User.id
   staffUuid: string          // สำหรับ Sync กับ Supabase
   
+  recurringExpenseUuid?: string // UUID ของ Template รายจ่ายประจำ (ถ้า generate อัตโนมัติ)
+
   // --- Sync Status ---
   syncStatus: SyncStatus     // สถานะการ Sync
   syncedAt?: Date            // เวลาที่ Sync สำเร็จ
   syncError?: string         // ข้อความ Error ถ้า Sync ล้มเหลว
   syncRetryCount?: number    // จำนวนครั้งที่ลอง Sync (ทำให้เป็น Optional เผื่อข้อมูลเก่า)
+}
+
+// ---------------------------------------------------------------------------
+// Recurring Expense: รายจ่ายประจำ (Template)
+// ---------------------------------------------------------------------------
+
+export type RecurringFrequency = 'daily' | 'monthly'
+
+/** Template สำหรับสร้างรายจ่ายอัตโนมัติ */
+export interface RecurringExpense {
+  id?: number
+  uuid: string
+  frequency: RecurringFrequency // daily = ทุกวัน, monthly = ทุกเดือนในวันที่กำหนด
+  dayOfMonth?: number           // 1-28 สำหรับ monthly
+  isActive: boolean             // เปิด/ปิดการ generate อัตโนมัติ
+  amount: number
+  description: string
+  category?: string
+  categoryUuid?: string
+  vendor?: string
+  unit?: string
+  quantity?: number
+  lastGeneratedDate?: string    // 'YYYY-MM-DD' วันที่ generate ล่าสุด
+  isDeleted: boolean
+  syncStatus: SyncStatus
+  syncedAt?: Date
+  syncError?: string
+  syncRetryCount?: number
+  createdAt: Date
+  updatedAt: Date
 }
 
 // ---------------------------------------------------------------------------

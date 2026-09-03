@@ -780,9 +780,12 @@ export function useMasterDataSync() {
     masterSyncError.value = null
     const syncStartTime = new Date()
     try {
+      const { pushRecurringExpenses } = useSync()
       const stockLogs        = await pushStockAuditLogs(force)
       // push expense categories ก่อน expenses เพื่อป้องกัน FK violation
       const expenseCategories = await pushExpenseCategories()
+      // push recurring expenses ก่อน expenses ปกติ (FK dependency)
+      await pushRecurringExpenses().catch(err => console.warn('⚠️ Push RecurringExpenses Error:', err))
       // push promotion batches ก่อน codes (FK dependency)
       await pushPromotionBatches(force)
       await pushPromotionCodes(force)
@@ -807,6 +810,7 @@ export function useMasterDataSync() {
     masterSyncError.value = null
     const syncStartTime = new Date()
     try {
+      const { fetchRemoteRecurringExpenses } = useSync()
       const categories        = await pullCategories(force)
       const products          = await pullProducts(force)
       const expenseCategories = await pullExpenseCategories(force)
@@ -817,6 +821,7 @@ export function useMasterDataSync() {
         return 0
       })
       await pullPromotionCodes(force).catch(err => console.warn('⚠️ Pull PromotionCodes Error:', err))
+      await fetchRemoteRecurringExpenses().catch(err => console.warn('⚠️ Pull RecurringExpenses Error:', err))
       await updateLastPullAt(syncStartTime)
 
       // อัปเดต Last Push At ด้วย เพื่อบอกว่าข้อมูลที่เพิ่งดึงมานี้ "ทันสมัยแล้ว"

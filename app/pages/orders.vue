@@ -835,7 +835,7 @@ const formatDate = (date: Date | string) => {
 
 const reprint = async (order: Order) => {
   posStore.setLastOrder(order)
-  await print(order)
+  await print(order, { skipKitchen: true })
 }
 
 onMounted(() => {

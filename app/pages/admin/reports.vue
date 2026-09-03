@@ -14,6 +14,7 @@
             <option value="this-month">เดือนนี้</option>
             <option value="last-month">เดือนที่แล้ว</option>
             <option value="this-year">ปีนี้</option>
+            <option value="custom-month">📅 เลือกเดือน/ปี</option>
             <option value="7">ย้อนหลัง 7 วัน</option>
             <option value="14">ย้อนหลัง 14 วัน</option>
             <option value="30">ย้อนหลัง 30 วัน</option>
@@ -21,6 +22,17 @@
             <option value="180">ย้อนหลัง 6 เดือน</option>
             <option value="365">ย้อนหลัง 1 ปี</option>
           </select>
+          <!-- เลือกเดือนและปีแบบกำหนดเอง -->
+          <template v-if="selectedPeriod === 'custom-month'">
+            <select v-model="customMonth" @change="loadData"
+              class="bg-surface-800 border border-primary-600 text-surface-50 rounded-xl px-3 py-2 text-sm focus:border-primary-400 outline-none transition-all">
+              <option v-for="(name, idx) in thaiMonthNames" :key="idx + 1" :value="idx + 1">{{ name }}</option>
+            </select>
+            <select v-model="customYear" @change="loadData"
+              class="bg-surface-800 border border-primary-600 text-surface-50 rounded-xl px-3 py-2 text-sm focus:border-primary-400 outline-none transition-all">
+              <option v-for="y in availableYears" :key="y" :value="y">พ.ศ. {{ y + 543 }}</option>
+            </select>
+          </template>
           <button @click="loadData" class="p-2 bg-surface-800 hover:bg-surface-700 rounded-xl border border-surface-700 transition-colors" title="รีเฟรช">🔄</button>
           <button @click="openAiModal('insight')"
             class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary-600 to-cyan-600 text-white rounded-xl text-sm font-black transition-all hover:shadow-lg hover:shadow-primary-500/20 active:scale-95">
@@ -72,7 +84,7 @@
       <!-- ===== TAB 1: ภาพรวม ===== -->
       <div v-if="activeTab === 'overview'" class="p-6 space-y-6">
         <!-- Summary Cards -->
-        <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <div class="bg-gradient-to-br from-blue-600/20 to-white dark:to-surface-900 border border-blue-600/40 p-5 rounded-2xl shadow-sm">
             <div class="text-[10px] uppercase tracking-widest text-blue-700 dark:text-blue-400 mb-1 font-bold">ยอดขายรวม</div>
             <div class="text-3xl font-black text-blue-700 dark:text-blue-400">฿{{ summary.revenue.toLocaleString() }}</div>
@@ -130,9 +142,15 @@
               <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-[-1px] border-8 border-transparent border-b-surface-700" />
             </div>
           </div>
+          <!-- Card: รายจ่ายจริงในช่วงที่เลือก -->
+          <div class="bg-surface-900 p-5 rounded-2xl border border-orange-500/30 bg-orange-500/5">
+            <div class="text-[10px] uppercase tracking-widest text-orange-400 mb-1 font-bold">รายจ่ายจริง (ช่วงนี้)</div>
+            <div class="text-2xl font-black text-orange-400">฿{{ Math.round(rawTotalExpenses).toLocaleString() }}</div>
+            <div class="text-[10px] text-surface-600 mt-2">รายจ่ายจริงจาก DB ในช่วงที่ดู</div>
+          </div>
           <div :class="[
             'relative overflow-hidden p-5 rounded-2xl border-2 transition-all duration-500 shadow-xl',
-            (summary.revenue - (summary.totalExpenses || 0)) >= 0 
+            (summary.revenue - (summary.totalExpenses || 0)) >= 0
               ? 'bg-gradient-to-br from-emerald-500/20 to-white dark:to-surface-900 border-emerald-500/50 shadow-emerald-500/10 animate-pulse-subtle' 
               : 'bg-gradient-to-br from-red-500/20 to-white dark:to-surface-900 border-red-500/50 shadow-red-500/10 animate-pulse-subtle'
           ]">
@@ -597,6 +615,18 @@ const filterCategoryId = ref<number>(0)
 const filterProductUuid = ref('')
 const showExpenseTooltip = ref(false)
 
+// --- Custom Month/Year Picker ---
+const now = new Date()
+const nowYear = now.getFullYear() > 2400 ? now.getFullYear() - 543 : now.getFullYear()
+const customMonth = ref(now.getMonth() + 1) // 1-12
+const customYear = ref(nowYear) // CE year
+const thaiMonthNames = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
+const availableYears = computed(() => {
+  const years: number[] = []
+  for (let y = nowYear - 4; y <= nowYear; y++) years.push(y)
+  return years
+})
+
 // ปิด Tooltip เมื่อคลิกที่อื่น
 if (process.client) {
   const closeTooltip = () => { showExpenseTooltip.value = false }
@@ -751,7 +781,7 @@ const revenueChartOptions = computed(() => ({
   stroke: { curve: 'smooth', width: 3 },
   fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.45, opacityTo: 0.05, stops: [20, 100] } },
   xaxis: { categories: dailyHistory.value.map(d => { const p = d.date.split('-'); return `${p[2]}/${p[1]}` }), axisBorder: { show: false }, axisTicks: { show: false } },
-  yaxis: { labels: { formatter: (v: number) => `฿${v.toLocaleString()}` } },
+  yaxis: { labels: { formatter: (v: number) => v != null ? `฿${v.toLocaleString()}` : '' } },
   grid: { borderColor: '#292524', strokeDashArray: 4 },
   tooltip: { theme: 'dark' },
   legend: { position: 'top', horizontalAlign: 'right' },
@@ -1055,6 +1085,9 @@ async function loadData() {
   } else if (selectedPeriod.value === 'this-year') {
     startDate.value = new Date(gregorianY, 0, 1, 0, 0, 0, 0)
     endDate.value = new Date(gregorianY, now.getMonth(), now.getDate(), 23, 59, 59, 999)
+  } else if (selectedPeriod.value === 'custom-month') {
+    startDate.value = new Date(customYear.value, customMonth.value - 1, 1, 0, 0, 0, 0)
+    endDate.value = new Date(customYear.value, customMonth.value, 0, 23, 59, 59, 999)
   } else {
     const days = Number(selectedPeriod.value)
     endDate.value = new Date()

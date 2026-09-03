@@ -339,7 +339,7 @@ export function usePrinter() {
   // server/api/thermal-print.post.ts จะรับและส่งต่อผ่าน Node.js net module
   // ใช้กับ Xprinter ที่มี WiFi/LAN (port มาตรฐาน 9100)
   // ---------------------------------------------------------------------------
-  async function printWifi(order: Order): Promise<boolean> {
+  async function printWifi(order: Order, skipKitchen = false): Promise<boolean> {
     await loadReceiptSettings()
     const s = receiptSettings.value
     if (!s.printerIp) {
@@ -351,17 +351,17 @@ export function usePrinter() {
       let customerBuffer = s.printerImageMode
         ? await buildImageEscPos(buildReceiptLines(order), s.paperSize)
         : buildEscPosBuffer(order)
-      
+
       // ถ้ามีโลโก้ ให้สร้าง buffer ของโลโก้มาต่อข้างหน้า
       if (s.shopLogo) {
         const logoBuffer = await generateLogoBuffer(s.shopLogo, s.paperSize)
         customerBuffer = concatBuffers([logoBuffer, customerBuffer])
       }
-      
+
       let finalBuffer = customerBuffer
 
       // ถ้าเปิด Kitchen Copy ให้สร้าง buffer ใบสั่งครัวมาต่อท้าย
-      if (s.printKitchenCopy) {
+      if (s.printKitchenCopy && !skipKitchen) {
         const kitchenBuffer = s.printerImageMode
           ? await buildImageEscPos(buildReceiptLines(order, true), s.paperSize)
           : buildEscPosBuffer(order, true)
@@ -385,7 +385,7 @@ export function usePrinter() {
    * หมายเหตุ: บน Android USB printer class (0x07) ถูก OS claim ไว้ จะเกิด SecurityError
    * แนะนำให้ใช้ WiFi method แทนสำหรับ Android
    */
-  async function printUSB(order: Order): Promise<boolean> {
+  async function printUSB(order: Order, skipKitchen = false): Promise<boolean> {
     try {
       await loadReceiptSettings()
       const device = await getUSBPrinter()
@@ -395,21 +395,21 @@ export function usePrinter() {
       }
 
       const s = receiptSettings.value
-      
+
       // สร้าง buffer ใบเสร็จลูกค้า
       let customerBuffer = s.printerImageMode
         ? await buildImageEscPos(buildReceiptLines(order), s.paperSize)
         : buildEscPosBuffer(order)
-      
+
       if (s.shopLogo) {
         const logoBuffer = await generateLogoBuffer(s.shopLogo, s.paperSize)
         customerBuffer = concatBuffers([logoBuffer, customerBuffer])
       }
-      
+
       let finalBuffer = customerBuffer
 
       // ถ้าเปิด Kitchen Copy ให้สร้าง buffer ใบสั่งครัวมาต่อท้าย
-      if (s.printKitchenCopy) {
+      if (s.printKitchenCopy && !skipKitchen) {
         const kitchenBuffer = s.printerImageMode
           ? await buildImageEscPos(buildReceiptLines(order, true), s.paperSize)
           : buildEscPosBuffer(order, true)
@@ -582,24 +582,24 @@ export function usePrinter() {
   // ---------------------------------------------------------------------------
   // RawBT - Silent Printing ผ่านแอป RawBT (localhost:40213)
   // ---------------------------------------------------------------------------
-  async function printRawBT(order: Order): Promise<boolean> {
+  async function printRawBT(order: Order, skipKitchen = false): Promise<boolean> {
     try {
       await loadReceiptSettings()
       const s = receiptSettings.value
-      
+
       // สร้างใบเสร็จลูกค้า
       let finalText = ''
-      
+
       // สำหรับ RawBT ถ้าต้องการพิมพ์ Logo สามารถส่งรูป base64 ในแท็ก <image> ได้ (เฉพาะ base64 ที่ตัด header data:image... ออก)
       if (s.shopLogo) {
         const base64Data = s.shopLogo.split(',')[1]
         if (base64Data) finalText += `<image>${base64Data}</image>\n`
       }
-      
+
       finalText += formatReceiptEscPos(order)
 
       // ถ้าเปิด Kitchen Copy ให้สร้างใบสั่งครัวมาต่อท้าย
-      if (s.printKitchenCopy) {
+      if (s.printKitchenCopy && !skipKitchen) {
         const kitchenText = formatReceiptEscPos(order, true)
         finalText += kitchenText
       }
@@ -620,15 +620,15 @@ export function usePrinter() {
   // ---------------------------------------------------------------------------
   // Browser Print - Fallback (มี dialog ของ browser)
   // ---------------------------------------------------------------------------
-  async function printStandard(order: Order) {
+  async function printStandard(order: Order, skipKitchen = false) {
     await loadReceiptSettings()
     const s = receiptSettings.value
     await nextTick()
-    
+
     // พิมพ์ผ่าน Browser สร้างหน้าต่างใหม่
     const win = window.open('', '_blank', 'width=400,height=600')
     if (!win) return
-    
+
     let html = `<!DOCTYPE html><html><head>
       <meta charset="utf-8">
       <style>
@@ -636,13 +636,13 @@ export function usePrinter() {
         .logo { display: block; margin: 0 auto 5px auto; max-height: 60px; filter: grayscale(100%) contrast(1.2); }
       </style>
     </head><body>`
-    
+
     if (s.shopLogo) {
       html += `<img src="${s.shopLogo}" class="logo" />`
     }
-    
+
     let text = formatReceiptEscPos(order)
-    if (s.printKitchenCopy) {
+    if (s.printKitchenCopy && !skipKitchen) {
       text += formatReceiptEscPos(order, true)
     }
     
@@ -655,17 +655,18 @@ export function usePrinter() {
   // ---------------------------------------------------------------------------
   // Unified Print - เลือกวิธีพิมพ์จาก receiptSettings.printerMethod
   // ---------------------------------------------------------------------------
-  async function print(order: Order): Promise<boolean> {
+  async function print(order: Order, options?: { skipKitchen?: boolean }): Promise<boolean> {
     await loadReceiptSettings()
     const method = receiptSettings.value.printerMethod ?? 'wifi'
+    const skipKitchen = options?.skipKitchen ?? false
     if (method === 'wifi') {
-      return await printWifi(order)
+      return await printWifi(order, skipKitchen)
     } else if (method === 'usb') {
-      return await printUSB(order)
+      return await printUSB(order, skipKitchen)
     } else if (method === 'rawbt') {
-      return await printRawBT(order)
+      return await printRawBT(order, skipKitchen)
     } else {
-      await printStandard(order)
+      await printStandard(order, skipKitchen)
       return true
     }
   }

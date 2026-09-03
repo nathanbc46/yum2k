@@ -243,6 +243,7 @@
 <script setup lang="ts">
 import { useMasterDataSync } from '~/composables/useMasterDataSync'
 import { useSync } from '~/composables/useSync'
+import { useRecurringExpenses } from '~/composables/useRecurringExpenses'
 import { useAuthStore } from '~/stores/auth'
 import { useTheme } from '~/composables/useTheme'
 import { useToast } from '~/composables/useToast'
@@ -253,6 +254,15 @@ const router = useRouter()
 const authUser = useAuthStore()
 const { theme, toggleTheme } = useTheme()
 const toast = useToast()
+const { generatePendingExpenses } = useRecurringExpenses()
+
+onMounted(async () => {
+  try {
+    await generatePendingExpenses()
+  } catch (e) {
+    console.warn('⚠️ generate recurring expenses error:', e)
+  }
+})
 
 const isSidebarOpen = ref(false)
 const showLogoutConfirm = ref(false)

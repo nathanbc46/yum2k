@@ -365,6 +365,7 @@ export function useSync() {
         vendor: baseInfo.vendor ?? null,
         unit: baseInfo.unit ?? null,
         quantity: baseInfo.quantity ?? null,
+        recurring_expense_uuid: baseInfo.recurringExpenseUuid ?? null,
         recorded_by: baseInfo.recordedBy || null,
         staff_id: baseInfo.staffId || null,
         staff_uuid: baseInfo.staffUuid || null,         // empty string → null (uuid type)
@@ -554,48 +555,54 @@ export function useSync() {
 
   /**
    * ดึงข้อมูลรายจ่ายจาก Cloud ลงมาที่เครื่อง
+   * ใช้ cursor pagination แบบเดียวกับ fetchRemoteOrders เพื่อให้ครบทุก page
+   * @param pageSize จำนวนรายการต่อ page (default 200)
+   * @param maxPages จำนวน page สูงสุด — Infinity = ดึงจนครบทุกรายการ, 1 = แค่ page แรก (สำหรับ Realtime)
    */
-  async function fetchRemoteExpenses(limit = 100): Promise<number> {
+  async function fetchRemoteExpenses(pageSize = 200, maxPages = Infinity): Promise<number> {
     if (!supabase) return 0
 
-    const { data: remoteExpenses, error } = await withTimeout(
-      supabase
-        .from('expenses')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(limit)
-    )
-
-    if (error) throw error
-    if (!remoteExpenses?.length) return 0
-
-    // ตรวจสอบรายการที่มีอยู่แล้วเพื่อป้องกันการซ้ำ
-    const remoteUuids = remoteExpenses.map(e => e.uuid)
-    const existingExpenses = await db.expenses.where('uuid').anyOf(remoteUuids).toArray()
-    const existingUuids = new Set(existingExpenses.map(e => e.uuid))
-
-    // ดึงหมวดหมู่ทั้งหมดมาเพื่อ Map UUID -> ID
+    // โหลด category map ครั้งเดียวก่อนวนลูป
     const allCats = await db.expenseCategories.toArray()
     const catUuidToId = new Map(allCats.map(c => [c.uuid, c.id!]))
 
-    let count = 0
-    await db.transaction('rw', db.expenses, async () => {
-      for (const remote of remoteExpenses) {
-        const categoryId = remote.category_uuid ? catUuidToId.get(remote.category_uuid) : undefined
-        
-        if (existingUuids.has(remote.uuid)) {
-          // อัปเดตข้อมูลเดิมที่มีอยู่ (ถ้ามี)
-          const localExp = existingExpenses.find(e => e.uuid === remote.uuid)
+    let offset = 0
+    let totalCount = 0
+    let hasMore = true
+    let pagesFetched = 0
+
+    while (hasMore && pagesFetched < maxPages) {
+      const { data: pageData, error } = await withTimeout(
+        supabase
+          .from('expenses')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false }) // secondary sort เพื่อ stable ordering
+          .range(offset, offset + pageSize - 1)
+      )
+      if (error) throw error
+      if (!pageData || pageData.length === 0) break
+      pagesFetched++
+      offset += pageSize
+
+      // ตรวจว่า UUID ไหนมีอยู่แล้วใน Local
+      const remoteUuids = pageData.map((e: any) => e.uuid)
+      const existingExpenses = await db.expenses.where('uuid').anyOf(remoteUuids).toArray()
+      const existingMap = new Map(existingExpenses.map(e => [e.uuid, e]))
+
+      await db.transaction('rw', db.expenses, async () => {
+        for (const remote of pageData) {
+          const categoryId = remote.category_uuid ? catUuidToId.get(remote.category_uuid) : undefined
+          const localExp = existingMap.get(remote.uuid)
+
           if (localExp) {
-            // เปรียบเทียบ updatedAt เพื่อดูว่าควรทับไหม
-            const remoteDate = new Date(remote.updated_at)
-            const localDate = new Date(localExp.updatedAt)
-            
-            if (remoteDate > localDate) {
+            // อัปเดตเฉพาะถ้า Cloud ใหม่กว่า
+            if (new Date(remote.updated_at) > new Date(localExp.updatedAt)) {
               await db.expenses.update(localExp.id!, {
                 category: remote.category,
-                categoryId: categoryId,
+                categoryId,
                 categoryUuid: remote.category_uuid,
+                recurringExpenseUuid: remote.recurring_expense_uuid ?? undefined,
                 amount: Number(remote.amount),
                 description: remote.description,
                 expenseDate: remote.expense_date,
@@ -610,38 +617,136 @@ export function useSync() {
                 syncedAt: new Date(remote.updated_at),
                 updatedAt: new Date(remote.updated_at)
               })
-              count++
+              totalCount++
             }
+          } else {
+            // เพิ่มรายการใหม่
+            await db.expenses.add({
+              uuid: remote.uuid,
+              category: remote.category,
+              categoryId,
+              categoryUuid: remote.category_uuid,
+              recurringExpenseUuid: remote.recurring_expense_uuid ?? undefined,
+              amount: Number(remote.amount),
+              description: remote.description,
+              expenseDate: remote.expense_date,
+              vendor: remote.vendor ?? undefined,
+              unit: remote.unit ?? undefined,
+              quantity: remote.quantity != null ? Number(remote.quantity) : undefined,
+              recordedBy: remote.recorded_by,
+              staffId: remote.staff_id,
+              staffUuid: remote.staff_uuid,
+              isDeleted: !!remote.is_deleted,
+              syncStatus: 'synced',
+              syncedAt: new Date(remote.updated_at),
+              createdAt: new Date(remote.created_at),
+              updatedAt: new Date(remote.updated_at)
+            })
+            totalCount++
+          }
+        }
+      })
+
+      if (pageData.length < pageSize) {
+        hasMore = false
+      }
+    }
+
+    await refreshPendingCount()
+    return totalCount
+  }
+
+  async function fetchRemoteRecurringExpenses(): Promise<number> {
+    if (!supabase) return 0
+    const { data, error } = await withTimeout(
+      supabase.from('recurring_expenses').select('*').order('created_at', { ascending: true })
+    )
+    if (error) throw error
+    if (!data || data.length === 0) return 0
+
+    const remoteUuids = data.map((r: any) => r.uuid)
+    const existing = await db.recurringExpenses.where('uuid').anyOf(remoteUuids).toArray()
+    const existingMap = new Map(existing.map(e => [e.uuid, e]))
+
+    let count = 0
+    await db.transaction('rw', db.recurringExpenses, async () => {
+      for (const remote of data) {
+        const local = existingMap.get(remote.uuid)
+        const remoteUpdatedAt = new Date(remote.updated_at)
+
+        const record = {
+          uuid:              remote.uuid,
+          frequency:         remote.frequency,
+          dayOfMonth:        remote.day_of_month ?? undefined,
+          isActive:          remote.is_active,
+          amount:            Number(remote.amount),
+          description:       remote.description,
+          category:          remote.category ?? undefined,
+          categoryUuid:      remote.category_uuid ?? undefined,
+          vendor:            remote.vendor ?? undefined,
+          unit:              remote.unit ?? undefined,
+          quantity:          remote.quantity != null ? Number(remote.quantity) : undefined,
+          lastGeneratedDate: remote.last_generated_date ?? undefined,
+          isDeleted:         !!remote.is_deleted,
+          syncStatus:        'synced' as const,
+          syncedAt:          remoteUpdatedAt,
+          createdAt:         new Date(remote.created_at),
+          updatedAt:         remoteUpdatedAt,
+        }
+
+        if (local) {
+          if (remoteUpdatedAt > new Date(local.updatedAt)) {
+            await db.recurringExpenses.update(local.id!, record)
+            count++
           }
         } else {
-          // เพิ่มรายการใหม่
-          await db.expenses.add({
-            uuid: remote.uuid,
-            category: remote.category,
-            categoryId: categoryId,
-            categoryUuid: remote.category_uuid,
-            amount: Number(remote.amount),
-            description: remote.description,
-            expenseDate: remote.expense_date,
-            vendor: remote.vendor ?? undefined,
-            unit: remote.unit ?? undefined,
-            quantity: remote.quantity != null ? Number(remote.quantity) : undefined,
-            recordedBy: remote.recorded_by,
-            staffId: remote.staff_id,
-            staffUuid: remote.staff_uuid,
-            isDeleted: !!remote.is_deleted,
-            syncStatus: 'synced',
-            syncedAt: new Date(remote.updated_at),
-            createdAt: new Date(remote.created_at),
-            updatedAt: new Date(remote.updated_at)
-          })
+          await db.recurringExpenses.add(record as any)
           count++
         }
       }
     })
-
-    await refreshPendingCount()
     return count
+  }
+
+  async function pushRecurringExpenses(): Promise<number> {
+    if (!supabase) return 0
+    const pending = await db.recurringExpenses
+      .where('syncStatus').anyOf(['pending', 'failed'])
+      .filter(r => !r.isDeleted || r.syncStatus === 'pending')
+      .toArray()
+    if (pending.length === 0) return 0
+
+    const payload = pending.map(r => ({
+      uuid:                r.uuid,
+      frequency:           r.frequency,
+      day_of_month:        r.dayOfMonth ?? null,
+      is_active:           r.isActive,
+      amount:              r.amount,
+      description:         r.description,
+      category:            r.category ?? null,
+      category_uuid:       r.categoryUuid ?? null,
+      vendor:              r.vendor ?? null,
+      unit:                r.unit ?? null,
+      quantity:            r.quantity ?? null,
+      last_generated_date: r.lastGeneratedDate ?? null,
+      is_deleted:          r.isDeleted ? 1 : 0,
+      sync_status:         'synced',
+      created_at:          new Date(r.createdAt).toISOString(),
+      updated_at:          new Date(r.updatedAt).toISOString(),
+    }))
+
+    const { error } = await withTimeout(
+      supabase.from('recurring_expenses').upsert(payload, { onConflict: 'uuid' })
+    )
+    if (error) {
+      console.warn('⚠️ Push recurring_expenses ล้มเหลว:', error.message)
+      return 0
+    }
+    const now = new Date()
+    for (const r of pending) {
+      await db.recurringExpenses.update(r.id!, { syncStatus: 'synced', syncedAt: now })
+    }
+    return pending.length
   }
 
   async function getLastRemoteOrderSequence(deviceCode: string): Promise<number> {
@@ -675,6 +780,8 @@ export function useSync() {
     refreshPendingCount,
     fetchRemoteOrders,
     fetchRemoteExpenses, // เพิ่มให้เรียกใช้งานได้
+    fetchRemoteRecurringExpenses,
+    pushRecurringExpenses,
     getLastRemoteOrderSequence,
     nextSyncCountdown,
     startHeartbeatSync: async () => {
@@ -723,7 +830,7 @@ export function useSync() {
             debounceTimer = setTimeout(async () => {
               if (!isOnline.value) return
               try {
-                const count = await fetchRemoteExpenses(200)
+                const count = await fetchRemoteExpenses(200, 1)
                 if (count > 0) {
                   masterSync.lastPullTimestamp.value = Date.now()
                   toast.info(`📡 อัปเดตรายจ่าย ${count} รายการจากอุปกรณ์อื่น`)

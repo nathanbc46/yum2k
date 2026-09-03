@@ -67,12 +67,21 @@
           <span>เพิ่มรายจ่าย</span>
         </button>
 
-        <button 
+        <button
           @click="showCategoryModal = true"
           class="h-12 px-6 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all border border-surface-700 flex items-center gap-2"
         >
           <Calendar :size="20" />
           <span>จัดการหมวดหมู่</span>
+        </button>
+
+        <button
+          @click="showRecurringModal = true"
+          class="h-12 px-6 bg-surface-800 hover:bg-surface-700 text-surface-200 font-bold rounded-xl transition-all border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 flex items-center gap-2"
+          title="กำหนดรายจ่ายที่สร้างอัตโนมัติทุกวัน"
+        >
+          <span>🔄</span>
+          <span>รายจ่ายประจำ</span>
         </button>
       </div>
     </div>
@@ -93,9 +102,30 @@
             <option value="this_month">เดือนนี้</option>
             <option value="last_month">เดือนที่แล้ว</option>
             <option value="this_year">ปีนี้</option>
+            <option value="custom-month">📅 เลือกเดือน/ปี</option>
             <option value="custom">กำหนดเอง</option>
           </select>
         </div>
+
+        <!-- Custom Month/Year dropdowns -->
+        <template v-if="selectedDateRange === 'custom-month'">
+          <div class="flex items-center gap-2 px-3 h-11 bg-surface-950 rounded-xl border border-surface-800">
+            <select
+              v-model="customMonth"
+              class="bg-surface-950 border-none text-surface-50 focus:ring-0 text-sm"
+            >
+              <option v-for="(name, idx) in thaiMonthNames" :key="idx + 1" :value="idx + 1">{{ name }}</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2 px-3 h-11 bg-surface-950 rounded-xl border border-surface-800">
+            <select
+              v-model="customYear"
+              class="bg-surface-950 border-none text-surface-50 focus:ring-0 text-sm"
+            >
+              <option v-for="y in availableYears" :key="y" :value="y">{{ y + 543 }}</option>
+            </select>
+          </div>
+        </template>
 
         <!-- Custom date inputs -->
         <template v-if="selectedDateRange === 'custom'">
@@ -303,7 +333,14 @@
                 </span>
               </td>
               <td class="px-6 py-4 text-sm text-surface-200 font-bold">
-                {{ expense.description }}
+                <div class="flex items-center gap-2">
+                  <span>{{ expense.description }}</span>
+                  <span
+                    v-if="expense.recurringExpenseUuid"
+                    class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-black shrink-0"
+                    title="สร้างอัตโนมัติจาก Template รายจ่ายประจำ"
+                  >🔄 ประจำ</span>
+                </div>
               </td>
               <td class="px-6 py-4 text-sm text-surface-500">
                 {{ expense.vendor || '-' }}
@@ -600,6 +637,12 @@
       @updated="loadCategories"
     />
 
+    <!-- Modal: รายจ่ายประจำ -->
+    <RecurringExpenseModal
+      :is-open="showRecurringModal"
+      @close="showRecurringModal = false; loadExpenses()"
+    />
+
     <!-- Modal: Mass Edit รายจ่าย -->
     <ExpenseMassEditModal
       :is-open="showMassEditModal"
@@ -708,7 +751,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Banknote, Plus, Calendar, Filter, Trash2, X, ChevronLeft, ChevronRight, BarChart3, Search, Pencil, CheckSquare, Maximize2, Minimize2, PieChart } from 'lucide-vue-next'
+import { Banknote, Plus, Calendar, Filter, Trash2, X, ChevronLeft, ChevronRight, BarChart3, Search, Pencil, CheckSquare, Maximize2, Minimize2, PieChart, Save } from 'lucide-vue-next'
 import DayEditModal from '~/components/admin/DayEditModal.vue'
 import AdminExpenseFormModal from '~/components/admin/AdminExpenseFormModal.vue'
 import ExpenseMassEditModal from '~/components/admin/ExpenseMassEditModal.vue'
@@ -721,6 +764,7 @@ import { db } from '~/db'
 import type { Expense } from '~/types'
 import ExpenseCategoryFormModal from '~/components/admin/ExpenseCategoryFormModal.vue'
 import ExpenseBatchModal from '~/components/admin/ExpenseBatchModal.vue'
+import RecurringExpenseModal from '~/components/admin/RecurringExpenseModal.vue'
 
 definePageMeta({
   layout: 'admin'
@@ -738,6 +782,7 @@ const showExcelMenu = ref(false)
 const showAddModal = ref(false)
 const editingExpense = ref<Expense | null>(null)
 const showBatchModal = ref(false)
+const showRecurringModal = ref(false)
 const showReportModal = ref(false)
 const isReportFullscreen = ref(false)
 const isDonutFullscreen = ref(false)
@@ -757,6 +802,11 @@ const _pad = (n: number) => String(n).padStart(2, '0')
 const _todayStr = `${_now.getFullYear()}-${_pad(_now.getMonth() + 1)}-${_pad(_now.getDate())}`
 const customStart = ref(_todayStr)
 const customEnd = ref(_todayStr)
+
+const thaiMonthNames = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
+const customMonth = ref(_now.getMonth() + 1)
+const customYear = ref(_now.getFullYear())
+const availableYears = Array.from({ length: 5 }, (_, i) => _now.getFullYear() - i)
 
 function getDateRangeBounds(range: string): { start: string; end: string } {
   const d = new Date()
@@ -787,17 +837,35 @@ function getDateRangeBounds(range: string): { start: string; end: string } {
     }
     case 'this_year':
       return { start: `${y}-01-01`, end: `${y}-12-31` }
+    case 'custom-month': {
+      const lastDay = new Date(customYear.value, customMonth.value, 0).getDate()
+      return {
+        start: `${customYear.value}-${p(customMonth.value)}-01`,
+        end:   `${customYear.value}-${p(customMonth.value)}-${p(lastDay)}`
+      }
+    }
     default:
       return { start: customStart.value, end: customEnd.value }
   }
 }
 
-const startDate = computed(() =>
-  selectedDateRange.value === 'custom' ? customStart.value : getDateRangeBounds(selectedDateRange.value).start
-)
-const endDate = computed(() =>
-  selectedDateRange.value === 'custom' ? customEnd.value : getDateRangeBounds(selectedDateRange.value).end
-)
+const startDate = computed(() => {
+  if (selectedDateRange.value === 'custom') return customStart.value
+  if (selectedDateRange.value === 'custom-month') {
+    const p = (n: number) => String(n).padStart(2, '0')
+    return `${customYear.value}-${p(customMonth.value)}-01`
+  }
+  return getDateRangeBounds(selectedDateRange.value).start
+})
+const endDate = computed(() => {
+  if (selectedDateRange.value === 'custom') return customEnd.value
+  if (selectedDateRange.value === 'custom-month') {
+    const p = (n: number) => String(n).padStart(2, '0')
+    const lastDay = new Date(customYear.value, customMonth.value, 0).getDate()
+    return `${customYear.value}-${p(customMonth.value)}-${p(lastDay)}`
+  }
+  return getDateRangeBounds(selectedDateRange.value).end
+})
 
 const excelInput = ref<HTMLInputElement | null>(null)
 const isImportPreviewOpen = ref(false)
@@ -902,6 +970,9 @@ const dailySummary = computed(() => {
 })
 
 const dateRangeLabel = computed(() => {
+  if (selectedDateRange.value === 'custom-month') {
+    return `${thaiMonthNames[customMonth.value - 1]} ${customYear.value + 543}`
+  }
   const map: Record<string, string> = {
     today: 'วันนี้',
     this_week: 'สัปดาห์นี้',
@@ -1120,7 +1191,7 @@ const donutChartOptions = computed(() => ({
 }))
 
 // รีเซ็ตหน้าและ selection เมื่อตัวกรองหรือ tab เปลี่ยน
-watch([selectedDateRange, customStart, customEnd, filterCategory, searchQuery, filterVendor, activeTab], () => {
+watch([selectedDateRange, customStart, customEnd, customMonth, customYear, filterCategory, searchQuery, filterVendor, activeTab], () => {
   currentPage.value = 1
   selectedExpenseIds.value = new Set()
 })

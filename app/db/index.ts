@@ -21,12 +21,13 @@ import type {
   Promotion,
   PromotionBatch,
   PromotionCode,
+  RecurringExpense,
 } from '~/types'
 
 // ---------------------------------------------------------------------------
 // กำหนด Version ของ Database (เพิ่มทุกครั้งที่เปลี่ยน Schema)
 // ---------------------------------------------------------------------------
-const DB_VERSION = 15
+const DB_VERSION = 16
 const DB_NAME = 'Yum2K_POS_DB'
 
 // ---------------------------------------------------------------------------
@@ -49,6 +50,7 @@ class Yum2KDatabase extends Dexie {
   promotions!: EntityTable<Promotion, 'id'>
   promotionBatches!: EntityTable<PromotionBatch, 'id'>
   promotionCodes!: EntityTable<PromotionCode, 'id'>
+  recurringExpenses!: EntityTable<RecurringExpense, 'id'>
 
   // AppSettings ใช้ key เป็น Primary Key แทน id
   appSettings!: Dexie.Table<AppSetting, string>
@@ -183,7 +185,7 @@ class Yum2KDatabase extends Dexie {
     })
 
     // Version 10: เพิ่มตาราง promotions
-    this.version(DB_VERSION).stores({
+    this.version(10).stores({
       users: '++id, &uuid, &username, role, isActive, isDeleted, updatedAt',
       categories: '++id, &uuid, name, parentId, parentUuid, isActive, sortOrder, isDeleted, updatedAt',
       products: '++id, &uuid, categoryId, name, sku, isActive, sortOrder, totalSold, stockQuantity, mappingType, isDeleted, updatedAt',
@@ -263,7 +265,13 @@ class Yum2KDatabase extends Dexie {
     this.version(14).stores({})
 
     // Version 15: เพิ่มฟิลด์ quantity ใน expenses (schema ไม่เปลี่ยน ไม่ต้อง index)
-    this.version(DB_VERSION).stores({})
+    this.version(15).stores({})
+
+    // Version 16: เพิ่มตาราง recurringExpenses + compound index บน expenses
+    this.version(DB_VERSION).stores({
+      expenses: '++id, &uuid, categoryId, category, expenseDate, syncStatus, isDeleted, [recurringExpenseUuid+expenseDate]',
+      recurringExpenses: '++id, &uuid, frequency, isActive, isDeleted, syncStatus',
+    })
   }
 }
 
