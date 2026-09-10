@@ -711,6 +711,11 @@
                         :style="getCategoryStyles(exp)"
                       >{{ getCategoryName(exp) }}</span>
                       <span class="text-sm text-surface-200 truncate font-bold">{{ exp.description }}</span>
+                      <span
+                        v-if="exp.recurringExpenseUuid"
+                        class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-black shrink-0"
+                        title="สร้างอัตโนมัติจาก Template รายจ่ายประจำ"
+                      >🔄 ประจำ</span>
                     </div>
                     <span class="text-sm font-black text-surface-50 ml-4 shrink-0">฿{{ exp.amount.toLocaleString() }}</span>
                   </div>
