@@ -81,6 +81,7 @@ import { useTheme } from '~/composables/useTheme'
 import { useToast } from '~/composables/useToast'
 import { useAuthStore } from '~/stores/auth'
 import { useLineDailySummary } from '~/composables/useLineDailySummary'
+import { useRecurringExpenses } from '~/composables/useRecurringExpenses'
 import PosReceipt from '~/components/pos/PosReceipt.vue'
 import PwaInstallPrompt from '~/components/admin/PwaInstallPrompt.vue'
 import PwaUpdatePrompt from '~/components/PwaUpdatePrompt.vue'
@@ -94,6 +95,7 @@ const {
   startRealtimeSync, stopRealtimeSync
 } = useSync()
 const { start: startDailySummary, stop: stopDailySummary } = useLineDailySummary()
+const { generatePendingExpenses } = useRecurringExpenses()
 const posStore = usePosStore()
 const { theme, toggleTheme } = useTheme()
 const authStore = useAuthStore()
@@ -129,7 +131,7 @@ watch(() => authStore.isAuthenticated, (isAuth) => {
   else stopSessionTimer()
 })
 
-onMounted(() => {
+onMounted(async () => {
   cleanupNetwork = setupNetworkListener()
   refreshPendingCount()
   startHeartbeatSync()
@@ -138,6 +140,10 @@ onMounted(() => {
   // Session timeout
   if (authStore.isAuthenticated) resetTimer()
   SESSION_EVENTS.forEach(e => window.addEventListener(e, resetTimer, { passive: true }))
+  // สร้างรายจ่ายประจำที่ค้างอยู่ (backfill ถ้าปิดระบบไปหลายวัน)
+  try { await generatePendingExpenses() } catch (e) {
+    console.warn('⚠️ generate recurring expenses error:', e)
+  }
 })
 
 onUnmounted(() => {
