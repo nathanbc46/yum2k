@@ -71,16 +71,52 @@ export function usePrinter() {
   }
 
   // ---------------------------------------------------------------------------
+  // ESC/POS QR Code Builder (GS ( k — Native command, รองรับ Xprinter ส่วนใหญ่)
+  // สร้าง QR code สำหรับ printer โดยไม่ต้องพึ่ง library ภายนอก
+  // ---------------------------------------------------------------------------
+  function buildQrCodeBytes(url: string, size = 6): Uint8Array {
+    if (!url) return new Uint8Array([])
+    const data = new TextEncoder().encode(url)
+    const pL = (data.length + 3) & 0xFF
+    const pH = ((data.length + 3) >> 8) & 0xFF
+    const parts: number[] = []
+    // Center align
+    parts.push(0x1B, 0x61, 0x01)
+    // Model 2 (standard)
+    parts.push(0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00)
+    // Module size (1-16, default 6 ≈ กลาง)
+    parts.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, size)
+    // Error correction level M (48=L, 49=M, 50=Q, 51=H)
+    parts.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 49)
+    // Store data
+    parts.push(0x1D, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30)
+    for (const b of data) parts.push(b)
+    // Print
+    parts.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30)
+    // Reset align left
+    parts.push(0x1B, 0x61, 0x00)
+    return new Uint8Array(parts)
+  }
+
+  function buildQrCodeString(url: string, size = 6): string {
+    if (!url) return ''
+    const bytes = buildQrCodeBytes(url, size)
+    let s = ''
+    for (const b of bytes) s += String.fromCharCode(b)
+    return s
+  }
+
+  // ---------------------------------------------------------------------------
   // ESC/POS Buffer Builder
   // สร้าง Uint8Array ที่มี ESC/POS commands ครบสำหรับส่งตรงไปยัง printer
   // ---------------------------------------------------------------------------
   function buildEscPosBuffer(order: Order, isKitchenCopy = false): Uint8Array {
     const s = receiptSettings.value
     const isSmall = s.printerFontSize === 'small'
-    // Font A: 58mm=32, 80mm=42 | Font B: 58mm=42, 80mm=56
-    const lineWidth = s.paperSize === '58mm' 
-      ? (isSmall ? 42 : 32) 
-      : (isSmall ? 56 : 42) 
+    // Font A: 58mm=31, 80mm=42 | Font B: 58mm=42, 80mm=56
+    const lineWidth = s.paperSize === '58mm'
+      ? (isSmall ? 42 : 30)
+      : (isSmall ? 56 : 42)
     const marginLeft = s.receiptMarginLeft ?? 0
     const marginRight = s.receiptMarginRight ?? 0
     const effectiveWidth = lineWidth - marginLeft - marginRight
@@ -130,9 +166,9 @@ export function usePrinter() {
     push(leftPad + line + '\n')
 
     // --- Items ---
-    // บังคับความกว้างขั้นต่ำ (จำนวน = 6, ราคา = 8) เพื่อป้องกันไม่ให้ข้อความล้น
-    const qtyWidth = Math.max(s.receiptQtyWidth ?? 6, 6)
-    const priceWidth = Math.max(s.receiptPriceWidth ?? 8, 8)
+    // บังคับความกว้างขั้นต่ำ (จำนวน = 4, ราคา = 4) เพื่อป้องกันไม่ให้ข้อความล้น
+    const qtyWidth = Math.max(s.receiptQtyWidth ?? 4, 4)
+    const priceWidth = Math.max(s.receiptPriceWidth ?? 4, 4)
     const nameWidth = effectiveWidth - qtyWidth - priceWidth
 
     push(leftPad + vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวน', qtyWidth) + vwPadStart('ราคา', priceWidth) + '\n')
@@ -190,6 +226,14 @@ export function usePrinter() {
       push(leftPad + vwPadEnd('เงินทอน:', 10) + vwPadStart(order.changeAmount.toLocaleString('en-US'), effectiveWidth - 10) + '\n')
     }
     push(leftPad + line + '\n')
+
+    // --- LINE QR Code (customer copy เท่านั้น) ---
+    if (!isKitchenCopy && s.lineQrEnabled && s.lineQrUrl) {
+      const qrSize = s.paperSize === '58mm' ? 5 : 6
+      parts.push(buildQrCodeBytes(s.lineQrUrl, qrSize))
+      if (s.lineQrCaption) push(center(s.lineQrCaption))
+      push(leftPad + line + '\n')
+    }
 
     // --- Footer ---
     if (!isKitchenCopy) {
@@ -466,8 +510,8 @@ export function usePrinter() {
     }
     // ใช้ Font ตามที่ตั้งค่าไว้
     const isSmall = s.printerFontSize === 'small'
-    const lineWidth = s.paperSize === '58mm' 
-      ? (isSmall ? 42 : 32) 
+    const lineWidth = s.paperSize === '58mm'
+      ? (isSmall ? 42 : 30)
       : (isSmall ? 56 : 42)
     const line = '='.repeat(lineWidth)
     const testLines = [
@@ -678,9 +722,9 @@ export function usePrinter() {
     const s = customSettings || receiptSettings.value
     // ใช้ Font ตามที่ตั้งค่าไว้
     const isSmall = s.printerFontSize === 'small'
-    const lineWidth = s.paperSize === '58mm' 
-      ? (isSmall ? 42 : 32) 
-      : (isSmall ? 56 : 42) 
+    const lineWidth = s.paperSize === '58mm'
+      ? (isSmall ? 42 : 30)
+      : (isSmall ? 56 : 42)
     const marginLeft = s.receiptMarginLeft ?? 0
     const marginRight = s.receiptMarginRight ?? 0
     const effectiveWidth = lineWidth - marginLeft - marginRight
@@ -715,9 +759,9 @@ export function usePrinter() {
     }
     res += line
 
-    // บังคับความกว้างขั้นต่ำ (จำนวน = 6, ราคา = 8) เพื่อป้องกันไม่ให้ข้อความล้น
-    const qtyWidth = Math.max(s.receiptQtyWidth ?? 6, 6)
-    const priceWidth = Math.max(s.receiptPriceWidth ?? 8, 8)
+    // บังคับความกว้างขั้นต่ำ (จำนวน = 4, ราคา = 4) เพื่อป้องกันไม่ให้ข้อความล้น
+    const qtyWidth = Math.max(s.receiptQtyWidth ?? 4, 4)
+    const priceWidth = Math.max(s.receiptPriceWidth ?? 4, 4)
     const nameWidth = effectiveWidth - qtyWidth - priceWidth
 
     res += leftPad + vwPadEnd('รายการ', nameWidth) + vwPadStart('จำนวน', qtyWidth) + vwPadStart('ราคา', priceWidth) + '\n'
@@ -771,6 +815,15 @@ export function usePrinter() {
       res += leftPad + vwPadEnd('เงินทอน:', 10) + vwPadStart(order.changeAmount.toLocaleString('en-US'), effectiveWidth - 10) + '\n'
     }
     res += line
+
+    // --- LINE QR Code (customer copy เท่านั้น) ---
+    if (!isKitchenCopy && s.lineQrEnabled && s.lineQrUrl) {
+      const qrSize = s.paperSize === '58mm' ? 5 : 6
+      res += buildQrCodeString(s.lineQrUrl, qrSize)
+      if (s.lineQrCaption) res += center(s.lineQrCaption)
+      res += line
+    }
+
     if (!isKitchenCopy) {
       if (s.footerMessage) res += center(s.footerMessage)
     } else {

@@ -363,33 +363,83 @@
                 <label class="form-label">ความกว้างคอลัมน์ จำนวน & ราคา (visual columns)</label>
                 <div class="grid grid-cols-2 gap-3 mt-1">
                   <div>
-                    <label class="text-xs text-surface-400 mb-1 block">จำนวน (qty)</label>
+                    <label class="text-xs text-surface-400 mb-1 block">จำนวน (qty) <span class="text-surface-500">— 4–12</span></label>
                     <input
                       type="number"
                       v-model.number="form.receiptQtyWidth"
-                      min="5"
+                      min="4"
                       max="12"
                       class="form-input text-sm"
                     />
                   </div>
                   <div>
-                    <label class="text-xs text-surface-400 mb-1 block">ราคา (price)</label>
+                    <label class="text-xs text-surface-400 mb-1 block">ราคา (price) <span class="text-surface-500">— 4–15</span></label>
                     <input
                       type="number"
                       v-model.number="form.receiptPriceWidth"
-                      min="6"
+                      min="4"
                       max="15"
                       class="form-input text-sm"
                     />
                   </div>
                 </div>
                 <p class="text-xs text-surface-500 mt-1">
-                  รวมกัน = คอลัมน์ "จำนวน" และ "ราคา"
-                  <span class="text-surface-300 font-semibold">{{ Math.max(form.receiptQtyWidth ?? 6, 6) + Math.max(form.receiptPriceWidth ?? 8, 8) }} cols</span>
-                  — ชื่อสินค้าได้สูงสุด
+                  ตั้งได้ qty <span class="text-surface-300 font-semibold">4–12</span>, price <span class="text-surface-300 font-semibold">4–15</span> (ค่าเริ่มต้น: 4, 4) — รวม
+                  <span class="text-surface-300 font-semibold">{{ Math.max(form.receiptQtyWidth ?? 4, 4) + Math.max(form.receiptPriceWidth ?? 4, 4) }} cols</span>
+                  ชื่อสินค้าได้สูงสุด
                   <span class="text-surface-300 font-semibold text-green-400">{{ receiptNameWidthPreview.nameWidth }} ตัวอักษร</span>
                   (ไม่นับสระและวรรณยุกต์)
                 </p>
+              </div>
+
+              <!-- LINE QR Code -->
+              <div class="border-t border-surface-800 pt-4">
+                <div class="flex items-center justify-between mb-3">
+                  <div>
+                    <p class="text-sm font-bold text-surface-50">📱 QR Code LINE บนใบเสร็จ</p>
+                    <p class="text-xs text-surface-500">พิมพ์ QR ให้ลูกค้าสแกนเพิ่มเพื่อน LINE ได้ทันที</p>
+                  </div>
+                  <button
+                    type="button"
+                    @click="form.lineQrEnabled = !form.lineQrEnabled"
+                    class="relative w-12 h-[26px] rounded-full transition-all duration-300 shrink-0 p-[3px] flex items-center"
+                    :class="form.lineQrEnabled ? 'bg-primary-500' : 'bg-surface-700'"
+                  >
+                    <div
+                      class="w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-300"
+                      :class="form.lineQrEnabled ? 'translate-x-[22px]' : 'translate-x-0'"
+                    />
+                  </button>
+                </div>
+                <div v-if="form.lineQrEnabled" class="space-y-3">
+                  <div>
+                    <label class="form-label">LINE URL / Deep Link</label>
+                    <input
+                      type="url"
+                      v-model="form.lineQrUrl"
+                      placeholder="https://line.me/R/ti/p/@yourid"
+                      class="form-input text-sm"
+                    />
+                    <p class="text-xs text-surface-500 mt-1">
+                      LINE OA: <code class="bg-surface-800 px-1 rounded text-primary-400">https://line.me/R/ti/p/@yourid</code> |
+                      ID ส่วนตัว: <code class="bg-surface-800 px-1 rounded text-primary-400">https://line.me/ti/p/~yourid</code>
+                    </p>
+                  </div>
+                  <div>
+                    <label class="form-label">ข้อความใต้ QR</label>
+                    <input
+                      type="text"
+                      v-model="form.lineQrCaption"
+                      placeholder="เพิ่มเพื่อนรับข่าวสาร!"
+                      maxlength="60"
+                      class="form-input text-sm"
+                    />
+                  </div>
+                  <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-400/90">
+                    ⚠️ ใช้ได้เฉพาะโหมด <strong>Text</strong> (WiFi / USB / RawBT) ผ่าน ESC/POS native QR command<br>
+                    หากเปิดโหมด <strong>Image (Bitmap)</strong> QR จะไม่แสดง
+                  </div>
+                </div>
               </div>
 
               <!-- Toggle Options -->
@@ -718,6 +768,23 @@
                         <div>
                           <p class="font-bold text-amber-400 mb-1">⚠️ ข้อจำกัดบน Android</p>
                           <p>Android OS อาจครอง USB printer driver ไว้ก่อน ทำให้ได้รับ <code class="bg-surface-800 px-1 rounded text-red-400">SecurityError</code> ถ้าเจอปัญหานี้ให้เปลี่ยนใช้ <strong class="text-surface-200">WiFi</strong> หรือ <strong class="text-surface-200">RawBT</strong> แทน</p>
+                        </div>
+
+                        <div class="border-t border-surface-800" />
+
+                        <div>
+                          <p class="font-bold text-amber-400 mb-1">🪟 ข้อจำกัดบน Windows</p>
+                          <p class="mb-2">Windows จะผูก driver <code class="bg-surface-800 px-1 rounded">usbprint.sys</code> เข้ากับ Xprinter อัตโนมัติ ทำให้ Chrome เรียก <code class="bg-surface-800 px-1 rounded text-red-400">device.open()</code> ไม่ผ่าน (<code class="bg-surface-800 px-1 rounded text-red-400">SecurityError: Access denied</code>)</p>
+                          <p class="font-semibold text-surface-300 mb-1">วิธีแก้: ใช้ Zadig เปลี่ยนเป็น WinUSB driver</p>
+                          <ol class="list-decimal list-inside space-y-1 pl-1">
+                            <li>Download <a href="https://zadig.akeo.ie/" target="_blank" class="text-primary-400 underline decoration-primary-400/30">Zadig</a> แล้วเปิดโปรแกรม</li>
+                            <li>เมนู <strong class="text-surface-200">Options → List All Devices</strong></li>
+                            <li>เลือก <strong class="text-surface-200">"Printer-80"</strong> (หรือชื่อ Xprinter ที่เห็น) จาก dropdown</li>
+                            <li>เลือก driver เป็น <strong class="text-surface-200">WinUSB</strong> แล้วกด <strong class="text-surface-200">Replace Driver</strong></li>
+                            <li>Restart Chrome แล้วกด "เชื่อมต่อเครื่องพิมพ์ USB" ใหม่</li>
+                          </ol>
+                          <p class="mt-2 text-amber-400/80">⚠️ หลังทำแล้ว Windows จะมองไม่เห็น Xprinter เป็น printer ปกติ (พิมพ์ผ่าน Word/Notepad ไม่ได้) — ใช้ได้เฉพาะผ่าน WebUSB เท่านั้น</p>
+                          <p class="mt-1 text-surface-500">Rollback: Device Manager → คลิกขวาที่ device → Uninstall device (ติ๊ก Delete driver) → ถอด/เสียบใหม่</p>
                         </div>
 
                       </div>
@@ -1210,9 +1277,12 @@ const form = reactive<ReceiptSettings>({
   printKitchenCopy: true,
   receiptMarginLeft: 0,
   receiptMarginRight: 0,
-  receiptQtyWidth: 6,
-  receiptPriceWidth: 8,
+  receiptQtyWidth: 4,
+  receiptPriceWidth: 4,
   printerFontSize: 'standard',
+  lineQrEnabled: false,
+  lineQrUrl: '',
+  lineQrCaption: 'เพิ่มเพื่อนรับข่าวสาร!',
   shopLogo: '',
 })
 
@@ -1289,14 +1359,14 @@ const summaryHourOptions = Array.from({ length: 8 }, (_, i) => {
 
 const receiptNameWidthPreview = computed(() => {
   const isSmall = form.printerFontSize === 'small'
-  const lineWidth = form.paperSize === '58mm' 
-    ? (isSmall ? 42 : 32) 
+  const lineWidth = form.paperSize === '58mm'
+    ? (isSmall ? 42 : 30)
     : (isSmall ? 56 : 42)
   const marginLeft = form.receiptMarginLeft ?? 0
   const marginRight = form.receiptMarginRight ?? 0
   const effectiveWidth = lineWidth - marginLeft - marginRight
-  const qtyWidth = Math.max(form.receiptQtyWidth ?? 6, 6)
-  const priceWidth = Math.max(form.receiptPriceWidth ?? 8, 8)
+  const qtyWidth = Math.max(form.receiptQtyWidth ?? 4, 4)
+  const priceWidth = Math.max(form.receiptPriceWidth ?? 4, 4)
   const nameWidth = effectiveWidth - qtyWidth - priceWidth
   const thaiChars = nameWidth // อัปเดตใหม่: 1 พยัญชนะไทย = 1 คอลัมน์ ไม่ใช่ 2 แล้ว
   return { nameWidth, thaiChars }

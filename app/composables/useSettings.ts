@@ -50,9 +50,13 @@ export interface ReceiptSettings {
   printKitchenCopy: boolean        // พิมพ์ใบสั่งทำอาหาร (Kitchen Copy) แยกต่างหาก
   receiptMarginLeft?: number       // Margin ซ้าย (หน่วย: ตัวอักษร) สำหรับ text mode / pixels สำหรับ image mode
   receiptMarginRight?: number      // Margin ขวา (หน่วย: ตัวอักษร) สำหรับ text mode / pixels สำหรับ image mode
-  receiptQtyWidth?: number         // ความกว้างคอลัมน์จำนวน (visual columns), default: 6
-  receiptPriceWidth?: number       // ความกว้างคอลัมน์ราคา (visual columns), default: 8
+  receiptQtyWidth?: number         // ความกว้างคอลัมน์จำนวน (visual columns), default: 4
+  receiptPriceWidth?: number       // ความกว้างคอลัมน์ราคา (visual columns), default: 4
   printerFontSize?: 'standard' | 'small' // ขนาดตัวอักษรสำหรับ ESC/POS (standard=Font A, small=Font B)
+  // LINE QR บนใบเสร็จ (Native ESC/POS QR Code)
+  lineQrEnabled?: boolean          // เปิด/ปิด QR LINE บนใบเสร็จ (default: false)
+  lineQrUrl?: string               // URL/deep link ที่จะเข้ารหัสใน QR (เช่น https://line.me/R/ti/p/@yourid)
+  lineQrCaption?: string           // ข้อความใต้ QR (default: "เพิ่มเพื่อนรับข่าวสาร!")
 }
 
 // ---------------------------------------------------------------------------
@@ -95,9 +99,12 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   printKitchenCopy: true,
   receiptMarginLeft: 0,
   receiptMarginRight: 0,
-  receiptQtyWidth: 6,
-  receiptPriceWidth: 8,
+  receiptQtyWidth: 4,
+  receiptPriceWidth: 4,
   printerFontSize: 'standard',
+  lineQrEnabled: false,
+  lineQrUrl: '',
+  lineQrCaption: 'เพิ่มเพื่อนรับข่าวสาร!',
 }
 
 // compat export สำหรับโค้ดเก่าที่ import DEFAULT_RECEIPT_SETTINGS โดยตรง
