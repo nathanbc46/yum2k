@@ -178,7 +178,7 @@ export function usePrinter() {
     push(leftPad + line + '\n')
 
     // --- Order Info ---
-    if (s.showOrderNumber) push(leftPad + `เลขที่บิล: ${order.orderNumber}\n`)
+    if (s.showOrderNumber) push(leftPad + `เลขบิล: ${order.orderNumber}\n`)
     if (s.showStaffName) push(leftPad + `พนักงาน: ${order.staffName}\n`)
     if (!isKitchenCopy) {
       push(leftPad + `การชำระ: ${getPaymentLabel(order.paymentMethod)}\n`)
@@ -772,7 +772,7 @@ export function usePrinter() {
     res += center(`Order #${order.orderNumber.slice(-4)}`)
     res += line
 
-    if (s.showOrderNumber) res += leftPad + `เลขที่บิล: ${order.orderNumber}\n`
+    if (s.showOrderNumber) res += leftPad + `เลขบิล: ${order.orderNumber}\n`
     if (s.showStaffName) res += leftPad + `พนักงาน: ${order.staffName}\n`
     if (!isKitchenCopy) {
       res += leftPad + `การชำระ: ${getPaymentLabel(order.paymentMethod)}\n`
@@ -897,7 +897,7 @@ export function usePrinter() {
     lines.push({ type: 'text', text: `Order #${order.orderNumber.slice(-4)}`, align: 'center' })
     lines.push({ type: 'separator' })
 
-    if (s.showOrderNumber) lines.push({ type: 'text', text: `เลขที่บิล: ${order.orderNumber}` })
+    if (s.showOrderNumber) lines.push({ type: 'text', text: `เลขบิล: ${order.orderNumber}` })
     if (s.showStaffName) lines.push({ type: 'text', text: `พนักงาน: ${order.staffName}` })
     if (!isKitchenCopy) {
       lines.push({ type: 'text', text: `การชำระ: ${getPaymentLabel(order.paymentMethod)}` })
