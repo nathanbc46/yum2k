@@ -74,17 +74,37 @@ export function usePrinter() {
   // ESC/POS QR Code Builder (GS ( k — Native command, รองรับ Xprinter ส่วนใหญ่)
   // สร้าง QR code สำหรับ printer โดยไม่ต้องพึ่ง library ภายนอก
   // ---------------------------------------------------------------------------
-  function buildQrCodeBytes(url: string, size = 6): Uint8Array {
+
+  /** ประมาณ QR version (จำนวน module) จากความยาว data (byte mode, error correction M) */
+  function estimateQrModules(dataLength: number): number {
+    // Capacity (bytes) สำหรับ error correction M
+    const caps = [14, 26, 42, 62, 84, 106, 122, 152, 180, 213, 251, 287, 331, 362]
+    for (let i = 0; i < caps.length; i++) {
+      if (dataLength <= caps[i]!) return 21 + i * 4  // version = i+1, modules = 21 + (i)*4
+    }
+    return 81 // v16 fallback (สำหรับ URL ยาวมาก)
+  }
+
+  function buildQrCodeBytes(url: string, size = 6, paperSize: '58mm' | '80mm' = '80mm'): Uint8Array {
     if (!url) return new Uint8Array([])
     const data = new TextEncoder().encode(url)
     const pL = (data.length + 3) & 0xFF
     const pH = ((data.length + 3) >> 8) & 0xFF
+
+    // คำนวณ left margin เพื่อให้ QR อยู่กึ่งกลาง (ใช้ GS L แทน ESC a เพราะ Xprinter บางรุ่นไม่ respect center align สำหรับ QR)
+    const paperDots = paperSize === '58mm' ? 384 : 576
+    const qrModules = estimateQrModules(data.length)
+    const qrWidthDots = qrModules * size
+    const leftMarginDots = Math.max(0, Math.floor((paperDots - qrWidthDots) / 2))
+    const nL = leftMarginDots & 0xFF
+    const nH = (leftMarginDots >> 8) & 0xFF
+
     const parts: number[] = []
-    // Center align
-    parts.push(0x1B, 0x61, 0x01)
+    // GS L nL nH — set left margin (units of 1 dot)
+    parts.push(0x1D, 0x4C, nL, nH)
     // Model 2 (standard)
     parts.push(0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00)
-    // Module size (1-16, default 6 ≈ กลาง)
+    // Module size (1-16)
     parts.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, size)
     // Error correction level M (48=L, 49=M, 50=Q, 51=H)
     parts.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 49)
@@ -93,14 +113,14 @@ export function usePrinter() {
     for (const b of data) parts.push(b)
     // Print
     parts.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30)
-    // Reset align left
-    parts.push(0x1B, 0x61, 0x00)
+    // Reset left margin กลับเป็น 0
+    parts.push(0x1D, 0x4C, 0x00, 0x00)
     return new Uint8Array(parts)
   }
 
-  function buildQrCodeString(url: string, size = 6): string {
+  function buildQrCodeString(url: string, size = 6, paperSize: '58mm' | '80mm' = '80mm'): string {
     if (!url) return ''
-    const bytes = buildQrCodeBytes(url, size)
+    const bytes = buildQrCodeBytes(url, size, paperSize)
     let s = ''
     for (const b of bytes) s += String.fromCharCode(b)
     return s
@@ -230,7 +250,7 @@ export function usePrinter() {
     // --- LINE QR Code (customer copy เท่านั้น) ---
     if (!isKitchenCopy && s.lineQrEnabled && s.lineQrUrl) {
       const qrSize = s.paperSize === '58mm' ? 5 : 6
-      parts.push(buildQrCodeBytes(s.lineQrUrl, qrSize))
+      parts.push(buildQrCodeBytes(s.lineQrUrl, qrSize, s.paperSize))
       if (s.lineQrCaption) push(center(s.lineQrCaption))
       push(leftPad + line + '\n')
     }
@@ -819,7 +839,7 @@ export function usePrinter() {
     // --- LINE QR Code (customer copy เท่านั้น) ---
     if (!isKitchenCopy && s.lineQrEnabled && s.lineQrUrl) {
       const qrSize = s.paperSize === '58mm' ? 5 : 6
-      res += buildQrCodeString(s.lineQrUrl, qrSize)
+      res += buildQrCodeString(s.lineQrUrl, qrSize, s.paperSize)
       if (s.lineQrCaption) res += center(s.lineQrCaption)
       res += line
     }
