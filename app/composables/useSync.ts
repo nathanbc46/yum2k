@@ -387,6 +387,34 @@ export function useSync() {
         error = retry.error
       }
 
+      // Duplicate recurring expense (23505) — tablet อื่น/Vercel Cron สร้างไปแล้ว
+      // → sync ใช้ uuid ของ server แทน (reconcile local ↔ server)
+      if (error?.code === '23505' && error.message?.includes('idx_expenses_recurring_date')
+          && baseInfo.recurringExpenseUuid && baseInfo.expenseDate) {
+        const { data: existing } = await withTimeout(
+          supabase.from('expenses')
+            .select('uuid')
+            .eq('recurring_expense_uuid', baseInfo.recurringExpenseUuid)
+            .eq('expense_date', baseInfo.expenseDate)
+            .maybeSingle()
+        )
+        if (existing?.uuid) {
+          const dup = await db.expenses.where('uuid').equals(existing.uuid).first()
+          if (dup && dup.id !== expense.id) {
+            await db.expenses.delete(expense.id!)
+          } else {
+            await db.expenses.update(expense.id!, {
+              uuid: existing.uuid,
+              syncStatus: 'synced',
+              syncedAt: new Date(),
+              syncError: undefined,
+              syncRetryCount: 0,
+            })
+          }
+          return { success: true }
+        }
+      }
+
       if (error) throw error
 
       await db.expenses.update(expense.id!, {
