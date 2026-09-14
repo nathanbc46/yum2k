@@ -442,6 +442,148 @@
                 </div>
               </div>
 
+              <!-- Payment QR Code (TrueMoney / PromptPay / ThaiQR) -->
+              <div class="border-t border-surface-800 pt-4">
+                <div class="flex items-center justify-between mb-3">
+                  <div>
+                    <p class="text-sm font-bold text-surface-50">💰 QR ชำระเงินบนใบเสร็จ</p>
+                    <p class="text-xs text-surface-500">พิมพ์ QR TrueMoney / PromptPay ให้ลูกค้าสแกนจ่ายจากใบเสร็จได้ทันที</p>
+                  </div>
+                  <button
+                    type="button"
+                    @click="form.paymentQrEnabled = !form.paymentQrEnabled"
+                    class="relative w-12 h-[26px] rounded-full transition-all duration-300 shrink-0 p-[3px] flex items-center"
+                    :class="form.paymentQrEnabled ? 'bg-primary-500' : 'bg-surface-700'"
+                  >
+                    <div
+                      class="w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-300"
+                      :class="form.paymentQrEnabled ? 'translate-x-[22px]' : 'translate-x-0'"
+                    />
+                  </button>
+                </div>
+                <div v-if="form.paymentQrEnabled" class="space-y-3">
+                  <!-- Mode Selection -->
+                  <div>
+                    <label class="form-label">รูปแบบ QR</label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                      <button
+                        type="button"
+                        @click="form.paymentQrMode = 'static'"
+                        class="text-left p-3 rounded-xl border transition-all"
+                        :class="form.paymentQrMode === 'static' ? 'border-primary-500 bg-primary-500/10' : 'border-surface-700 bg-surface-950 hover:border-surface-600'"
+                      >
+                        <p class="text-sm font-semibold text-surface-50">Static — ลูกค้ากรอกยอดเอง</p>
+                        <p class="text-xs text-surface-400 mt-1">แนะนำ — ทุกแอปธนาคารรองรับ ลูกค้าแก้ยอดได้เสมอ</p>
+                      </button>
+                      <button
+                        type="button"
+                        @click="form.paymentQrMode = 'dynamic'"
+                        class="text-left p-3 rounded-xl border transition-all"
+                        :class="form.paymentQrMode === 'dynamic' ? 'border-primary-500 bg-primary-500/10' : 'border-surface-700 bg-surface-950 hover:border-surface-600'"
+                      >
+                        <p class="text-sm font-semibold text-surface-50">Dynamic — ระบบใส่ยอดให้</p>
+                        <p class="text-xs text-surface-400 mt-1">สแกนแล้วโชว์ยอดทันที แต่บางแอป (TrueMoney) อาจล็อกยอด</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Provider -->
+                  <div>
+                    <label class="form-label">ประเภท QR</label>
+                    <select v-model="form.paymentQrProvider" class="form-input text-sm">
+                      <option value="truemoney">TrueMoney Wallet (ทรูมันนี่)</option>
+                      <option value="promptpay">PromptPay (พร้อมเพย์)</option>
+                      <option value="other">อื่นๆ (ไม่แสดงป้าย)</option>
+                    </select>
+                  </div>
+
+                  <!-- Payload -->
+                  <div>
+                    <label class="form-label">EMVCo Payload (จาก QR ของร้าน)</label>
+                    <textarea
+                      v-model="form.paymentQrPayload"
+                      rows="3"
+                      placeholder="00020101021230..."
+                      class="form-input text-xs font-mono"
+                    />
+                    <div class="flex items-center justify-between mt-1 gap-2">
+                      <p class="text-xs text-surface-500 flex-1">
+                        สแกน QR สติกเกอร์ของร้านด้วยแอป decode QR แล้ววาง payload ที่ได้ลงในช่องนี้
+                      </p>
+                      <button
+                        type="button"
+                        @click="testDecodePaymentQr"
+                        class="text-xs text-primary-400 hover:text-primary-300 whitespace-nowrap"
+                      >
+                        ทดสอบ decode →
+                      </button>
+                    </div>
+                    <p v-if="paymentQrDecodeResult" class="text-xs mt-2 p-2 rounded-lg" :class="paymentQrDecodeResult.startsWith('✓') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'">
+                      {{ paymentQrDecodeResult }}
+                    </p>
+                  </div>
+
+                  <!-- Caption -->
+                  <div>
+                    <label class="form-label">ข้อความใต้ QR</label>
+                    <input
+                      type="text"
+                      v-model="form.paymentQrCaption"
+                      placeholder="สแกนเพื่อชำระเงิน"
+                      maxlength="60"
+                      class="form-input text-sm"
+                    />
+                  </div>
+
+                  <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-400/90">
+                    ⚠️ ใช้ได้เฉพาะโหมด <strong>Text</strong> (WiFi / USB / RawBT) ผ่าน ESC/POS native QR command<br>
+                    หากเปิดโหมด <strong>Image (Bitmap)</strong> QR จะไม่แสดง
+                  </div>
+
+                  <!-- Preview ใบเสร็จ + QR สแกนทดสอบได้ -->
+                  <div v-if="form.paymentQrPayload" class="border border-surface-800 rounded-xl p-4 bg-white">
+                    <div class="flex items-center justify-between mb-3">
+                      <p class="text-xs font-semibold text-gray-700">👁️ ตัวอย่างใบเสร็จ (สแกนทดสอบได้)</p>
+                      <div class="flex items-center gap-2">
+                        <label class="text-xs text-gray-600">ยอดทดสอบ:</label>
+                        <input
+                          v-model.number="paymentQrPreviewAmount"
+                          type="number"
+                          min="1"
+                          step="0.01"
+                          class="w-20 px-2 py-1 text-xs text-gray-900 border border-gray-300 rounded"
+                        />
+                        <span class="text-xs text-gray-600">บาท</span>
+                      </div>
+                    </div>
+                    <div class="max-w-[280px] mx-auto text-center font-mono text-gray-900">
+                      <p class="text-sm font-bold">{{ form.shopName || 'ยำทูเค' }}</p>
+                      <p class="text-[10px] text-gray-600">--- ตัวอย่างใบเสร็จ ---</p>
+                      <p class="text-xs mt-2 border-t border-b border-dashed border-gray-400 py-1">
+                        ยอดสุทธิ: {{ paymentQrPreviewAmount.toLocaleString('en-US') }} บาท
+                      </p>
+                      <p v-if="getProviderLabel(form.paymentQrProvider)" class="text-xs mt-2 font-semibold">
+                        {{ getProviderLabel(form.paymentQrProvider) }}
+                      </p>
+                      <p class="text-xs">ยอดชำระ: {{ paymentQrPreviewAmount.toLocaleString('en-US') }} บาท</p>
+                      <div class="flex justify-center my-2">
+                        <img v-if="paymentQrPreviewDataUrl" :src="paymentQrPreviewDataUrl" alt="QR Preview" class="w-48 h-48" />
+                        <div v-else class="w-48 h-48 flex items-center justify-center text-xs text-red-500 border border-red-300">
+                          {{ paymentQrPreviewError || 'กำลังสร้าง QR...' }}
+                        </div>
+                      </div>
+                      <p v-if="form.paymentQrCaption" class="text-xs">{{ form.paymentQrCaption }}</p>
+                      <p class="text-[10px] text-gray-500 mt-2">
+                        Mode: <strong>{{ form.paymentQrMode === 'dynamic' ? 'Dynamic (ฝังยอด)' : 'Static (ลูกค้ากรอกยอด)' }}</strong>
+                      </p>
+                    </div>
+                    <p class="text-xs text-gray-500 text-center mt-3">
+                      💡 เปิดกล้องมือถือหรือแอปธนาคารสแกน QR ด้านบน — เพื่อยืนยันว่า payload ถูกต้อง ก่อนใช้งานจริง
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <!-- Toggle Options -->
               <div class="space-y-3">
                 <div
@@ -1213,6 +1355,8 @@ import { useSettings, type ReceiptSettings, DEFAULT_RECEIPT_SETTINGS } from '~/c
 import { useToast } from '~/composables/useToast'
 import { usePrinter } from '~/composables/usePrinter'
 import type { Order } from '~/types'
+import { extractMerchantName, parseEmvTlv, buildDynamicPaymentQrPayload } from '~/utils/emvQr'
+import QRCode from 'qrcode'
 
 definePageMeta({ layout: 'admin' })
 
@@ -1283,10 +1427,77 @@ const form = reactive<ReceiptSettings>({
   lineQrEnabled: false,
   lineQrUrl: '',
   lineQrCaption: 'เพิ่มเพื่อนรับข่าวสาร!',
+  paymentQrEnabled: false,
+  paymentQrMode: 'static',
+  paymentQrPayload: '',
+  paymentQrCaption: 'สแกนเพื่อชำระเงิน',
+  paymentQrProvider: 'truemoney',
   shopLogo: '',
 })
 
 const logoInputRef = ref<HTMLInputElement | null>(null)
+
+const paymentQrDecodeResult = ref<string>('')
+const paymentQrPreviewAmount = ref<number>(100)
+const paymentQrPreviewDataUrl = ref<string>('')
+const paymentQrPreviewError = ref<string>('')
+
+function getProviderLabel(provider?: string): string {
+  const map: Record<string, string> = {
+    truemoney: 'TrueMoney Wallet',
+    promptpay: 'PromptPay พร้อมเพย์',
+    other: '',
+  }
+  return map[provider ?? 'truemoney'] ?? ''
+}
+
+async function regeneratePaymentQrPreview() {
+  paymentQrPreviewError.value = ''
+  const payload = form.paymentQrPayload?.trim() ?? ''
+  if (!payload) {
+    paymentQrPreviewDataUrl.value = ''
+    return
+  }
+  try {
+    const finalPayload = form.paymentQrMode === 'dynamic'
+      ? buildDynamicPaymentQrPayload(payload, paymentQrPreviewAmount.value || 0)
+      : payload
+    paymentQrPreviewDataUrl.value = await QRCode.toDataURL(finalPayload, {
+      errorCorrectionLevel: 'M',
+      margin: 2,
+      width: 400,
+    })
+  } catch (e: any) {
+    paymentQrPreviewError.value = `สร้าง QR ไม่ได้: ${e.message ?? e}`
+    paymentQrPreviewDataUrl.value = ''
+  }
+}
+
+watch(
+  () => [form.paymentQrPayload, form.paymentQrMode, paymentQrPreviewAmount.value] as const,
+  () => { regeneratePaymentQrPreview() },
+  { immediate: true }
+)
+
+function testDecodePaymentQr() {
+  const payload = form.paymentQrPayload?.trim() ?? ''
+  if (!payload) {
+    paymentQrDecodeResult.value = '⚠️ กรุณาวาง payload ก่อน'
+    return
+  }
+  try {
+    const tlv = parseEmvTlv(payload)
+    if (tlv.length < 3) throw new Error('payload สั้นเกินไป')
+    const merchant = extractMerchantName(payload)
+    const parts = [
+      `✓ Parse สำเร็จ (${tlv.length} tags)`,
+      merchant ? `ร้าน: ${merchant}` : null,
+    ].filter(Boolean)
+    paymentQrDecodeResult.value = parts.join(' — ')
+  } catch (e: any) {
+    paymentQrDecodeResult.value = `✗ Payload ไม่ถูกต้อง: ${e.message ?? e}`
+  }
+}
 
 async function handleLogoUpload(event: Event) {
   const input = event.target as HTMLInputElement

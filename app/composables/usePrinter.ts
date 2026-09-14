@@ -6,6 +6,7 @@
 
 import type { Order, OrderItem } from '~/types'
 import { useSettings, type ReceiptSettings } from '~/composables/useSettings'
+import { buildDynamicPaymentQrPayload } from '~/utils/emvQr'
 
 export function usePrinter() {
   const RAWBT_URL = 'http://localhost:40213/print'
@@ -253,6 +254,24 @@ export function usePrinter() {
       parts.push(buildQrCodeBytes(s.lineQrUrl, qrSize, s.paperSize))
       if (s.lineQrCaption) push(center(s.lineQrCaption))
       push(leftPad + line + '\n')
+    }
+
+    // --- Payment QR Code (customer copy เท่านั้น) ---
+    if (!isKitchenCopy && s.paymentQrEnabled && s.paymentQrPayload) {
+      try {
+        const providerLabel = getPaymentQrProviderLabel(s.paymentQrProvider)
+        const payload = s.paymentQrMode === 'dynamic'
+          ? buildDynamicPaymentQrPayload(s.paymentQrPayload, order.totalAmount)
+          : s.paymentQrPayload
+        if (providerLabel) push(center(providerLabel))
+        push(center(`ยอดชำระ: ${order.totalAmount.toLocaleString('en-US')} บาท`))
+        const qrSize = s.paperSize === '58mm' ? 5 : 6
+        parts.push(buildQrCodeBytes(payload, qrSize, s.paperSize))
+        if (s.paymentQrCaption) push(center(s.paymentQrCaption))
+        push(leftPad + line + '\n')
+      } catch (e) {
+        console.error('[usePrinter] Payment QR error:', e)
+      }
     }
 
     // --- Footer ---
@@ -844,6 +863,24 @@ export function usePrinter() {
       res += line
     }
 
+    // --- Payment QR Code (customer copy เท่านั้น) ---
+    if (!isKitchenCopy && s.paymentQrEnabled && s.paymentQrPayload) {
+      try {
+        const providerLabel = getPaymentQrProviderLabel(s.paymentQrProvider)
+        const payload = s.paymentQrMode === 'dynamic'
+          ? buildDynamicPaymentQrPayload(s.paymentQrPayload, order.totalAmount)
+          : s.paymentQrPayload
+        if (providerLabel) res += center(providerLabel)
+        res += center(`ยอดชำระ: ${order.totalAmount.toLocaleString('en-US')} บาท`)
+        const qrSize = s.paperSize === '58mm' ? 5 : 6
+        res += buildQrCodeString(payload, qrSize, s.paperSize)
+        if (s.paymentQrCaption) res += center(s.paymentQrCaption)
+        res += line
+      } catch (e) {
+        console.error('[usePrinter] Payment QR error:', e)
+      }
+    }
+
     if (!isKitchenCopy) {
       if (s.footerMessage) res += center(s.footerMessage)
     } else {
@@ -864,6 +901,15 @@ export function usePrinter() {
       other: 'อื่นๆ'
     }
     return labels[method] || method
+  }
+
+  function getPaymentQrProviderLabel(provider?: string): string {
+    const labels: Record<string, string> = {
+      truemoney: 'TrueMoney Wallet',
+      promptpay: 'PromptPay พร้อมเพย์',
+      other: ''
+    }
+    return labels[provider ?? 'truemoney'] ?? ''
   }
 
   // ---------------------------------------------------------------------------

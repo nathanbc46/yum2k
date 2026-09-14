@@ -57,6 +57,12 @@ export interface ReceiptSettings {
   lineQrEnabled?: boolean          // เปิด/ปิด QR LINE บนใบเสร็จ (default: false)
   lineQrUrl?: string               // URL/deep link ที่จะเข้ารหัสใน QR (เช่น https://line.me/R/ti/p/@yourid)
   lineQrCaption?: string           // ข้อความใต้ QR (default: "เพิ่มเพื่อนรับข่าวสาร!")
+  // QR ชำระเงินบนใบเสร็จ (EMVCo Merchant QR — รองรับ TrueMoney / PromptPay / ThaiQR)
+  paymentQrEnabled?: boolean       // เปิด/ปิด QR ชำระเงินบนใบเสร็จ (default: false)
+  paymentQrMode?: 'static' | 'dynamic' // static = ลูกค้ากรอกยอดเอง, dynamic = ระบบใส่ยอดให้ (default: 'static')
+  paymentQrPayload?: string        // EMVCo payload string จากการ decode QR ของร้าน
+  paymentQrCaption?: string        // ข้อความใต้ QR (default: "สแกนเพื่อชำระเงิน")
+  paymentQrProvider?: 'truemoney' | 'promptpay' | 'other' // ป้ายกำกับด้านบน QR (default: 'truemoney')
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +111,11 @@ const STATIC_DEFAULTS: ReceiptSettings = {
   lineQrEnabled: false,
   lineQrUrl: '',
   lineQrCaption: 'เพิ่มเพื่อนรับข่าวสาร!',
+  paymentQrEnabled: false,
+  paymentQrMode: 'static',
+  paymentQrPayload: '',
+  paymentQrCaption: 'สแกนเพื่อชำระเงิน',
+  paymentQrProvider: 'truemoney',
 }
 
 // compat export สำหรับโค้ดเก่าที่ import DEFAULT_RECEIPT_SETTINGS โดยตรง
